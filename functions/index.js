@@ -19,6 +19,62 @@ const ALLOWED_TOPIC_TYPES = ["person","historical_event","historical_period","pl
 const ALLOWED_DIFFICULTIES = ["beginner", "intermediate", "advanced"];
 const REQUIRED_CARD_KEYS = ["de_short", "de_medium", "de_long", "en_short", "en_medium", "en_long"];
 
+const swipeCardsSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["topicMeta", "cards"],
+  properties: {
+    topicMeta: {
+      type: "object",
+      additionalProperties: false,
+      required: ["wikidataId", "mainCategory", "topicType", "tags", "difficulty", "suggestedRelatedTopics", "factualLimitations", "qualityNotes"],
+      properties: {
+        wikidataId: { type: "string" },
+        mainCategory: { type: "string", enum: ALLOWED_MAIN_CATEGORIES },
+        topicType: { type: "string", enum: ALLOWED_TOPIC_TYPES },
+        tags: { type: "array", items: { type: "string" } },
+        difficulty: { type: "string", enum: ALLOWED_DIFFICULTIES },
+        suggestedRelatedTopics: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["title", "reason"],
+            properties: {
+              title: { type: "string" },
+              reason: { type: "string" },
+            },
+          },
+        },
+        factualLimitations: { type: "array", items: { type: "string" } },
+        qualityNotes: { type: "string" },
+      },
+    },
+    cards: {
+      type: "array",
+      minItems: 6,
+      maxItems: 6,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["language", "length", "cardType", "title", "hook", "body", "needsMoreSourceMaterial", "sourceBasis", "sourceLimitations"],
+        properties: {
+          language: { type: "string", enum: ["de", "en"] },
+          length: { type: "string", enum: ["short", "medium", "long"] },
+          cardType: { type: "string", enum: ["intro", "fact", "timeline", "deep_dive", "comparison", "myth_buster"] },
+          title: { type: "string" },
+          hook: { type: "string" },
+          body: { type: "string" },
+          needsMoreSourceMaterial: { type: "boolean" },
+          sourceBasis: { type: "array", items: { type: "string", enum: ["wikidata", "wikipedia_de", "wikipedia_en"] } },
+          sourceLimitations: { type: "array", items: { type: "string" } },
+        },
+      },
+    },
+  },
+};
+
+
 function safeString(v) { return v == null ? "" : String(v); }
 function removeUndefinedDeep(v) {
   if (Array.isArray(v)) return v.map(removeUndefinedDeep).filter((x) => x !== undefined);
@@ -143,7 +199,35 @@ function buildSourcePack(topic, wikiDe, wikiEn) {
 }
 
 function buildOpenAIPrompt(sourcePack) { return `Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp.\nAbsolute Regeln: Verwende ausschliesslich SOURCE PACK Informationen; erfinde keine Fakten; keine externen Quellen; keine anderen Wikipedia-Artikel; fehlende Infos weglassen; DE auf Deutsch, EN auf Englisch; übersetzen nur aus SOURCE PACK; medium/long bevorzugt Full Extract; neu formulieren; nur JSON gemäss Schema.\nLängen: short 50-120 Wörter, medium 400-900, long 1800-3000 wenn Material reicht, sonst needsMoreSourceMaterial=true.\nmainCategory/topicType dürfen nicht unknown sein.\nSOURCE PACK:\n${JSON.stringify(sourcePack)}`; }
-function validateAIOutput(output) { if (!output || typeof output !== "object") throw new HttpsError("internal", "Ungültige KI-Antwort: Kein Objekt."); if (!output.topicMeta || !Array.isArray(output.cards)) throw new HttpsError("internal", "Ungültige KI-Antwort: topicMeta/cards fehlen."); if (output.cards.length !== 6) throw new HttpsError("internal", "Ungültige KI-Antwort: Es müssen genau 6 Cards sein."); }
+function validateAIOutput(output) {
+  if (!output || typeof output !== "object") throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: Kein Objekt.");
+  if (!output.topicMeta || typeof output.topicMeta !== "object") throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: topicMeta fehlt.");
+  if (!Array.isArray(output.cards)) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: cards fehlt oder ist kein Array.");
+  if (output.cards.length !== 6) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: Es müssen genau 6 Cards sein.");
+
+  if (!ALLOWED_MAIN_CATEGORIES.includes(output.topicMeta.mainCategory)) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: mainCategory ungültig.");
+  if (!ALLOWED_TOPIC_TYPES.includes(output.topicMeta.topicType)) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: topicType ungültig.");
+  if (!ALLOWED_DIFFICULTIES.includes(output.topicMeta.difficulty)) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: difficulty ungültig.");
+  if (!Array.isArray(output.topicMeta.tags)) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: tags muss ein Array sein.");
+
+  const seen = new Set();
+  for (const card of output.cards) {
+    const key = `${safeString(card?.language).trim()}_${safeString(card?.length).trim()}`;
+    if (!REQUIRED_CARD_KEYS.includes(key)) {
+      throw new HttpsError("failed-precondition", `Ungültige Karten-Kombination: ${key}`);
+    }
+    if (seen.has(key)) {
+      throw new HttpsError("failed-precondition", `Karten-Kombination doppelt: ${key}`);
+    }
+    seen.add(key);
+    if (!safeString(card?.title).trim()) throw new HttpsError("failed-precondition", `Leerer title in ${key}.`);
+    if (!safeString(card?.hook).trim()) throw new HttpsError("failed-precondition", `Leerer hook in ${key}.`);
+    if (!safeString(card?.body).trim()) throw new HttpsError("failed-precondition", `Leerer body in ${key}.`);
+  }
+  for (const requiredKey of REQUIRED_CARD_KEYS) {
+    if (!seen.has(requiredKey)) throw new HttpsError("failed-precondition", `Fehlende Karten-Kombination: ${requiredKey}`);
+  }
+}
 function calculateReadingStats(text) { const wordCount = safeString(text).trim().split(/\s+/).filter(Boolean).length; return { wordCount, readingTimeSec: Math.max(5, Math.ceil((wordCount / 200) * 60)) }; }
 function buildAvailableSourceIds(sp) { const ids = [sp.sources.wikidata.id]; if (sp.sources.wikipediaDe.available) ids.push(sp.sources.wikipediaDe.id); if (sp.sources.wikipediaEn.available) ids.push(sp.sources.wikipediaEn.id); return ids; }
 function buildAvailableSources(sp) { const out = [{ type: "wikidata", title: safeString(sp.topic?.title?.de || sp.topic?.title?.en), url: sp.sources.wikidata.url, license: "CC0", publisher: "Wikidata" }]; if (sp.sources.wikipediaDe.available) out.push({ type: "wikipedia", language: "de", title: sp.sources.wikipediaDe.summaryTitle || safeString(sp.topic?.title?.de), url: sp.sources.wikipediaDe.url, license: "CC BY-SA 4.0", publisher: "Wikipedia" }); if (sp.sources.wikipediaEn.available) out.push({ type: "wikipedia", language: "en", title: sp.sources.wikipediaEn.summaryTitle || safeString(sp.topic?.title?.en), url: sp.sources.wikipediaEn.url, license: "CC BY-SA 4.0", publisher: "Wikipedia" }); return out; }
@@ -176,12 +260,42 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
 
     const client = new OpenAI({ apiKey: OPENAI_API_KEY.value() });
     let output;
+    let response;
     try {
-      const response = await client.responses.create({ model: OPENAI_MODEL, input: buildOpenAIPrompt(sourcePack) });
-      output = JSON.parse(response.output_text);
+      response = await client.responses.create({
+        model: OPENAI_MODEL,
+        input: [
+          {
+            role: "system",
+            content: "Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp. Verwende ausschliesslich Informationen aus dem SOURCE PACK. Erfinde keine Fakten. Gib ausschliesslich gültiges JSON gemäss Schema zurück.",
+          },
+          {
+            role: "user",
+            content: buildOpenAIPrompt(sourcePack),
+          },
+        ],
+        text: {
+          format: {
+            type: "json_schema",
+            name: "swipe_cards_generation",
+            schema: swipeCardsSchema,
+            strict: true,
+          },
+        },
+      });
     } catch (e) {
-      throw new HttpsError("internal", `OpenAI-Aufruf fehlgeschlagen (Modell: ${OPENAI_MODEL}): ${e.message}`);
+      throw new HttpsError("failed-precondition", `OpenAI-Aufruf fehlgeschlagen: ${e.message}`, { model: OPENAI_MODEL, sourceAvailability });
     }
+
+    try {
+      output = JSON.parse(response.output_text);
+    } catch (parseError) {
+      throw new HttpsError("failed-precondition", "OpenAI hat keine gültige JSON-Antwort geliefert.", {
+        originalError: parseError.message,
+        outputPreview: String(response.output_text || "").slice(0, 1000),
+      });
+    }
+
     validateAIOutput(output);
 
     const sourcePackHash = crypto.createHash("sha256").update(JSON.stringify(sourcePack)).digest("hex");
@@ -212,6 +326,6 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
     const message = error instanceof HttpsError ? error.message : safeString(error?.message || "Unbekannter Fehler");
     try { await db.collection("generationRuns").add({ type: "openai_swipe_cards_generation", topicId, wikidataId, status: "error", cardsCreated: cardIds.length || 0, cardIds, model: OPENAI_MODEL, sourceAvailability, warnings, errorMessage: message, createdAt: admin.firestore.FieldValue.serverTimestamp() }); } catch (_) {}
     if (error instanceof HttpsError) throw error;
-    throw new HttpsError("internal", message);
+    throw new HttpsError("internal", message, { topicId, wikidataId, sourceAvailability, warnings });
   }
 });
