@@ -43,6 +43,15 @@
           <div class="row"><button id="validateAiJsonBtn">KI-JSON prüfen</button><button id="saveAllAiCardsBtn" class="btn-primary" disabled>Alle 6 Swipe Cards speichern</button></div>
           <div id="aiValidationOutput" class="small"></div><div id="aiPreviewBox" class="ai-grid"></div>
         </section>
+
+        <section class="panel section">
+          <h2>KI Auto-Generator</h2>
+          <p class="small">Erstellt automatisch 6 Draft-Cards aus Wikidata/Wikipedia.</p>
+          <div class="row"><button id="generateAICardsBtn" class="btn-primary">6 KI-Cards automatisch erzeugen</button></div>
+          <div id="aiAutoStatus" class="small muted">Noch keine automatische Generierung gestartet.</div>
+          <div id="aiAutoResult" class="small"></div>
+        </section>
+
       </div>
     </div>
   </section>
@@ -51,8 +60,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import { getFirestore,collection,getDocs,doc,getDoc,setDoc,updateDoc,query,where,serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-functions.js";
 const firebaseConfig={apiKey:"AIzaSyBOjkDk1Mmr79wY7bpKHQ5jidqwuHDo_kg",authDomain:"swipe-82eeb.firebaseapp.com",projectId:"swipe-82eeb",storageBucket:"swipe-82eeb.firebasestorage.app",messagingSenderId:"649929298401",appId:"1:649929298401:web:d94f1a5ebf1407ac6502a0"};
-let app,auth,db,user=null,topics=[],selectedTopic=null,existingCards=[],editorState={cardType:"intro",length:"short",difficulty:"beginner",title:"",hook:"",body:"",tags:"",mainCategory:"",topicType:"",status:"draft",reviewStatus:"needs_review",qualityScore:0};
+let app,auth,db,functions,user=null,topics=[],selectedTopic=null,existingCards=[],aiGenerationLoading=false,editorState={cardType:"intro",length:"short",difficulty:"beginner",title:"",hook:"",body:"",tags:"",mainCategory:"",topicType:"",status:"draft",reviewStatus:"needs_review",qualityScore:0};
 const SOURCE_PACK_MAX_CHARS_PER_LANGUAGE=50000;
 let aiSourceState=null,validatedAIResult=null;
 const el=id=>document.getElementById(id),safe=v=>v==null?"":String(v),title=t=>safe(t?.title?.de||t?.title?.en||t?.wikidataId||"Unbenannt");
@@ -189,6 +199,13 @@ function buildSwipeCardPayloadFromAI(aiCard,topicMeta,sp,t){const stats=calculat
 async function upsertWikipediaSourceDocs(sp){const qid=selectedTopic.wikidataId; await setDoc(doc(db,"sourceDocs",`wikidata_${qid}`),{sourceType:"wikidata",wikidataId:qid,url:sp.sources.wikidata.url,updatedAt:serverTimestamp()},{merge:true}); if(sp.sources.wikipediaDe.available) await setDoc(doc(db,"sourceDocs",`wikipedia_de_${qid}`),{sourceType:"wikipedia",wikidataId:qid,title:sp.sources.wikipediaDe.summaryTitle||title(selectedTopic),url:sp.sources.wikipediaDe.url,license:"CC BY-SA 4.0",publisher:"Wikipedia",language:"de",fetchedAt:serverTimestamp(),trustLevel:"medium-high"},{merge:true}); if(sp.sources.wikipediaEn.available) await setDoc(doc(db,"sourceDocs",`wikipedia_en_${qid}`),{sourceType:"wikipedia",wikidataId:qid,title:sp.sources.wikipediaEn.summaryTitle||title(selectedTopic),url:sp.sources.wikipediaEn.url,license:"CC BY-SA 4.0",publisher:"Wikipedia",language:"en",fetchedAt:serverTimestamp(),trustLevel:"medium-high"},{merge:true});}
 async function updateTopicAfterAIGeneration(topicMeta){await setDoc(doc(db,"topics",selectedTopic.wikidataId),sanitizeForFirestore({mainCategory:topicMeta.mainCategory,topicType:topicMeta.topicType,tags:Array.isArray(topicMeta.tags)?topicMeta.tags:[],status:"ready",contentStatus:{hasShortCard:true,hasMediumCard:true,hasLongCard:true,reviewStatus:"cards_generated"},updatedAt:serverTimestamp()}),{merge:true});}
 async function saveAllAICards(){if(!validatedAIResult) throw new Error("Erst JSON validieren");const sp=buildSourcePackForAI(); const t=Math.floor(Date.now()/1000); for(const c of validatedAIResult.cards){const p=buildSwipeCardPayloadFromAI(c,validatedAIResult.topicMeta,sp,t); await setDoc(doc(db,"swipeCards",p.cardId),p,{merge:true});} await upsertWikipediaSourceDocs(sp); await updateTopicAfterAIGeneration(validatedAIResult.topicMeta); showStatus("6 KI-Cards gespeichert","success");}
+
+function setAIGenerationLoading(isLoading){aiGenerationLoading=!!isLoading;const btn=el("generateAICardsBtn");if(btn){btn.disabled=aiGenerationLoading||!user||!selectedTopic;}renderAIGenerationStatus(aiGenerationLoading?"Generierung läuft. Das kann 1–2 Minuten dauern.":"Bereit für automatische Generierung.");}
+function renderAIGenerationStatus(message){el("aiAutoStatus").textContent=message;}
+function renderAIGenerationResult(result){const sa=result?.sourceAvailability||{};el("aiAutoResult").innerHTML=`<div class='status'>✅ 6 Cards erstellt.<br>Run: ${safe(result.generationRunId)}<br>Card IDs: ${(result.cardIds||[]).join("<br>")}<br>Sources: DE Summary ${sa.wikipediaDeSummary?"ja":"nein"}, DE Full ${sa.wikipediaDeFull?"ja":"nein"}, EN Summary ${sa.wikipediaEnSummary?"ja":"nein"}, EN Full ${sa.wikipediaEnFull?"ja":"nein"}</div>`;}
+function renderAIGenerationError(error){el("aiAutoResult").innerHTML=`<div class='status error'>❌ Generierung fehlgeschlagen: ${safe(error?.message||error)}</div>`;}
+async function generateAICardsForSelectedTopic(){if(!user) throw new Error("Bitte einloggen.");if(!selectedTopic) throw new Error("Bitte Topic auswählen.");if(!confirm("Für dieses Topic werden 6 Draft-Cards erstellt. Fortfahren?")) return;setAIGenerationLoading(true);try{renderAIGenerationStatus("Quellen werden geladen...");const call=httpsCallable(functions,"generateSwipeCardsForTopic");renderAIGenerationStatus("Generierung läuft. Das kann 1–2 Minuten dauern.");const resp=await call({topicId:selectedTopic.wikidataId||selectedTopic.id,saveMode:"draft",overwriteExisting:false});renderAIGenerationStatus("Cards werden gespeichert...");renderAIGenerationResult(resp.data||{});showStatus("6 Cards erstellt.","success");await loadExistingCards(selectedTopic.wikidataId);await loadTopics();}catch(e){renderAIGenerationError(e);showStatus(e.message||"Generierung fehlgeschlagen","error");}finally{setAIGenerationLoading(false);}}
+
 function renderAISourceStatus(){const sp=buildSourcePackForAI(); if(!sp){el("aiSourcesStatus").textContent="Kein Topic.";return;} const deFullState=sp.sources.wikipediaDe.fullExtract?(aiSourceState?.deFullMeta?.wasTruncated?"gekürzt":"geladen"):"fehlt";const enFullState=sp.sources.wikipediaEn.fullExtract?(aiSourceState?.enFullMeta?.wasTruncated?"gekürzt":"geladen"):"fehlt";el("aiSourcesStatus").innerHTML=`Wikidata: <span class='badge ok'>geladen</span> | Wikipedia DE Summary: <span class='badge ${sp.sources.wikipediaDe.summaryExtract?'ok':'miss'}'>${sp.sources.wikipediaDe.summaryExtract?'geladen':'fehlt'}</span> | Wikipedia DE Volltext: <span class='badge ${deFullState==='fehlt'?'miss':'ok'}'>${deFullState}</span> | Wikipedia EN Summary: <span class='badge ${sp.sources.wikipediaEn.summaryExtract?'ok':'miss'}'>${sp.sources.wikipediaEn.summaryExtract?'geladen':'fehlt'}</span> | Wikipedia EN Volltext: <span class='badge ${enFullState==='fehlt'?'miss':'ok'}'>${enFullState}</span>`;}
 async function loadTopics(){const snap=await getDocs(collection(db,"topics"));topics=snap.docs.map(d=>({id:d.id,...d.data(),wikidataId:safe(d.data().wikidataId||d.id),contentStatus:d.data().contentStatus||{}}));renderTopicList();renderStats();}
 function renderTopicList(){el("topicList").innerHTML=topics.map(t=>`<div class='topic-item'><b>${title(t)}</b><div class='small'>${t.wikidataId}</div><button data-t='${t.wikidataId}'>Auswählen</button></div>`).join("");document.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>selectTopic(b.dataset.t));}
@@ -197,13 +214,14 @@ function renderSelectedTopic(){el("selectedTopic").innerHTML=selectedTopic?`<b>$
 function renderEditor(){el("editorBox").innerHTML="<div class='small'>Bestehende manuelle Erstellung bleibt aktiv.</div>";}
 async function loadExistingCards(topicId){if(!topicId) return;const snap=await getDocs(query(collection(db,"swipeCards"),where("topicId","==",topicId)));existingCards=snap.docs.map(d=>d.data());el("existingCards").innerHTML=existingCards.map(c=>`<div class='card-row'><b>${safe(c.title)}</b><div class='small'>${safe(c.language)} ${safe(c.length)}</div></div>`).join("")||"<span class='muted'>Keine Cards</span>";renderStats();}
 function renderStats(){el("stats").innerHTML=`<div class='panel section'><div class='small'>Topics</div><b>${topics.length}</b></div><div class='panel section'><div class='small'>Cards Topic</div><b>${existingCards.length}</b></div>`;}
-function init(){app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);onAuthStateChanged(auth,async u=>{user=u;el("loginBox").classList.toggle("hidden",!!u);el("appRoot").classList.toggle("hidden",!u);if(u){el("userEmail").textContent=u.email||"";await loadTopics();}});
+function init(){app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);functions=getFunctions(app,"europe-west1");onAuthStateChanged(auth,async u=>{user=u;el("loginBox").classList.toggle("hidden",!!u);el("appRoot").classList.toggle("hidden",!u);if(u){el("userEmail").textContent=u.email||"";await loadTopics();}setAIGenerationLoading(false);});
 el("loginBtn").onclick=()=>signInWithEmailAndPassword(auth,el("emailInput").value.trim(),el("passwordInput").value);el("logoutBtn").onclick=()=>signOut(auth);el("reloadTopicsBtn").onclick=loadTopics;
 el("manualTabBtn").onclick=()=>{el("manualTab").classList.remove("hidden");el("aiTab").classList.add("hidden");el("manualTabBtn").classList.add("active");el("aiTabBtn").classList.remove("active");};
 el("aiTabBtn").onclick=()=>{el("aiTab").classList.remove("hidden");el("manualTab").classList.add("hidden");el("aiTabBtn").classList.add("active");el("manualTabBtn").classList.remove("active");};
 el("loadAiSourcesBtn").onclick=async()=>{try{await loadAISourcesForSelectedTopic();showStatus("KI-Quellen geladen","success");}catch(e){showStatus(e.message,"error")}};
 el("buildPromptBtn").onclick=()=>{const sp=buildSourcePackForAI();if(!sp)return showStatus("Topic/Quellen fehlen","error");el("aiPromptOutput").value=buildAIPrompt(sp);};
 el("copyPromptBtn").onclick=copyAIPromptToClipboard; el("validateAiJsonBtn").onclick=parseAndValidateAIJson; el("saveAllAiCardsBtn").onclick=async()=>{try{await saveAllAICards();await loadTopics();await loadExistingCards(selectedTopic.wikidataId);}catch(e){showStatus(e.message,"error")}};
+el("generateAICardsBtn").onclick=()=>generateAICardsForSelectedTopic().catch(err=>renderAIGenerationError(err));
 }
 init();
 void getDoc;
