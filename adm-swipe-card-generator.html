@@ -192,7 +192,31 @@
 
     function renderTopicList(){ const box=el("topicList"); if(!topics.length){ box.innerHTML=`<p class="muted">Noch keine Topics vorhanden. Importiere zuerst Themen über adm-wikidata-import.html.</p>`; return; } box.innerHTML=filteredTopics.map(t=>`<div class="topic-item"><b>${safeText(getTopicTitle(t))}</b><div class="small">${safeText(t.title?.en||"-")} · ${t.wikidataId}</div><p class="small">${safeText(getTopicDescription(t)||"-")}</p><div class="row"><span class="badge ${t.contentStatus.hasShortCard?'ok':'miss'}">Short ${t.contentStatus.hasShortCard?'vorhanden':'fehlt'}</span><span class="badge ${t.contentStatus.hasMediumCard?'ok':'miss'}">Medium ${t.contentStatus.hasMediumCard?'vorhanden':'fehlt'}</span><span class="badge ${t.contentStatus.hasLongCard?'ok':'miss'}">Long ${t.contentStatus.hasLongCard?'vorhanden':'fehlt'}</span></div><div class="small">${safeText(t.mainCategory)} · ${safeText(t.topicType)}</div><button type="button" data-select="${t.wikidataId}">Auswählen</button></div>`).join(""); box.querySelectorAll("[data-select]").forEach(b=>b.onclick=()=>selectTopic(b.dataset.select)); }
 
-    async function selectTopic(topicId){ selectedTopic=topics.find(t=>t.wikidataId===topicId)||null; selectedWikiSummary=null; currentEditingCardId=null; if(selectedTopic){ editorState={...editorState,title:getTopicTitle(selectedTopic),tags:(selectedTopic.tags||[]).join(", "),mainCategory:selectedTopic.mainCategory||"",topicType:selectedTopic.topicType||""}; await loadExistingCards(selectedTopic.wikidataId);} renderSelectedTopic(); renderEditor(); updatePreview(); renderStats(); }
+    async function selectTopic(topicId){
+      selectedTopic = topics.find(t => t.wikidataId === topicId) || null;
+      selectedWikiSummary = null;
+      currentEditingCardId = null;
+      existingCards = [];
+      if (selectedTopic) {
+        editorState = {
+          ...editorState,
+          title: getTopicTitle(selectedTopic),
+          tags: (selectedTopic.tags || []).join(", "),
+          mainCategory: selectedTopic.mainCategory || "",
+          topicType: selectedTopic.topicType || ""
+        };
+      }
+      renderSelectedTopic();
+      renderEditor();
+      updatePreview();
+      renderStats();
+      if (!selectedTopic) return;
+      try {
+        await loadExistingCards(selectedTopic.wikidataId);
+      } catch (e) {
+        showStatus("Topic wurde ausgewählt, aber vorhandene Cards konnten nicht geladen werden: " + e.message, "error");
+      }
+    }
     function renderSelectedTopic(){ const b=el("selectedTopic"); if(!selectedTopic){ b.innerHTML='<p class="muted">Wähle links ein Topic aus, um eine Swipe Card zu erstellen.</p>'; el("wikiSummaryBox").innerHTML='<p class="muted">Für dieses Topic wurde keine deutsche Wikipedia-Zusammenfassung gefunden.</p>'; renderExistingCards(); return; } const wiki=selectedTopic.sitelinks?.dewiki||""; b.innerHTML=`<div><b>${safeText(selectedTopic.title?.de||"-")}</b> <span class="small">/ ${safeText(selectedTopic.title?.en||"-")}</span></div><p class="small">${safeText(selectedTopic.description?.de||"-")}<br>${safeText(selectedTopic.description?.en||"-")}</p><div class="small">${selectedTopic.wikidataId} · ${safeText(selectedTopic.mainCategory)} · ${safeText(selectedTopic.topicType)}</div><div class="small">Tags: ${(selectedTopic.tags||[]).join(", ")||"-"}</div><div class="row"><a href="https://www.wikidata.org/wiki/${selectedTopic.wikidataId}" target="_blank">Wikidata</a>${wiki?`<a href="${wiki}" target="_blank">Wikipedia DE</a>`:""}</div><div class="row"><span class="badge">Short: ${selectedTopic.contentStatus.hasShortCard?'ja':'nein'}</span><span class="badge">Medium: ${selectedTopic.contentStatus.hasMediumCard?'ja':'nein'}</span><span class="badge">Long: ${selectedTopic.contentStatus.hasLongCard?'ja':'nein'}</span></div><button id="loadWikiBtn" type="button" ${wiki?"":"disabled"}>Wikipedia Summary laden</button>`; const btn=el("loadWikiBtn"); if(btn) btn.onclick=()=>fetchWikipediaSummary(selectedTopic); renderWikiSummary(); }
 
     function extractWikipediaTitleFromUrl(url){ try{ const u=new URL(url); const part=u.pathname.split("/wiki/")[1]||""; return decodeURIComponent(part); }catch{return "";} }
