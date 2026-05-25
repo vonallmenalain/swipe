@@ -1,6 +1,11 @@
 {
-  "name": "functions",
-  "description": "Cloud Functions for Firebase",
+  "name": "swipe-functions",
+  "description": "Cloud Functions for Swipe Knowledge App",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
   "scripts": {
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
@@ -8,17 +13,9 @@
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },
-  "engines": {
-    "node": "24"
-  },
-  "main": "index.js",
   "dependencies": {
-    "firebase-admin": "^13.6.0",
-    "firebase-functions": "^7.0.0",
-    "openai": "^6.39.0"
-  },
-  "devDependencies": {
-    "firebase-functions-test": "^3.4.1"
-  },
-  "private": true
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^5.1.1",
+    "openai": "^5.1.0"
+  }
 }
