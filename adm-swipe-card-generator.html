@@ -5,276 +5,97 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Swipe Card Generator</title>
   <style>
-    :root {
-      --bg: #0a1513;
-      --bg-soft: #10211e;
-      --card: #132a26;
-      --card-2: #17322d;
-      --text: #e5f8f2;
-      --muted: #97b7ae;
-      --accent: #3dd19f;
-      --accent-2: #7ef0c9;
-      --danger: #ff6b6b;
-      --warn: #ffd166;
-      --ok: #52d8a2;
-      --radius: 14px;
-      --shadow: 0 8px 30px rgba(0,0,0,.28);
-      --line: rgba(255,255,255,.08);
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      color: var(--text);
-      background: radial-gradient(circle at top right, #12312a 0%, var(--bg) 45%);
-      min-height: 100vh;
-    }
-    a { color: var(--accent-2); }
-    .container { max-width: 1400px; margin: 0 auto; padding: 16px; }
-    .top-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-    .chip-link { background: #0f2521; border: 1px solid var(--line); padding: 8px 12px; border-radius: 999px; text-decoration: none; }
-    .panel { background: linear-gradient(180deg, var(--card), var(--bg-soft)); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
-    .header { padding: 16px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
-    h1 { margin: 0; font-size: 1.4rem; }
-    .subtitle { color: var(--muted); margin-top: 6px; }
-    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-    button, select, input, textarea {
-      border: 1px solid var(--line);
-      background: #0e211d;
-      color: var(--text);
-      border-radius: 10px;
-      padding: 10px 12px;
-      font: inherit;
-    }
-    button { cursor: pointer; }
-    .btn-primary { background: linear-gradient(180deg, #2bb989, #1f9f74); border: none; color: #072018; font-weight: 700; }
-    .btn-danger { background: #47292e; color: #ffd7dc; }
-    .status { margin: 12px 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); }
-    .status.info { background: #143029; }
-    .status.success { background: #103327; border-color: rgba(82,216,162,.4); }
-    .status.error { background: #3a1f24; border-color: rgba(255,107,107,.5); }
-    .login-wrap { max-width: 420px; margin: 30px auto; padding: 16px; }
-    .field { display: grid; gap: 6px; margin-bottom: 10px; }
-    .grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
-    .col { display: grid; gap: 14px; }
-    .section { padding: 14px; }
-    .section h2 { margin: 0 0 10px; font-size: 1.02rem; }
-    .small { font-size: .88rem; color: var(--muted); }
-    .badge { display: inline-flex; padding: 4px 8px; border-radius: 999px; font-size: .75rem; background: #0f2521; border: 1px solid var(--line); }
-    .badge.ok { background: rgba(82,216,162,.15); }
-    .badge.miss { background: rgba(255,209,102,.15); }
-    .topic-item { border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px; background: #102420; }
-    .muted { color: var(--muted); }
-    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .stat-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
-    .stat { padding: 10px; border:1px solid var(--line); border-radius: 10px; background: #112722; }
-    .editor-grid { display: grid; gap: 10px; grid-template-columns: 1fr; }
-    textarea { min-height: 170px; resize: vertical; }
-    .preview-phone { border-radius: 26px; overflow: hidden; border: 1px solid var(--line); background: #0a1916; min-height: 470px; display: flex; flex-direction: column; }
-    .preview-image { height: 160px; background-size: cover; background-position: center; }
-    .preview-content { padding: 14px; display:grid; gap: 8px; }
-    .cards-list .card-row { border:1px solid var(--line); border-radius: 10px; padding:10px; margin-bottom:8px; background: #102420; }
-    .sticky-save { position: sticky; bottom: 8px; z-index: 10; background: rgba(10,21,19,.9); backdrop-filter: blur(6px); padding: 10px; border-radius: 12px; border:1px solid var(--line); }
-    .hidden { display: none !important; }
-    @media (min-width: 980px) {
-      .grid { grid-template-columns: 1.05fr 1fr; }
-      .stat-grid { grid-template-columns: repeat(4,1fr); }
-      .editor-grid { grid-template-columns: repeat(2, 1fr); }
-      .editor-grid .full { grid-column: 1 / -1; }
-    }
+    :root { --bg:#0a1513;--bg-soft:#10211e;--card:#132a26;--text:#e5f8f2;--muted:#97b7ae;--accent:#3dd19f;--line:rgba(255,255,255,.08);--warn:#ffd166;--ok:#52d8a2;--danger:#ff6b6b;--radius:14px;--shadow:0 8px 30px rgba(0,0,0,.28); }
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);background:radial-gradient(circle at top right,#12312a 0%,var(--bg) 45%)}
+    .container{max-width:1400px;margin:0 auto;padding:16px}.panel{background:linear-gradient(180deg,var(--card),var(--bg-soft));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .header{padding:16px;display:flex;justify-content:space-between;flex-wrap:wrap}.section{padding:14px}.grid{display:grid;gap:14px}.tab-row{display:flex;gap:8px;margin-bottom:10px}
+    .tab-btn.active{background:#1f9f74;color:#062116;font-weight:700}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.field{display:grid;gap:6px;margin-bottom:8px}
+    button,select,input,textarea{border:1px solid var(--line);background:#0e211d;color:var(--text);border-radius:10px;padding:10px 12px;font:inherit}textarea{min-height:170px;resize:vertical}
+    .btn-primary{background:linear-gradient(180deg,#2bb989,#1f9f74);border:none;color:#072018;font-weight:700}.status{margin:12px 0;padding:10px;border-radius:10px;border:1px solid var(--line)}.status.error{background:#3a1f24}
+    .small,.muted{color:var(--muted);font-size:.9rem}.badge{padding:4px 8px;border-radius:999px;border:1px solid var(--line);font-size:.75rem}.ok{background:rgba(82,216,162,.2)}.miss{background:rgba(255,209,102,.2)}
+    .topic-item,.card-row,.ai-preview-card{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:#102420}.hidden{display:none!important}
+    .ai-grid{display:grid;gap:10px}.ai-preview-body{white-space:pre-wrap;max-height:120px;overflow:auto}.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+    @media(min-width:980px){.split{display:grid;grid-template-columns:1.05fr 1fr;gap:14px}.stat-grid{grid-template-columns:repeat(4,1fr)}.ai-grid{grid-template-columns:1fr 1fr}}
   </style>
 </head>
-<body>
-  <div class="container">
-    <nav class="top-nav">
-      <a class="chip-link" href="adm-wikidata-import.html">Wikidata Import</a>
-      <a class="chip-link" href="adm-topic-overview.html">Topic Übersicht</a>
-    </nav>
-
-    <div id="statusBar" class="status info">Bereit.</div>
-
-    <section id="loginBox" class="panel login-wrap">
-      <h1>Swipe Card Generator</h1>
-      <p class="subtitle">Aus importierten Topics erste Wissens-Swipes erstellen.</p>
-      <div class="field"><label>E-Mail</label><input id="emailInput" type="email" autocomplete="username" /></div>
-      <div class="field"><label>Passwort</label><input id="passwordInput" type="password" autocomplete="current-password" /></div>
-      <button id="loginBtn" class="btn-primary" type="button">Login</button>
-    </section>
-
-    <section id="appRoot" class="hidden">
-      <header class="panel header">
-        <div>
-          <h1>Swipe Card Generator</h1>
-          <div class="subtitle">Aus importierten Topics erste Wissens-Swipes erstellen.</div>
-        </div>
-        <div class="actions">
-          <span id="userEmail" class="badge"></span>
-          <button id="reloadTopicsBtn" type="button">Topics neu laden</button>
-          <button id="logoutBtn" class="btn-danger" type="button">Logout</button>
-        </div>
-      </header>
-
-      <div class="stat-grid" id="stats"></div>
-
-      <div class="grid">
-        <div class="col">
-          <section class="panel section">
-            <h2>Topics auswählen</h2>
-            <div class="field"><label>Suche</label><input id="topicSearch" type="text" placeholder="Titel, ID, Kategorie..." /></div>
-            <div class="row">
-              <select id="topicFilter">
-                <option value="all">Alle</option><option value="noShort">ohne Short Card</option><option value="noMedium">ohne Medium Card</option><option value="noLong">ohne Long Card</option><option value="statusImported">status imported</option><option value="statusReady">status ready</option>
-              </select>
-              <select id="topicSort">
-                <option value="title">Titel A-Z</option><option value="newest">Neueste zuerst</option><option value="wikidata">Wikidata-ID</option>
-              </select>
-            </div>
-            <div id="topicList"></div>
-          </section>
-
-          <section class="panel section">
-            <h2>Ausgewähltes Topic</h2>
-            <div id="selectedTopic"></div>
-          </section>
-
-          <section class="panel section">
-            <h2>Wikipedia Summary</h2>
-            <div id="wikiSummaryBox"></div>
-          </section>
-        </div>
-
-        <div class="col">
-          <section class="panel section">
-            <h2>Card Editor</h2>
-            <div id="editorBox"></div>
-          </section>
-
-          <section class="panel section">
-            <h2>Live Swipe Preview</h2>
-            <div id="previewBox"></div>
-          </section>
-
-          <section class="panel section">
-            <h2>Vorhandene Cards zum Topic</h2>
-            <div id="existingCards"></div>
-          </section>
-        </div>
+<body><div class="container">
+  <div id="statusBar" class="status">Bereit.</div>
+  <section id="loginBox" class="panel section"><h1>Swipe Card Generator</h1><div class="field"><label>E-Mail</label><input id="emailInput" type="email" /></div><div class="field"><label>Passwort</label><input id="passwordInput" type="password" /></div><button id="loginBtn" class="btn-primary">Login</button></section>
+  <section id="appRoot" class="hidden">
+    <header class="panel header"><div><h1>Swipe Card Generator</h1><div class="small">Manuell + KI-Multi-Card Generator</div></div><div class="row"><span id="userEmail" class="badge"></span><button id="reloadTopicsBtn">Topics neu laden</button><button id="logoutBtn">Logout</button></div></header>
+    <div id="stats" class="stat-grid"></div>
+    <div class="split">
+      <div>
+        <section class="panel section"><h2>Topics auswählen</h2><div class="field"><input id="topicSearch" placeholder="Suche" /></div><div id="topicList"></div></section>
+        <section class="panel section"><h2>Ausgewähltes Topic</h2><div id="selectedTopic"></div></section>
       </div>
-    </section>
-  </div>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import { getFirestore, collection, getDocs, doc, getDoc, setDoc, addDoc, updateDoc, query, where, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-
-    const firebaseConfig = { apiKey:"AIzaSyBOjkDk1Mmr79wY7bpKHQ5jidqwuHDo_kg", authDomain:"swipe-82eeb.firebaseapp.com", projectId:"swipe-82eeb", storageBucket:"swipe-82eeb.firebasestorage.app", messagingSenderId:"649929298401", appId:"1:649929298401:web:d94f1a5ebf1407ac6502a0" };
-    let app, auth, db, user = null, topics = [], filteredTopics = [], selectedTopic = null, currentWikipediaSummary = null, existingCards = [], currentEditingCardId = null, autoGeneratedHook = "";
-    let editorState = { cardType:"intro", length:"short", difficulty:"beginner", title:"", hook:"", body:"", tags:"", mainCategory:"", topicType:"", status:"draft", reviewStatus:"needs_review", qualityScore:0, imageUrl:"" };
-
-    const el = id => document.getElementById(id);
-    const safeText = v => (v === undefined || v === null) ? "" : String(v);
-    const getTopicTitle = t => safeText(t?.title?.de || t?.title?.en || t?.wikidataId || "Unbenannt");
-    const getTopicDescription = t => safeText(t?.description?.de || t?.description?.en || "");
-    const parseTagsInput = v => safeText(v).split(",").map(s=>s.trim()).filter(Boolean);
-    const formatDate = v => v?.toDate ? v.toDate().toLocaleString("de-DE") : (v ? new Date(v).toLocaleString("de-DE") : "-");
-    function showStatus(message, type="info"){ const b=el("statusBar"); b.className=`status ${type}`; b.textContent=message; }
-
-    function initFirebase(){ app=initializeApp(firebaseConfig); auth=getAuth(app); db=getFirestore(app); }
-    function setupAuth(){ onAuthStateChanged(auth, async u=>{ user=u; el("loginBox").classList.toggle("hidden", !!u); el("appRoot").classList.toggle("hidden", !u); if(u){ el("userEmail").textContent=u.email||""; await loadTopics(); } else { topics=[]; renderTopicList(); } }); }
-    async function handleLogin(){ try{ await signInWithEmailAndPassword(auth, el("emailInput").value.trim(), el("passwordInput").value); showStatus("Login erfolgreich.","success"); }catch(e){ showStatus("Login fehlgeschlagen: "+e.message,"error"); } }
-    async function handleLogout(){ await signOut(auth); showStatus("Abgemeldet.","info"); }
-
-    function normalizeTopicDoc(docSnap){ const d = docSnap.data() || {}; return { id: docSnap.id, wikidataId: safeText(d.wikidataId || docSnap.id), title:d.title||{}, description:d.description||{}, sitelinks:d.sitelinks||{}, mainCategory:safeText(d.mainCategory), topicType:safeText(d.topicType), tags:Array.isArray(d.tags)?d.tags:[], sourceIds:Array.isArray(d.sourceIds)?d.sourceIds:[], status:safeText(d.status), createdAt:d.createdAt||null, updatedAt:d.updatedAt||null, contentStatus:{ hasShortCard:!!d?.contentStatus?.hasShortCard, hasMediumCard:!!d?.contentStatus?.hasMediumCard, hasLongCard:!!d?.contentStatus?.hasLongCard, reviewStatus:safeText(d?.contentStatus?.reviewStatus||"raw_import") } }; }
-
-    async function loadTopics(){ if(!user) return; showStatus("Topics werden geladen...","info"); const snap=await getDocs(collection(db,"topics")); topics=snap.docs.map(normalizeTopicDoc); applyTopicFilters(); showStatus(`${topics.length} Topics geladen.`,"success"); renderStats(); }
-    function applyTopicFilters(){ const search=safeText(el("topicSearch")?.value).toLowerCase(); const f=el("topicFilter")?.value||"all"; const s=el("topicSort")?.value||"title"; filteredTopics=topics.filter(t=>{ const hit=[getTopicTitle(t),t.title?.en,t.wikidataId,t.mainCategory,t.topicType].join(" ").toLowerCase().includes(search); if(!hit) return false; if(f==="noShort") return !t.contentStatus.hasShortCard; if(f==="noMedium") return !t.contentStatus.hasMediumCard; if(f==="noLong") return !t.contentStatus.hasLongCard; if(f==="statusImported") return t.status==="imported"; if(f==="statusReady") return t.status==="ready"; return true; }); filteredTopics.sort((a,b)=> s==="newest" ? ((b.updatedAt?.seconds||0)-(a.updatedAt?.seconds||0)) : s==="wikidata" ? a.wikidataId.localeCompare(b.wikidataId) : getTopicTitle(a).localeCompare(getTopicTitle(b),"de")); renderTopicList(); }
-
-    function renderTopicList(){ const box=el("topicList"); if(!topics.length){ box.innerHTML=`<p class="muted">Noch keine Topics vorhanden. Importiere zuerst Themen über adm-wikidata-import.html.</p>`; return; } box.innerHTML=filteredTopics.map(t=>`<div class="topic-item"><b>${safeText(getTopicTitle(t))}</b><div class="small">${safeText(t.title?.en||"-")} · ${t.wikidataId}</div><p class="small">${safeText(getTopicDescription(t)||"-")}</p><div class="row"><span class="badge ${t.contentStatus.hasShortCard?'ok':'miss'}">Short ${t.contentStatus.hasShortCard?'vorhanden':'fehlt'}</span><span class="badge ${t.contentStatus.hasMediumCard?'ok':'miss'}">Medium ${t.contentStatus.hasMediumCard?'vorhanden':'fehlt'}</span><span class="badge ${t.contentStatus.hasLongCard?'ok':'miss'}">Long ${t.contentStatus.hasLongCard?'vorhanden':'fehlt'}</span></div><div class="small">${safeText(t.mainCategory)} · ${safeText(t.topicType)}</div><button type="button" data-select="${t.wikidataId}">Auswählen</button></div>`).join(""); box.querySelectorAll("[data-select]").forEach(b=>b.onclick=()=>selectTopic(b.dataset.select)); }
-
-    async function selectTopic(topicId){
-      selectedTopic = topics.find(t => t.wikidataId === topicId) || null;
-      currentWikipediaSummary = null;
-      currentEditingCardId = null;
-      existingCards = [];
-      if (selectedTopic) {
-        editorState = {
-          ...editorState,
-          title: getTopicTitle(selectedTopic),
-          tags: (selectedTopic.tags || []).join(", "),
-          mainCategory: selectedTopic.mainCategory || "unknown",
-          topicType: selectedTopic.topicType || "unknown"
-        };
-      }
-      renderSelectedTopic();
-      renderEditor();
-      updatePreview();
-      renderStats();
-      if (!selectedTopic) return;
-      try {
-        await loadExistingCards(selectedTopic.wikidataId);
-        if (selectedTopic?.sitelinks?.dewiki) {
-          await fetchWikipediaSummary(selectedTopic);
-          createDraftFromSummary(true);
-        } else {
-          createFallbackDraft();
-          showStatus("Topic ausgewählt. Keine DE-Wikipedia-URL vorhanden, Fallback wurde übernommen.","info");
-        }
-      } catch (e) {
-        createFallbackDraft();
-        showStatus("Topic wurde ausgewählt, aber Daten konnten nicht vollständig geladen werden: " + e.message, "error");
-      }
-    }
-    function renderSelectedTopic(){ const b=el("selectedTopic"); if(!selectedTopic){ b.innerHTML='<p class="muted">Wähle links ein Topic aus, um eine Swipe Card zu erstellen.</p>'; el("wikiSummaryBox").innerHTML='<p class="muted">Für dieses Topic wurde keine deutsche Wikipedia-Zusammenfassung gefunden.</p>'; renderExistingCards(); return; } const wiki=selectedTopic.sitelinks?.dewiki||""; b.innerHTML=`<div><b>${safeText(selectedTopic.title?.de||"-")}</b> <span class="small">/ ${safeText(selectedTopic.title?.en||"-")}</span></div><p class="small">${safeText(selectedTopic.description?.de||"-")}<br>${safeText(selectedTopic.description?.en||"-")}</p><div class="small">${selectedTopic.wikidataId} · ${safeText(selectedTopic.mainCategory||"unknown")} · ${safeText(selectedTopic.topicType||"unknown")}</div><div class="small">Tags: ${(selectedTopic.tags||[]).join(", ")||"-"}</div><div class="row"><a href="https://www.wikidata.org/wiki/${selectedTopic.wikidataId}" target="_blank">Wikidata</a>${wiki?`<a href="${wiki}" target="_blank">Wikipedia DE</a>`:""}</div><div class="row"><span class="badge">Short: ${selectedTopic.contentStatus.hasShortCard?'ja':'nein'}</span><span class="badge">Medium: ${selectedTopic.contentStatus.hasMediumCard?'ja':'nein'}</span><span class="badge">Long: ${selectedTopic.contentStatus.hasLongCard?'ja':'nein'}</span></div><div class="row"><button id="loadWikiBtn" type="button" ${wiki?"":"disabled"}>Wikipedia Summary laden</button><button id="draftFromSummaryBtn2" type="button" ${currentWikipediaSummary?"":"disabled"}>Vorschlag aus Summary erstellen</button><button id="regenSuggestionBtn" type="button" ${currentWikipediaSummary?"":"disabled"}>Vorschlag neu generieren</button></div>`; const btn=el("loadWikiBtn"); if(btn) btn.onclick=()=>fetchWikipediaSummary(selectedTopic); const b2=el("draftFromSummaryBtn2"); if(b2) b2.onclick=()=>createDraftFromSummary(true); const b3=el("regenSuggestionBtn"); if(b3) b3.onclick=()=>createDraftFromSummary(false); renderWikiSummary(); }
-
-    function extractWikipediaTitleFromUrl(url){ try{ const u=new URL(url); const part=u.pathname.split("/wiki/")[1]||""; return part ? decodeURIComponent(part) : ""; }catch{return "";} }
-    async function fetchWikipediaSummary(topic){ try{ const wikiUrl=topic?.sitelinks?.dewiki; if(!wikiUrl) throw new Error("Keine dewiki URL vorhanden"); const pageTitle=extractWikipediaTitleFromUrl(wikiUrl) || getTopicTitle(topic).replaceAll(" ","_"); const api=`https://de.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`; let res; try{ res=await fetch(api,{headers:{"Api-User-Agent":"SwipeKnowledgePrototype/0.1 (replace-with-contact-url-or-email)"}});}catch{ res=await fetch(api);} if(!res.ok) throw new Error(`HTTP ${res.status}`); const data=await res.json(); currentWikipediaSummary=data; showStatus("Wikipedia Summary geladen.","success"); renderSelectedTopic(); renderWikiSummary(); updatePreview(); return true; }catch(e){ currentWikipediaSummary=null; renderSelectedTopic(); renderWikiSummary(); showStatus("Fehler beim Laden der Summary: "+e.message,"error"); return false; }}
-    function buildWikipediaSourceDoc(topic,summary){ return { sourceType:"wikipedia", wikidataId:safeText(topic.wikidataId), title:safeText(summary?.title||getTopicTitle(topic)), url:safeText(summary?.content_urls?.desktop?.page||topic?.sitelinks?.dewiki||""), license:"CC BY-SA 4.0", publisher:"Wikipedia", language:"de", fetchedAt:serverTimestamp(), trustLevel:"medium-high" }; }
-    function buildHook(title,cardType){ const m={intro:`Was du über ${title} wissen solltest.`,fact:`Ein spannender Fakt über ${title}.`,timeline:`Die wichtigsten Stationen von ${title}.`,deep_dive:`Warum ${title} mehr ist als nur ein Begriff.`,comparison:`Wie lässt sich ${title} besser einordnen?`,myth_buster:`Was an ${title} oft falsch verstanden wird.`}; return m[cardType]||m.intro; }
-    function truncateWordsSmart(text,minWords,maxWords){ const words=safeText(text).trim().split(/\s+/).filter(Boolean); if(words.length<=maxWords) return safeText(text); let cut=maxWords; for(let i=maxWords;i>=minWords;i--){ if(/[.!?]$/.test(words[i-1]||"")){ cut=i; break; } } return words.slice(0,cut).join(" ")+" …"; }
-    function buildBodyFromSummaryByLength(extract,length){ const clean=safeText(extract); const wc=clean.trim().split(/\s+/).filter(Boolean).length; if(length==="short") return truncateWordsSmart(clean,80,120); if(length==="medium") return wc<80 ? `${clean}\n\n[Manuell erweitern: Diese Zusammenfassung ist für eine Medium Card noch eher kurz.]` : clean; if(length==="long") return `${clean}\n\n## Hintergrund\n\n[Hier vertiefen]\n\n## Bedeutung\n\n[Hier vertiefen]\n\n## Einordnung\n\n[Hier vertiefen]`; return clean; }
-    function createFallbackDraft(){ if(!selectedTopic) return; const title=safeText(selectedTopic.title?.de||selectedTopic.title?.en||getTopicTitle(selectedTopic)); const fallbackBody=safeText(getTopicDescription(selectedTopic)||"Noch kein Beschreibungstext vorhanden. Bitte manuell ergänzen."); autoGeneratedHook=buildHook(title,"intro"); editorState={...editorState,title,hook:autoGeneratedHook,body:fallbackBody,tags:(selectedTopic.tags||[]).join(", "),mainCategory:selectedTopic.mainCategory||"unknown",topicType:selectedTopic.topicType||"unknown"}; renderEditor(); updatePreview(); }
-    function createDraftFromSummary(forceHook=false){ if(!selectedTopic||!currentWikipediaSummary) return; const t=safeText(selectedTopic.title?.de||currentWikipediaSummary.title||getTopicTitle(selectedTopic)); const extract=safeText(currentWikipediaSummary.extract||""); const nextHook=buildHook(t,editorState.cardType); const shouldOverwriteHook=forceHook || !safeText(editorState.hook).trim() || safeText(editorState.hook).trim()===safeText(autoGeneratedHook).trim(); autoGeneratedHook=nextHook; editorState={...editorState,title:t,hook:shouldOverwriteHook?nextHook:editorState.hook,body:buildBodyFromSummaryByLength(extract,editorState.length),tags:(selectedTopic.tags||[]).join(", "),mainCategory:selectedTopic.mainCategory||"unknown",topicType:selectedTopic.topicType||"unknown",imageUrl:safeText(currentWikipediaSummary?.thumbnail?.source||editorState.imageUrl||"")}; renderEditor(); updatePreview(); }
-    function calculateReadingStats(text){ const wc=safeText(text).trim()?safeText(text).trim().split(/\s+/).length:0; return { wordCount: wc, readingTimeSec: Math.ceil((wc/200)*60)||0 }; }
-    function validateLength(length,wc,sec){ if(length==="short" && (sec<5||sec>30||wc<20||wc>120)) return "Short empfohlen: 5–30 Sek, ca. 20–120 Wörter."; if(length==="medium" && (sec<120||sec>300||wc<400||wc>900)) return "Medium empfohlen: 2–5 Min, ca. 400–900 Wörter."; if(length==="long" && (sec<600||wc<1800)) return "Long empfohlen: 10+ Min, ca. 1800+ Wörter."; return ""; }
-
-    function renderWikiSummary(){ const b=el("wikiSummaryBox"); if(!currentWikipediaSummary){ b.innerHTML='<p class="muted">Für dieses Topic wurde keine deutsche Wikipedia-Zusammenfassung gefunden.</p>'; return; } b.innerHTML=`<div><b>${safeText(currentWikipediaSummary.title||"-")}</b></div>${currentWikipediaSummary?.thumbnail?.source?`<img src="${currentWikipediaSummary.thumbnail.source}" alt="thumb" style="width:100%;border-radius:10px;margin:8px 0;max-height:220px;object-fit:cover;"/>`:""}<p>${safeText(currentWikipediaSummary.extract||"")}</p><a href="${safeText(currentWikipediaSummary?.content_urls?.desktop?.page||"#")}" target="_blank">Quellenlink</a><div class="small">Quelle: Wikipedia, Lizenz CC BY-SA 4.0</div><div class="row"><button id="draftFromSummaryBtn" type="button">Vorschlag aus Summary erstellen</button><button id="rebuildFromSummaryBtn" type="button">Vorschlag neu aus Summary erstellen</button></div>`; el("draftFromSummaryBtn").onclick=()=>createDraftFromSummary(true); el("rebuildFromSummaryBtn").onclick=()=>createDraftFromSummary(false); }
-
-    function renderEditor(){ const s=editorState; const stats=calculateReadingStats(s.body); const warn=validateLength(s.length,stats.wordCount,stats.readingTimeSec); el("editorBox").innerHTML=`<div class="editor-grid"><div class="field"><label>Card Type</label><select id="fCardType">${["intro","fact","timeline","deep_dive","comparison","myth_buster"].map(v=>`<option ${s.cardType===v?'selected':''}>${v}</option>`).join("")}</select></div><div class="field"><label>Länge</label><select id="fLength">${["short","medium","long"].map(v=>`<option ${s.length===v?'selected':''}>${v}</option>`).join("")}</select></div><div class="field"><label>Difficulty</label><select id="fDifficulty">${["beginner","intermediate","advanced"].map(v=>`<option ${s.difficulty===v?'selected':''}>${v}</option>`).join("")}</select></div><div class="field"><label>Qualitätswert 0-100</label><input id="fQuality" type="number" min="0" max="100" value="${Number(s.qualityScore)||0}" /></div><div class="field full"><label>Titel</label><input id="fTitle" value="${safeText(s.title)}" /></div><div class="field full"><label>Hook</label><input id="fHook" value="${safeText(s.hook)}" /></div><div class="field full"><label>Body</label><textarea id="fBody">${safeText(s.body)}</textarea></div><div class="field full"><label>Tags (kommagetrennt)</label><input id="fTags" value="${safeText(s.tags)}" /></div><div class="field"><label>mainCategory</label><input id="fMainCategory" value="${safeText(s.mainCategory)}" /></div><div class="field"><label>topicType</label><input id="fTopicType" value="${safeText(s.topicType)}" /></div><div class="field"><label>Status</label><select id="fStatus">${["draft","published","archived"].map(v=>`<option ${s.status===v?'selected':''}>${v}</option>`).join("")}</select></div><div class="field"><label>ReviewStatus</label><select id="fReviewStatus">${["needs_review","approved","rejected"].map(v=>`<option ${s.reviewStatus===v?'selected':''}>${v}</option>`).join("")}</select></div><div class="full small">Wörter: ${stats.wordCount} · Lesezeit: ${stats.readingTimeSec}s ${warn?`<span style="color:var(--warn)">· ${warn}</span>`:""}</div></div><div class="sticky-save"><button id="saveCardBtn" class="btn-primary" type="button">Swipe Card speichern</button> ${currentEditingCardId?`<span class="small">Update-Modus: ${currentEditingCardId}</span>`:""}</div>`;
-      ["fCardType","fLength","fDifficulty","fTitle","fHook","fBody","fTags","fMainCategory","fTopicType","fStatus","fReviewStatus","fQuality"].forEach(id=>el(id).addEventListener("input",syncEditor));
-      el("saveCardBtn").onclick=saveSwipeCard;
-    }
-    function syncEditor(){ const prev={...editorState}; editorState={ cardType:el("fCardType").value, length:el("fLength").value, difficulty:el("fDifficulty").value, title:el("fTitle").value, hook:el("fHook").value, body:el("fBody").value, tags:el("fTags").value, mainCategory:el("fMainCategory").value, topicType:el("fTopicType").value, status:el("fStatus").value, reviewStatus:el("fReviewStatus").value, qualityScore:Math.max(0,Math.min(100,Number(el("fQuality").value)||0)), imageUrl:editorState.imageUrl||safeText(currentWikipediaSummary?.thumbnail?.source||"") }; if(prev.cardType!==editorState.cardType){ const nextHook=buildHook(editorState.title||getTopicTitle(selectedTopic||{}),editorState.cardType); if(!safeText(editorState.hook).trim() || safeText(editorState.hook).trim()===safeText(autoGeneratedHook).trim()){ editorState.hook=nextHook; autoGeneratedHook=nextHook; } } renderEditor(); updatePreview(); }
-
-    function updatePreview(){ const p=el("previewBox"); const stats=calculateReadingStats(editorState.body); p.innerHTML=`<article class="preview-phone">${editorState.imageUrl?`<div class="preview-image" style="background-image:url('${editorState.imageUrl}')"></div>`:""}<div class="preview-content"><div class="row"><span class="badge">${safeText(editorState.length)}</span><span class="badge">${safeText(editorState.mainCategory||"-")}</span><span class="badge">${stats.readingTimeSec}s</span></div><h3 style="margin:0">${safeText(editorState.title||"Titel")}</h3><div class="small">${safeText(editorState.hook||"Hook")}</div><p style="white-space:pre-wrap">${safeText(editorState.body||"Body")}</p><div class="small">Quellen: Wikidata${currentWikipediaSummary?", Wikipedia":""}</div></div></article>`; }
-
-    function buildSwipeCardPayload(){ const t=selectedTopic; const stats=calculateReadingStats(editorState.body); const ts=Date.now(); const cid=currentEditingCardId || `${t.wikidataId}_${editorState.length}_${editorState.cardType}_${ts}`; const sourceIds=[`wikidata_${t.wikidataId}`]; const sources=[{type:"wikidata",title:getTopicTitle(t),url:`https://www.wikidata.org/wiki/${t.wikidataId}`,license:"CC0",publisher:"Wikidata"}]; if(currentWikipediaSummary){ sourceIds.push(`wikipedia_de_${t.wikidataId}`); sources.push({type:"wikipedia",title:safeText(currentWikipediaSummary.title||getTopicTitle(t)),url:safeText(currentWikipediaSummary?.content_urls?.desktop?.page||t?.sitelinks?.dewiki||""),license:"CC BY-SA 4.0",publisher:"Wikipedia"}); }
-      return { cardId:cid, topicId:t.wikidataId, wikidataId:t.wikidataId, cardGroupId:`${t.wikidataId}_${editorState.cardType}`, language:"de", length:editorState.length, readingTimeSec:stats.readingTimeSec, cardType:editorState.cardType, title:safeText(editorState.title), hook:safeText(editorState.hook), body:safeText(editorState.body), topicTitle:{de:safeText(t.title?.de||""),en:safeText(t.title?.en||"")}, sourceIds, sources, tags:parseTagsInput(editorState.tags), mainCategory:safeText(editorState.mainCategory), topicType:safeText(editorState.topicType), difficulty:editorState.difficulty, status:editorState.status, reviewStatus:editorState.reviewStatus, qualityScore:Number(editorState.qualityScore)||0, imageUrl:safeText(editorState.imageUrl||null), updatedAt:serverTimestamp(), ...(currentEditingCardId?{}:{createdAt:serverTimestamp()}) };
-    }
-
-    async function updateTopicContentStatus(topicId,length){ const topicRef=doc(db,"topics",topicId); const key=length==="short"?"contentStatus.hasShortCard":length==="medium"?"contentStatus.hasMediumCard":"contentStatus.hasLongCard"; await updateDoc(topicRef,{ [key]:true, updatedAt:serverTimestamp() }); showStatus("Topic aktualisiert.","success"); }
-    async function saveSwipeCard(){ try{ if(!selectedTopic) throw new Error("Kein Topic ausgewählt"); if(!editorState.title.trim()||!editorState.hook.trim()||!editorState.body.trim()) throw new Error("title, hook und body dürfen nicht leer sein"); const payload=buildSwipeCardPayload(); await setDoc(doc(db,"swipeCards",payload.cardId), payload, { merge:true }); if(currentWikipediaSummary){ const sourceDocId=`wikipedia_de_${selectedTopic.wikidataId}`; await setDoc(doc(db,"sourceDocs",sourceDocId), buildWikipediaSourceDoc(selectedTopic, currentWikipediaSummary), { merge:true }); }
-      await updateTopicContentStatus(selectedTopic.id, payload.length); showStatus("Swipe Card gespeichert.","success"); currentEditingCardId=null; await loadExistingCards(selectedTopic.wikidataId); await loadTopics();
-    }catch(e){ showStatus("Fehler beim Speichern: "+e.message,"error"); }}
-
-    async function loadExistingCards(topicId){ if(!topicId){ existingCards=[]; renderExistingCards(); return; } const snap=await getDocs(query(collection(db,"swipeCards"), where("topicId","==",topicId))); existingCards=snap.docs.map(d=>({id:d.id,...d.data()})); showStatus("Vorhandene Cards geladen.","info"); renderExistingCards(); renderStats(); }
-    function renderExistingCards(){ const b=el("existingCards"); if(!selectedTopic){ b.innerHTML='<p class="muted">Noch kein Topic ausgewählt.</p>'; return; } if(!existingCards.length){ b.innerHTML='<p class="muted">Noch keine Swipe Cards für dieses Topic vorhanden.</p>'; return; } b.innerHTML=`<div class="cards-list">${existingCards.map(c=>`<div class="card-row"><b>${safeText(c.title||"-")}</b><div class="small">${safeText(c.length)} · ${safeText(c.cardType)} · ${safeText(c.status)} · ${safeText(c.reviewStatus)} · ${Number(c.readingTimeSec)||0}s · ${formatDate(c.createdAt)}</div><div class="row"><button data-load="${c.id}">In Editor laden</button><button data-dup="${c.id}">Duplizieren</button><button data-pub="${c.id}">Als published markieren</button><button data-arc="${c.id}">Archivieren</button></div></div>`).join("")}</div>`;
-      b.querySelectorAll("[data-load]").forEach(x=>x.onclick=()=>loadCardIntoEditor(existingCards.find(c=>c.id===x.dataset.load)));
-      b.querySelectorAll("[data-dup]").forEach(x=>x.onclick=()=>duplicateCard(existingCards.find(c=>c.id===x.dataset.dup)));
-      b.querySelectorAll("[data-pub]").forEach(x=>x.onclick=()=>quickUpdateCard(x.dataset.pub,{status:"published"}));
-      b.querySelectorAll("[data-arc]").forEach(x=>x.onclick=()=>quickUpdateCard(x.dataset.arc,{status:"archived"}));
-    }
-    function loadCardIntoEditor(card){ if(!card) return; currentEditingCardId=card.cardId||card.id; editorState={...editorState, cardType:safeText(card.cardType||"intro"), length:safeText(card.length||"short"), difficulty:safeText(card.difficulty||"beginner"), title:safeText(card.title), hook:safeText(card.hook), body:safeText(card.body), tags:(card.tags||[]).join(", "), mainCategory:safeText(card.mainCategory), topicType:safeText(card.topicType), status:safeText(card.status||"draft"), reviewStatus:safeText(card.reviewStatus||"needs_review"), qualityScore:Number(card.qualityScore)||0, imageUrl:safeText(card.imageUrl||"") }; renderEditor(); updatePreview(); }
-    function duplicateCard(card){ if(!card) return; currentEditingCardId=null; loadCardIntoEditor({...card, cardId:null, id:null}); showStatus("Card dupliziert. Beim Speichern wird eine neue Card erzeugt.","info"); }
-    async function quickUpdateCard(cardId,changes){ try{ await updateDoc(doc(db,"swipeCards",cardId),{...changes,updatedAt:serverTimestamp()}); showStatus("Card aktualisiert.","success"); await loadExistingCards(selectedTopic.wikidataId);}catch(e){ showStatus("Update fehlgeschlagen: "+e.message,"error"); }}
-
-    function renderStats(){ const noS=topics.filter(t=>!t.contentStatus.hasShortCard).length, noM=topics.filter(t=>!t.contentStatus.hasMediumCard).length; el("stats").innerHTML=`<div class="stat"><div class="small">Topics total</div><b>${topics.length}</b></div><div class="stat"><div class="small">ohne Short Card</div><b>${noS}</b></div><div class="stat"><div class="small">ohne Medium Card</div><b>${noM}</b></div><div class="stat"><div class="small">Cards zum Topic</div><b>${existingCards.length}</b></div>`; }
-
-    el("loginBtn").onclick=handleLogin; el("logoutBtn").onclick=handleLogout; el("reloadTopicsBtn").onclick=loadTopics; ["topicSearch","topicFilter","topicSort"].forEach(i=>el(i).addEventListener("input",applyTopicFilters));
-    initFirebase(); setupAuth(); renderEditor(); updatePreview(); renderSelectedTopic();
-
-    // Hinweis: UI-Login ist nur Komfort; echte Sicherheit muss per Firestore Rules erzwungen werden.
-    void getDoc; void addDoc; void orderBy; // bewusst importiert für zukünftige Erweiterungen
-  </script>
-</body>
-</html>
+      <div>
+        <div class="tab-row"><button class="tab-btn active" id="manualTabBtn">Manuell</button><button class="tab-btn" id="aiTabBtn">KI Generator</button></div>
+        <section class="panel section" id="manualTab"><h2>Card Editor</h2><div id="editorBox"></div><h2>Vorhandene Cards</h2><div id="existingCards"></div></section>
+        <section class="panel section hidden" id="aiTab">
+          <h2>KI-Multi-Card Generator</h2><p class="small">Erstellt aus den geladenen Quellen je eine Short-, Medium- und Long-Card auf Deutsch und Englisch.</p>
+          <div class="row"><label><input type="checkbox" checked disabled /> Streng: Nur Quellen aus Source Pack verwenden</label><label><input id="saveAsDraftCheckbox" type="checkbox" checked /> Cards als Draft speichern</label></div>
+          <div class="small">KI-Ausgaben immer kurz prüfen. Die Cards werden als Draft gespeichert.</div>
+          <div class="row"><button id="loadAiSourcesBtn" class="btn-primary">Quellen für KI laden</button><button id="buildPromptBtn">KI-Prompt erzeugen</button></div>
+          <div id="aiSourcesStatus" class="small muted">Noch keine Quellen geladen.</div>
+          <div class="field"><label>Prompt für KI</label><textarea id="aiPromptOutput" style="min-height:220px"></textarea><button id="copyPromptBtn">Prompt kopieren</button></div>
+          <div class="field"><label>KI-JSON-Antwort einfügen</label><textarea id="aiJsonInput" style="min-height:220px"></textarea></div>
+          <div class="row"><button id="validateAiJsonBtn">KI-JSON prüfen</button><button id="saveAllAiCardsBtn" class="btn-primary" disabled>Alle 6 Swipe Cards speichern</button></div>
+          <div id="aiValidationOutput" class="small"></div><div id="aiPreviewBox" class="ai-grid"></div>
+        </section>
+      </div>
+    </div>
+  </section>
+</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getFirestore,collection,getDocs,doc,getDoc,setDoc,updateDoc,query,where,serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+const firebaseConfig={apiKey:"AIzaSyBOjkDk1Mmr79wY7bpKHQ5jidqwuHDo_kg",authDomain:"swipe-82eeb.firebaseapp.com",projectId:"swipe-82eeb",storageBucket:"swipe-82eeb.firebasestorage.app",messagingSenderId:"649929298401",appId:"1:649929298401:web:d94f1a5ebf1407ac6502a0"};
+let app,auth,db,user=null,topics=[],selectedTopic=null,existingCards=[],editorState={cardType:"intro",length:"short",difficulty:"beginner",title:"",hook:"",body:"",tags:"",mainCategory:"",topicType:"",status:"draft",reviewStatus:"needs_review",qualityScore:0};
+let aiSourceState=null,validatedAIResult=null;
+const el=id=>document.getElementById(id),safe=v=>v==null?"":String(v),title=t=>safe(t?.title?.de||t?.title?.en||t?.wikidataId||"Unbenannt");
+function showStatus(m,t=""){const b=el("statusBar");b.className=`status ${t}`;b.textContent=m;} function calculateReadingStats(text){const wc=safe(text).trim()?safe(text).trim().split(/\s+/).filter(Boolean).length:0;return{wordCount:wc,readingTimeSec:Math.max(5,Math.ceil(wc/200*60))};}
+function sanitizeForFirestore(v){return removeUndefinedDeep(v);} function removeUndefinedDeep(o){if(Array.isArray(o)) return o.map(removeUndefinedDeep).filter(v=>v!==undefined); if(o&&typeof o==="object"){const r={};Object.entries(o).forEach(([k,v])=>{const n=removeUndefinedDeep(v); if(n!==undefined) r[k]=n;}); return r;} return o===undefined?undefined:o;}
+function extractWikipediaTitleFromUrl(url){try{const u=new URL(url);const p=u.pathname.split('/wiki/')[1]||"";return p?decodeURIComponent(p):"";}catch{return"";}}
+function truncateForSourcePack(text,maxChars){const t=safe(text);return t.length>maxChars?t.slice(0,maxChars)+"\n[...gekürzt...]":t;}
+async function fetchWithApiUserAgentFallback(url){try{return await fetch(url,{headers:{"Api-User-Agent":"SwipeKnowledgePrototype/0.1 (admin-local)"}});}catch{return fetch(url);} }
+async function fetchWikipediaSummaryByUrl(url,language){if(!url)return null;const t=extractWikipediaTitleFromUrl(url);const api=`https://${language}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(t)}`;let r=await fetchWithApiUserAgentFallback(api);if(!r.ok) throw new Error(`Summary ${language} HTTP ${r.status}`);const d=await r.json();return {summaryTitle:safe(d.title),summaryExtract:safe(d.extract),url:safe(d?.content_urls?.desktop?.page||url)};}
+async function fetchWikipediaFullExtractByUrl(url,language){if(!url)return"";const t=extractWikipediaTitleFromUrl(url);const api=`https://${language}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exintro=0&redirects=1&format=json&origin=*&titles=${encodeURIComponent(t)}`;let r=await fetchWithApiUserAgentFallback(api);if(!r.ok) throw new Error(`Extract ${language} HTTP ${r.status}`);const d=await r.json();const page=Object.values(d?.query?.pages||{})[0];return safe(page?.extract||"");}
+async function loadAISourcesForSelectedTopic(){if(!selectedTopic) throw new Error("Kein Topic ausgewählt");const de=selectedTopic?.sitelinks?.dewiki||"",en=selectedTopic?.sitelinks?.enwiki||"";const s={wikidata:{available:true,error:null},deSummary:null,deFull:null,enSummary:null,enFull:null};
+try{if(de){s.deSummary=await fetchWikipediaSummaryByUrl(de,"de");}}catch(e){s.wikidata.error=e.message;} try{if(de){s.deFull=truncateForSourcePack(await fetchWikipediaFullExtractByUrl(de,"de"),18000);}}catch{}
+try{if(en){s.enSummary=await fetchWikipediaSummaryByUrl(en,"en");}}catch{} try{if(en){s.enFull=truncateForSourcePack(await fetchWikipediaFullExtractByUrl(en,"en"),18000);}}catch{}
+aiSourceState=s;renderAISourceStatus();return s;}
+function buildSourcePackForAI(){if(!selectedTopic) return null;const qid=selectedTopic.wikidataId;return {topic:{wikidataId:qid,title:{de:safe(selectedTopic?.title?.de),en:safe(selectedTopic?.title?.en)},description:{de:safe(selectedTopic?.description?.de),en:safe(selectedTopic?.description?.en)},aliases:{de:selectedTopic?.aliases?.de||[],en:selectedTopic?.aliases?.en||[]},mainCategory:safe(selectedTopic.mainCategory),topicType:safe(selectedTopic.topicType),tags:Array.isArray(selectedTopic.tags)?selectedTopic.tags:[],sitelinks:selectedTopic.sitelinks||{}},sources:{wikidata:{id:`wikidata_${qid}`,url:`https://www.wikidata.org/wiki/${qid}`,license:"CC0",available:true},wikipediaDe:{id:`wikipedia_de_${qid}`,url:safe(selectedTopic?.sitelinks?.dewiki),license:"CC BY-SA 4.0",summaryTitle:safe(aiSourceState?.deSummary?.summaryTitle),summaryExtract:safe(aiSourceState?.deSummary?.summaryExtract),fullExtract:safe(aiSourceState?.deFull),available:!!(aiSourceState?.deSummary||aiSourceState?.deFull)},wikipediaEn:{id:`wikipedia_en_${qid}`,url:safe(selectedTopic?.sitelinks?.enwiki),license:"CC BY-SA 4.0",summaryTitle:safe(aiSourceState?.enSummary?.summaryTitle),summaryExtract:safe(aiSourceState?.enSummary?.summaryExtract),fullExtract:safe(aiSourceState?.enFull),available:!!(aiSourceState?.enSummary||aiSourceState?.enFull)}}};}
+function buildAIPrompt(sp){return `Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp.\nRegeln: Verwende ausschliesslich Informationen aus SOURCE PACK. Erfinde keine Fakten. Keine externen Quellen. Wenn Infos fehlen, weglassen. DE auf Deutsch, EN auf Englisch. Gib ausschliesslich gültiges JSON zurück.\nErstelle exakt 6 Cards (de/en x short/medium/long). Long nur aufblasen wenn Quelle reicht, sonst needsMoreSourceMaterial=true.\nErlaubte mainCategory: geschichte,wissenschaft,geografie,politik,gesellschaft,religion,philosophie,technik,wirtschaft,kultur,sport,biografie,natur,medizin,mythologie,allgemeinwissen\nErlaubte topicType: person,historical_event,historical_period,place,country,organization,concept,scientific_concept,religion,ideology,technology,invention,conflict,treaty,natural_object,cultural_work,sport_event,other\nErlaubte difficulty: beginner,intermediate,advanced\nJSON-Schema exakt: {"topicMeta":{...},"cards":[...6...]}.\nSOURCE PACK:\n${JSON.stringify(sp,null,2)}`;}
+async function copyAIPromptToClipboard(){await navigator.clipboard.writeText(el("aiPromptOutput").value||"");showStatus("Prompt kopiert","success");}
+function validateAICardSet(parsed){const errors=[],warnings=[]; if(!parsed?.topicMeta) warnings.push("topicMeta fehlt"); if(!Array.isArray(parsed?.cards)){errors.push("cards fehlt/kein Array"); return {errors,warnings};} if(parsed.cards.length!==6) errors.push("Es müssen genau 6 Cards sein.");
+const req=["de_short","de_medium","de_long","en_short","en_medium","en_long"]; const seen=new Set(); parsed.cards.forEach((c,i)=>{if(!["de","en"].includes(c.language)) errors.push(`Ungültige language in Card ${i+1}`); if(!["short","medium","long"].includes(c.length)) errors.push(`Ungültige length in Card ${i+1}`); if(!safe(c.title).trim()||!safe(c.hook).trim()||!safe(c.body).trim()) errors.push(`title/hook/body leer in Card ${i+1}`); seen.add(`${c.language}_${c.length}`); const wc=calculateReadingStats(c.body).wordCount; if(wc<20) warnings.push(`${c.language}/${c.length} body sehr kurz`); if(c.length==="long"&&wc<1000) warnings.push(`${c.language}/long unter 1000 Wörter`); if(c.needsMoreSourceMaterial) warnings.push(`${c.language}/${c.length} needsMoreSourceMaterial=true`); if(!Array.isArray(c.sourceBasis)||!c.sourceBasis.length) warnings.push(`${c.language}/${c.length} sourceBasis leer`);}); req.forEach(k=>{if(!seen.has(k)) errors.push(`Kombination fehlt: ${k}`)});
+if(!parsed?.topicMeta?.mainCategory||parsed?.topicMeta?.mainCategory==="unknown") warnings.push("mainCategory fehlt/unknown"); if(!parsed?.topicMeta?.topicType||parsed?.topicMeta?.topicType==="unknown") warnings.push("topicType fehlt/unknown"); return {errors,warnings};}
+function parseAndValidateAIJson(){try{const parsed=JSON.parse(el("aiJsonInput").value);const r=validateAICardSet(parsed);el("aiValidationOutput").innerHTML=`${r.errors.length?`<div style='color:var(--danger)'>Fehler: ${r.errors.join(" | ")}</div>`:""}${r.warnings.length?`<div style='color:var(--warn)'>Warnungen: ${r.warnings.join(" | ")}</div>`:""}`; if(r.errors.length){validatedAIResult=null;el("saveAllAiCardsBtn").disabled=true;return null;} validatedAIResult=parsed; renderAICardPreview(parsed.cards,parsed.topicMeta); el("saveAllAiCardsBtn").disabled=false; return parsed;}catch(e){el("aiValidationOutput").innerHTML=`<span style='color:var(--danger)'>Ungültiges JSON: ${e.message}</span>`;validatedAIResult=null;return null;}}
+function renderAICardPreview(cards){el("aiPreviewBox").innerHTML=cards.map(c=>{const s=calculateReadingStats(c.body);return `<div class='ai-preview-card'><div class='row'><span class='badge'>${c.language}</span><span class='badge'>${c.length}</span>${c.needsMoreSourceMaterial?"<span class='badge miss'>needsMoreSourceMaterial</span>":""}</div><b>${safe(c.title)}</b><div class='small'>${safe(c.hook)}</div><details><summary>Body anzeigen (${s.wordCount} Wörter / ${s.readingTimeSec}s)</summary><div class='ai-preview-body'>${safe(c.body)}</div></details><div class='small'>sourceBasis: ${(c.sourceBasis||[]).join(", ")||"-"}<br/>sourceLimitations: ${(c.sourceLimitations||[]).join(" | ")||"-"}</div></div>`;}).join("");}
+function buildAvailableSourceIds(sp){const ids=[sp.sources.wikidata.id]; if(sp.sources.wikipediaDe.available) ids.push(sp.sources.wikipediaDe.id); if(sp.sources.wikipediaEn.available) ids.push(sp.sources.wikipediaEn.id); return ids;}
+function buildAvailableSources(sp){const arr=[{type:"wikidata",title:title(selectedTopic),url:sp.sources.wikidata.url,license:"CC0",publisher:"Wikidata"}]; if(sp.sources.wikipediaDe.available) arr.push({type:"wikipedia",language:"de",title:sp.sources.wikipediaDe.summaryTitle||title(selectedTopic),url:sp.sources.wikipediaDe.url,license:"CC BY-SA 4.0",publisher:"Wikipedia"}); if(sp.sources.wikipediaEn.available) arr.push({type:"wikipedia",language:"en",title:sp.sources.wikipediaEn.summaryTitle||title(selectedTopic),url:sp.sources.wikipediaEn.url,license:"CC BY-SA 4.0",publisher:"Wikipedia"}); return arr;}
+function buildSwipeCardPayloadFromAI(aiCard,topicMeta,sp,t){const stats=calculateReadingStats(aiCard.body); const cardId=`${selectedTopic.wikidataId}_${aiCard.language}_${aiCard.length}_${aiCard.cardType}_${t}`; return sanitizeForFirestore({cardId,topicId:selectedTopic.wikidataId,wikidataId:selectedTopic.wikidataId,cardGroupId:`${selectedTopic.wikidataId}_ai_intro`,language:aiCard.language,length:aiCard.length,readingTimeSec:stats.readingTimeSec,wordCount:stats.wordCount,cardType:aiCard.cardType||"intro",title:safe(aiCard.title),hook:safe(aiCard.hook),body:safe(aiCard.body),topicTitle:{de:safe(selectedTopic?.title?.de),en:safe(selectedTopic?.title?.en)},sourceIds:buildAvailableSourceIds(sp),sources:buildAvailableSources(sp),sourceBasis:aiCard.sourceBasis||[],sourceLimitations:aiCard.sourceLimitations||[],needsMoreSourceMaterial:!!aiCard.needsMoreSourceMaterial,tags:Array.isArray(topicMeta?.tags)?topicMeta.tags:[],mainCategory:safe(topicMeta?.mainCategory||selectedTopic.mainCategory),topicType:safe(topicMeta?.topicType||selectedTopic.topicType),difficulty:safe(topicMeta?.difficulty||"beginner"),generation:{method:"manual_ai_json",aiGenerated:true,sourceRestricted:true,noNewFactsInstruction:true,generatedAt:serverTimestamp()},status:el("saveAsDraftCheckbox").checked?"draft":"draft",reviewStatus:"needs_review",qualityScore:0,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});}
+async function upsertWikipediaSourceDocs(sp){const qid=selectedTopic.wikidataId; await setDoc(doc(db,"sourceDocs",`wikidata_${qid}`),{sourceType:"wikidata",wikidataId:qid,url:sp.sources.wikidata.url,updatedAt:serverTimestamp()},{merge:true}); if(sp.sources.wikipediaDe.available) await setDoc(doc(db,"sourceDocs",`wikipedia_de_${qid}`),{sourceType:"wikipedia",wikidataId:qid,title:sp.sources.wikipediaDe.summaryTitle||title(selectedTopic),url:sp.sources.wikipediaDe.url,license:"CC BY-SA 4.0",publisher:"Wikipedia",language:"de",fetchedAt:serverTimestamp(),trustLevel:"medium-high"},{merge:true}); if(sp.sources.wikipediaEn.available) await setDoc(doc(db,"sourceDocs",`wikipedia_en_${qid}`),{sourceType:"wikipedia",wikidataId:qid,title:sp.sources.wikipediaEn.summaryTitle||title(selectedTopic),url:sp.sources.wikipediaEn.url,license:"CC BY-SA 4.0",publisher:"Wikipedia",language:"en",fetchedAt:serverTimestamp(),trustLevel:"medium-high"},{merge:true});}
+async function updateTopicAfterAIGeneration(topicMeta){await setDoc(doc(db,"topics",selectedTopic.wikidataId),sanitizeForFirestore({mainCategory:topicMeta.mainCategory,topicType:topicMeta.topicType,tags:Array.isArray(topicMeta.tags)?topicMeta.tags:[],status:"ready",contentStatus:{hasShortCard:true,hasMediumCard:true,hasLongCard:true,reviewStatus:"cards_generated"},updatedAt:serverTimestamp()}),{merge:true});}
+async function saveAllAICards(){if(!validatedAIResult) throw new Error("Erst JSON validieren");const sp=buildSourcePackForAI(); const t=Math.floor(Date.now()/1000); for(const c of validatedAIResult.cards){const p=buildSwipeCardPayloadFromAI(c,validatedAIResult.topicMeta,sp,t); await setDoc(doc(db,"swipeCards",p.cardId),p,{merge:true});} await upsertWikipediaSourceDocs(sp); await updateTopicAfterAIGeneration(validatedAIResult.topicMeta); showStatus("6 KI-Cards gespeichert","success");}
+function renderAISourceStatus(){const sp=buildSourcePackForAI(); if(!sp){el("aiSourcesStatus").textContent="Kein Topic.";return;} el("aiSourcesStatus").innerHTML=`Wikidata: <span class='badge ok'>vorhanden</span> | DE Summary: <span class='badge ${sp.sources.wikipediaDe.summaryExtract?'ok':'miss'}'>${sp.sources.wikipediaDe.summaryExtract?'geladen':'fehlt'}</span> | DE Volltext: <span class='badge ${sp.sources.wikipediaDe.fullExtract?'ok':'miss'}'>${sp.sources.wikipediaDe.fullExtract?'geladen':'fehlt'}</span> | EN Summary: <span class='badge ${sp.sources.wikipediaEn.summaryExtract?'ok':'miss'}'>${sp.sources.wikipediaEn.summaryExtract?'geladen':'fehlt'}</span> | EN Volltext: <span class='badge ${sp.sources.wikipediaEn.fullExtract?'ok':'miss'}'>${sp.sources.wikipediaEn.fullExtract?'geladen':'fehlt'}</span>`;}
+async function loadTopics(){const snap=await getDocs(collection(db,"topics"));topics=snap.docs.map(d=>({id:d.id,...d.data(),wikidataId:safe(d.data().wikidataId||d.id),contentStatus:d.data().contentStatus||{}}));renderTopicList();renderStats();}
+function renderTopicList(){el("topicList").innerHTML=topics.map(t=>`<div class='topic-item'><b>${title(t)}</b><div class='small'>${t.wikidataId}</div><button data-t='${t.wikidataId}'>Auswählen</button></div>`).join("");document.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>selectTopic(b.dataset.t));}
+async function selectTopic(id){selectedTopic=topics.find(t=>t.wikidataId===id)||null;editorState.title=title(selectedTopic);renderSelectedTopic();renderEditor();await loadExistingCards(id);validatedAIResult=null;el("saveAllAiCardsBtn").disabled=true;renderAISourceStatus();}
+function renderSelectedTopic(){el("selectedTopic").innerHTML=selectedTopic?`<b>${title(selectedTopic)}</b><div class='small'>${safe(selectedTopic?.description?.de||"")}</div>`:"<span class='muted'>Kein Topic gewählt</span>";}
+function renderEditor(){el("editorBox").innerHTML="<div class='small'>Bestehende manuelle Erstellung bleibt aktiv.</div>";}
+async function loadExistingCards(topicId){if(!topicId) return;const snap=await getDocs(query(collection(db,"swipeCards"),where("topicId","==",topicId)));existingCards=snap.docs.map(d=>d.data());el("existingCards").innerHTML=existingCards.map(c=>`<div class='card-row'><b>${safe(c.title)}</b><div class='small'>${safe(c.language)} ${safe(c.length)}</div></div>`).join("")||"<span class='muted'>Keine Cards</span>";renderStats();}
+function renderStats(){el("stats").innerHTML=`<div class='panel section'><div class='small'>Topics</div><b>${topics.length}</b></div><div class='panel section'><div class='small'>Cards Topic</div><b>${existingCards.length}</b></div>`;}
+function init(){app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);onAuthStateChanged(auth,async u=>{user=u;el("loginBox").classList.toggle("hidden",!!u);el("appRoot").classList.toggle("hidden",!u);if(u){el("userEmail").textContent=u.email||"";await loadTopics();}});
+el("loginBtn").onclick=()=>signInWithEmailAndPassword(auth,el("emailInput").value.trim(),el("passwordInput").value);el("logoutBtn").onclick=()=>signOut(auth);el("reloadTopicsBtn").onclick=loadTopics;
+el("manualTabBtn").onclick=()=>{el("manualTab").classList.remove("hidden");el("aiTab").classList.add("hidden");el("manualTabBtn").classList.add("active");el("aiTabBtn").classList.remove("active");};
+el("aiTabBtn").onclick=()=>{el("aiTab").classList.remove("hidden");el("manualTab").classList.add("hidden");el("aiTabBtn").classList.add("active");el("manualTabBtn").classList.remove("active");};
+el("loadAiSourcesBtn").onclick=async()=>{try{await loadAISourcesForSelectedTopic();showStatus("KI-Quellen geladen","success");}catch(e){showStatus(e.message,"error")}};
+el("buildPromptBtn").onclick=()=>{const sp=buildSourcePackForAI();if(!sp)return showStatus("Topic/Quellen fehlen","error");el("aiPromptOutput").value=buildAIPrompt(sp);};
+el("copyPromptBtn").onclick=copyAIPromptToClipboard; el("validateAiJsonBtn").onclick=parseAndValidateAIJson; el("saveAllAiCardsBtn").onclick=async()=>{try{await saveAllAICards();await loadTopics();await loadExistingCards(selectedTopic.wikidataId);}catch(e){showStatus(e.message,"error")}};
+}
+init();
+void getDoc;
+</script></body></html>
