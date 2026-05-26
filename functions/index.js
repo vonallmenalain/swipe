@@ -469,7 +469,7 @@ function calculateReadingStats(text) { const wordCount = safeString(text).trim()
 function buildAvailableSourceIds(sp) { const ids = [sp.sources.wikidata.id]; if (sp.sources.wikipediaDe.available) ids.push(sp.sources.wikipediaDe.id); if (sp.sources.wikipediaEn.available) ids.push(sp.sources.wikipediaEn.id); return ids; }
 function buildAvailableSources(sp) { const out = [{ type: "wikidata", title: safeString(sp.topic?.title?.de || sp.topic?.title?.en), url: sp.sources.wikidata.url, license: "CC0", publisher: "Wikidata" }]; if (sp.sources.wikipediaDe.available) out.push({ type: "wikipedia", language: "de", title: sp.sources.wikipediaDe.summaryTitle || safeString(sp.topic?.title?.de), url: sp.sources.wikipediaDe.url, license: "CC BY-SA 4.0", publisher: "Wikipedia" }); if (sp.sources.wikipediaEn.available) out.push({ type: "wikipedia", language: "en", title: sp.sources.wikipediaEn.summaryTitle || safeString(sp.topic?.title?.en), url: sp.sources.wikipediaEn.url, license: "CC BY-SA 4.0", publisher: "Wikipedia" }); return out; }
 
-exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSeconds: 300, memory: "1GiB", maxInstances: 2, concurrency: 1, secrets: [OPENAI_API_KEY] }, async (request) => {
+exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSeconds: 540, memory: "1GiB", maxInstances: 2, concurrency: 1, secrets: [OPENAI_API_KEY] }, async (request) => {
   const warnings = []; const cardIds = []; let topicId = ""; let wikidataId = ""; let sourceAvailability = null; let debugDetails = {};
   try {
     if (!request.auth) throw new HttpsError("unauthenticated", "Bitte zuerst einloggen.");
@@ -579,13 +579,21 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
     let shortMediumOutput;
     let longOutput;
 
-    // Call 1: short + medium
-    let resp1;
-    try {
-      resp1 = await callShortMedium(false);
-    } catch (e) {
+    // Both calls are independent — run them in parallel to halve total latency
+    const [res1, res2] = await Promise.allSettled([callShortMedium(false), callLong(false)]);
+
+    if (res1.status === "rejected") {
+      const e = res1.reason;
       throw new HttpsError("failed-precondition", `OpenAI Netzwerkfehler (Aufruf 1 Short/Medium): ${e.message}`, removeUndefinedDeep({ errorType: "openai_call1_failed", model: OPENAI_MODEL, sourceAvailability }));
     }
+    if (res2.status === "rejected") {
+      const e = res2.reason;
+      throw new HttpsError("failed-precondition", `OpenAI Netzwerkfehler (Aufruf 2 Long): ${e.message}`, removeUndefinedDeep({ errorType: "openai_call2_failed", model: OPENAI_MODEL_LONG, sourceAvailability }));
+    }
+
+    let resp1 = res1.value;
+    let resp2 = res2.value;
+
     let r1 = parseOpenAIResponse(resp1, "call1-short-medium");
     if (resp1?.status === "incomplete") {
       let resp1fb;
@@ -597,13 +605,6 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
     shortMediumOutput = unwrapAIOutput(r1.value);
     responseDebug = { call1: r1.debug };
 
-    // Call 2: long cards
-    let resp2;
-    try {
-      resp2 = await callLong(false);
-    } catch (e) {
-      throw new HttpsError("failed-precondition", `OpenAI Netzwerkfehler (Aufruf 2 Long): ${e.message}`, removeUndefinedDeep({ errorType: "openai_call2_failed", model: OPENAI_MODEL_LONG, sourceAvailability }));
-    }
     let r2 = parseOpenAIResponse(resp2, "call2-long");
     if (resp2?.status === "incomplete") {
       let resp2fb;
