@@ -636,6 +636,153 @@
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* ─── RELATED TOPICS PANEL ────────────────────────── */
+    .related-panel {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 18, 15, .97);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform .3s cubic-bezier(.4, 0, .2, 1);
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .related-panel.open {
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    .related-panel-topbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .related-panel-title {
+      flex: 1;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .related-panel-hint {
+      font-size: .72rem;
+      color: var(--text2);
+      margin-top: 2px;
+      font-weight: 400;
+    }
+
+    .close-panel-btn {
+      width: 36px; height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--text2);
+      font-size: .85rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background .15s;
+    }
+
+    .close-panel-btn:active { background: var(--card2); }
+
+    .related-panel-scroll {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 14px 16px 24px;
+    }
+
+    .related-topic-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: background .15s, border-color .15s, transform .1s;
+      text-align: left;
+      width: 100%;
+    }
+
+    .related-topic-card:active { background: var(--card2); transform: scale(.98); }
+
+    .related-topic-card:hover { border-color: rgba(47, 206, 140, .3); background: rgba(47, 206, 140, .06); }
+
+    .related-topic-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      background: rgba(47, 206, 140, .1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .related-topic-info { flex: 1; min-width: 0; }
+
+    .related-topic-name {
+      font-size: .95rem;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .related-topic-meta {
+      font-size: .72rem;
+      color: var(--text2);
+      margin-top: 3px;
+    }
+
+    .related-topic-arrow {
+      color: var(--accent);
+      font-size: .85rem;
+      flex-shrink: 0;
+    }
+
+    .related-empty {
+      text-align: center;
+      color: var(--text2);
+      font-size: .9rem;
+      padding: 32px 16px;
+      line-height: 1.6;
+    }
+
+    .swipe-hint {
+      position: absolute;
+      right: 14px;
+      bottom: 80px;
+      background: rgba(47, 206, 140, .12);
+      border: 1px solid rgba(47, 206, 140, .2);
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: .7rem;
+      color: var(--accent);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .5s ease;
+      white-space: nowrap;
+    }
+
+    .swipe-hint.show { opacity: 1; }
   </style>
 </head>
 <body>
@@ -721,10 +868,27 @@
       <button class="len-pill"        data-value="long">📚 Lang</button>
     </div>
 
-    <div class="card-container">
+    <div class="card-container" style="position:relative">
       <div class="card-viewport" id="cardViewport">
         <!-- Card injected here -->
       </div>
+
+      <!-- Related Topics Panel (slides in from right on left swipe) -->
+      <div class="related-panel" id="relatedPanel">
+        <div class="related-panel-topbar">
+          <div>
+            <div class="related-panel-title">Verwandte Themen</div>
+            <div class="related-panel-hint">Tippe auf ein Thema, um dessen Karte zu lesen</div>
+          </div>
+          <button class="close-panel-btn" id="closePanelBtn" aria-label="Schließen">✕</button>
+        </div>
+        <div class="related-panel-scroll" id="relatedPanelScroll">
+          <div class="related-empty">Wird geladen…</div>
+        </div>
+      </div>
+
+      <!-- Swipe-left hint (appears briefly on first card) -->
+      <div class="swipe-hint" id="swipeHint">← Wische links für verwandte Themen</div>
     </div>
 
     <div class="reader-nav">
@@ -817,6 +981,7 @@
   let touchStartX = 0;
   let touchStartY = 0;
   let touchStartScrollY = 0;
+  let relatedPanelOpen = false;
 
   /* ── Helpers ────────────────────────────────────────── */
   const $  = id => document.getElementById(id);
@@ -1066,6 +1231,7 @@
       syncReaderLenBar();
       renderCard(idx);
       renderNav();
+      maybeShowSwipeHint();
 
     } catch (err) {
       console.error("Fehler beim Laden der Karten:", err);
@@ -1078,6 +1244,7 @@
   /* ── Change length from within the reader ──────────── */
   async function changeLength(newLen) {
     if (newLen === selectedLen) return;
+    closeRelatedPanel();
     selectedLen = newLen;
     syncReaderLenBar();
     // Sync setup screen pills too
@@ -1229,9 +1396,23 @@
     vp.addEventListener("touchend", e => {
       const dx = e.changedTouches[0].clientX - touchStartX;
       const dy = e.changedTouches[0].clientY - touchStartY;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+
+      // Horizontal swipe (primarily horizontal gesture, min 45px)
+      if (absDx > absDy * 1.4 && absDx > 45) {
+        if (dx < 0) {
+          // Left swipe → open related topics panel
+          openRelatedPanel();
+        } else {
+          // Right swipe → close panel if open
+          closeRelatedPanel();
+        }
+        return;
+      }
 
       // Require primarily vertical gesture
-      if (Math.abs(dy) <= Math.abs(dx) * 1.4 || Math.abs(dy) < 55) return;
+      if (absDy <= absDx * 1.4 || absDy < 55) return;
 
       const cardFitsViewport = vp.scrollHeight <= vp.clientHeight + 4;
       const atTop    = touchStartScrollY < 8;
@@ -1239,12 +1420,162 @@
 
       if (dy < 0 && (cardFitsViewport || atBottom)) {
         // Swipe up → next card (like Instagram Reels)
+        closeRelatedPanel();
         goTo(idx + 1, "next");
       } else if (dy > 0 && (cardFitsViewport || atTop)) {
         // Swipe down → previous card
+        closeRelatedPanel();
         goTo(idx - 1, "prev");
       }
     }, { passive: true });
+
+    // Also handle swipe on the related panel (right swipe closes it)
+    const panel = $("relatedPanel");
+    let panelTouchStartX = 0;
+    panel.addEventListener("touchstart", e => {
+      panelTouchStartX = e.touches[0].clientX;
+    }, { passive: true });
+    panel.addEventListener("touchend", e => {
+      const dx = e.changedTouches[0].clientX - panelTouchStartX;
+      if (dx > 60) closeRelatedPanel();
+    }, { passive: true });
+  }
+
+  /* ── Related Topics Panel ───────────────────────────── */
+
+  function findTopicById(topicId) {
+    return topics.find(t => t.id === topicId || (t.wikidataId && t.wikidataId === topicId)) ?? null;
+  }
+
+  function findTopicForTerm(term) {
+    const titleLower = String(term.title ?? "").toLowerCase().trim();
+    if (term.wikidataId) {
+      const byId = topics.find(t => t.id === term.wikidataId || t.wikidataId === term.wikidataId);
+      if (byId) return byId;
+    }
+    return topics.find(t =>
+      String(t.title?.de ?? "").toLowerCase().trim() === titleLower ||
+      String(t.title?.en ?? "").toLowerCase().trim() === titleLower
+    ) ?? null;
+  }
+
+  function topicHasPublishedCards(topic) {
+    return (topic?.contentStatus?.cardsPublished ?? 0) > 0 ||
+           topic?.contentStatus?.hasShortCard === true;
+  }
+
+  function openRelatedPanel() {
+    relatedPanelOpen = true;
+    $("relatedPanel").classList.add("open");
+    loadRelatedTopicsForCard(cards[idx]);
+  }
+
+  function closeRelatedPanel() {
+    if (!relatedPanelOpen) return;
+    relatedPanelOpen = false;
+    $("relatedPanel").classList.remove("open");
+  }
+
+  async function loadRelatedTopicsForCard(card) {
+    if (!card) return;
+    const scroll = $("relatedPanelScroll");
+    scroll.innerHTML = `<div class="related-empty">Wird geladen…</div>`;
+
+    const topic = findTopicById(card.topicId);
+    const relatedTerms = Array.isArray(topic?.relatedTerms) ? topic.relatedTerms : [];
+
+    // Resolve each term to a topic with published cards
+    const resolved = relatedTerms
+      .map(term => findTopicForTerm(term))
+      .filter(t => t !== null && t.id !== card.topicId && t.wikidataId !== card.topicId)
+      .filter(t => topicHasPublishedCards(t));
+
+    // Deduplicate by topic id
+    const seen = new Set();
+    const unique = resolved.filter(t => {
+      const key = t.id ?? t.wikidataId;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    if (!unique.length) {
+      scroll.innerHTML = `<div class="related-empty">Für diese Karte sind noch keine verwandten Themen mit Karten verfügbar.</div>`;
+      return;
+    }
+
+    const CAT_META_LOCAL = {
+      geschichte: "📜", wissenschaft: "🔬", geografie: "🌍", politik: "🏛️",
+      gesellschaft: "👥", religion: "⛪", philosophie: "💭", technik: "⚙️",
+      wirtschaft: "📈", kultur: "🎭", sport: "⚽", biografie: "👤",
+      natur: "🌿", medizin: "🩺", mythologie: "⚡", allgemeinwissen: "💡",
+    };
+
+    scroll.innerHTML = unique.map(t => {
+      const title = selectedLang === "de"
+        ? String(t.title?.de ?? t.title?.en ?? t.wikidataId ?? "")
+        : String(t.title?.en ?? t.title?.de ?? t.wikidataId ?? "");
+      const cat = String(t.mainCategory ?? "");
+      const emoji = CAT_META_LOCAL[cat] ?? "📌";
+      const catLabel = CAT_META[cat]?.label ?? cat;
+      return `<button class="related-topic-card" data-related-topic="${esc(t.id ?? t.wikidataId)}">
+        <div class="related-topic-icon">${emoji}</div>
+        <div class="related-topic-info">
+          <div class="related-topic-name">${esc(title)}</div>
+          <div class="related-topic-meta">${esc(catLabel)}</div>
+        </div>
+        <div class="related-topic-arrow">→</div>
+      </button>`;
+    }).join("");
+
+    scroll.querySelectorAll("[data-related-topic]").forEach(btn => {
+      btn.addEventListener("click", () => navigateToRelatedTopic(btn.dataset.relatedTopic));
+    });
+  }
+
+  async function navigateToRelatedTopic(topicId) {
+    closeRelatedPanel();
+    const vp = $("cardViewport");
+    vp.style.opacity = "0.4";
+    try {
+      const snap = await getDocs(query(
+        collection(db, "swipeCards"),
+        where("topicId", "==", topicId)
+      ));
+      const newCards = snap.docs
+        .map(d => ({ _docId: d.id, ...d.data() }))
+        .filter(c => c.language === selectedLang && c.length === selectedLen && c.status !== "archived");
+
+      vp.style.opacity = "";
+      if (!newCards.length) {
+        // Try other lengths if this length has no card
+        const anyCard = snap.docs
+          .map(d => ({ _docId: d.id, ...d.data() }))
+          .filter(c => c.language === selectedLang && c.status !== "archived")[0];
+        if (anyCard) {
+          cards = [...cards.slice(0, idx + 1), anyCard, ...cards.slice(idx + 1)];
+          goTo(idx + 1, "next");
+        }
+        return;
+      }
+      // Insert the related topic's card(s) right after current position
+      cards = [...cards.slice(0, idx + 1), ...newCards, ...cards.slice(idx + 1)];
+      goTo(idx + 1, "next");
+    } catch (err) {
+      vp.style.opacity = "";
+      console.error("Fehler beim Laden der Karte:", err);
+    }
+  }
+
+  /* ── Swipe-left hint (shown briefly on first card) ─── */
+  function maybeShowSwipeHint() {
+    const hint = $("swipeHint");
+    if (!hint || sessionStorage.getItem("swipeHintShown")) return;
+    sessionStorage.setItem("swipeHintShown", "1");
+    setTimeout(() => {
+      hint.classList.add("show");
+      setTimeout(() => hint.classList.remove("show"), 3000);
+    }, 1200);
   }
 
   /* ── Keyboard navigation ────────────────────────────── */
@@ -1252,9 +1583,11 @@
     document.addEventListener("keydown", e => {
       const active = document.querySelector(".screen:not(.hidden)");
       if (active?.id !== "readerScreen") return;
-      if (e.key === "ArrowDown" || e.key === "ArrowRight") goTo(idx + 1, "next");
-      if (e.key === "ArrowUp"   || e.key === "ArrowLeft")  goTo(idx - 1, "prev");
-      if (e.key === "Escape") showScreen("setupScreen");
+      if (e.key === "ArrowDown")  { closeRelatedPanel(); goTo(idx + 1, "next"); }
+      if (e.key === "ArrowUp")    { closeRelatedPanel(); goTo(idx - 1, "prev"); }
+      if (e.key === "ArrowLeft")  { if (relatedPanelOpen) closeRelatedPanel(); else openRelatedPanel(); }
+      if (e.key === "ArrowRight") { if (relatedPanelOpen) closeRelatedPanel(); }
+      if (e.key === "Escape")     { if (relatedPanelOpen) closeRelatedPanel(); else showScreen("setupScreen"); }
     });
   }
 
@@ -1299,12 +1632,14 @@
   function setupEvents() {
     $("startBtn").addEventListener("click", loadCards);
 
-    $("prevBtn").addEventListener("click", () => goTo(idx - 1, "prev"));
-    $("nextBtn").addEventListener("click", () => goTo(idx + 1, "next"));
+    $("prevBtn").addEventListener("click", () => { closeRelatedPanel(); goTo(idx - 1, "prev"); });
+    $("nextBtn").addEventListener("click", () => { closeRelatedPanel(); goTo(idx + 1, "next"); });
 
-    $("changeTopicBtn").addEventListener("click",  () => showScreen("setupScreen"));
+    $("changeTopicBtn").addEventListener("click",  () => { closeRelatedPanel(); showScreen("setupScreen"); });
     $("changeTopicBtn2").addEventListener("click", () => showScreen("setupScreen"));
     $("retryBtn").addEventListener("click",        () => showScreen("setupScreen"));
+
+    $("closePanelBtn").addEventListener("click", closeRelatedPanel);
   }
 
   /* ── Bootstrap ──────────────────────────────────────── */

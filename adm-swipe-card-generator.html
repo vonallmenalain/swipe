@@ -15,6 +15,7 @@
     .field{display:grid;gap:6px;margin-bottom:8px}
     button,select,input,textarea{border:1px solid var(--line);background:#0e211d;color:var(--text);border-radius:10px;padding:10px 12px;font:inherit}
     .btn-primary{background:linear-gradient(180deg,#2bb989,#1f9f74);border:none;color:#072018;font-weight:700}
+    .btn-warn{background:linear-gradient(180deg,#f4a63a,#d4882a);border:none;color:#1a0a00;font-weight:700}
     button:disabled{opacity:0.45;cursor:not-allowed}
     .status{margin:12px 0;padding:10px;border-radius:10px;border:1px solid var(--line)}
     .status.error{background:#3a1f24}
@@ -25,6 +26,13 @@
     .loading{background:rgba(61,209,159,.08);border-color:rgba(61,209,159,.2);color:var(--muted);animation:pulse 1.2s infinite}
     @keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
     .topic-item,.card-row{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:#102420}
+    .topic-item{display:flex;gap:10px;align-items:flex-start;cursor:pointer;transition:border-color .15s,background .15s}
+    .topic-item:hover{background:#142e28}
+    .topic-item.selected{border-color:rgba(61,209,159,.45);background:#12302a}
+    .topic-item-check{flex-shrink:0;margin-top:2px}
+    .topic-item-check input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;margin:0}
+    .topic-item-body{flex:1;min-width:0}
+    .topic-item-actions{flex-shrink:0;display:flex;gap:6px;align-items:center}
     .hidden{display:none!important}
     .stat-grid{display:grid;gap:8px;margin-bottom:14px}
     .source-table{width:100%;border-collapse:collapse;margin:10px 0}
@@ -34,6 +42,33 @@
     .source-table tr:last-child td{border-bottom:none}
     @media(min-width:980px){.split{display:grid;grid-template-columns:1.05fr 1fr;gap:14px}.stat-grid{grid-template-columns:repeat(4,1fr)}}
     .mb{margin-bottom:14px}
+    /* Filter bar */
+    .filter-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+    .filter-chip{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:#0e211d;cursor:pointer;font-size:.82rem;color:var(--muted);transition:border-color .15s,color .15s}
+    .filter-chip:hover{color:var(--text)}
+    .filter-chip.active{border-color:var(--accent);color:var(--accent)}
+    .filter-chip input{display:none}
+    .selected-count{color:var(--accent);font-weight:700;font-size:.82rem}
+    .btn-small{padding:6px 10px;font-size:.8rem;border-radius:8px}
+    /* Batch progress */
+    .batch-section{margin-top:14px}
+    .batch-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#102420;border:1px solid var(--line);margin-bottom:6px}
+    .batch-item-label{flex:1;font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .batch-item-status{flex-shrink:0;font-size:.78rem}
+    .status-pending{color:var(--muted)}
+    .status-running{color:var(--accent);animation:pulse 1.2s infinite}
+    .status-done{color:var(--ok)}
+    .status-error{color:var(--danger)}
+    .batch-progress-bar{height:4px;background:var(--line);border-radius:4px;margin:8px 0}
+    .batch-progress-fill{height:100%;background:linear-gradient(90deg,#1f9f74,var(--accent));border-radius:4px;transition:width .4s ease}
+    /* Related terms */
+    .related-term-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#102420;border:1px solid var(--line);margin-bottom:6px}
+    .related-term-title{flex:1;font-size:.9rem}
+    .related-term-actions{flex-shrink:0;display:flex;gap:6px;align-items:center}
+    .term-badge-linked{background:rgba(82,216,162,.15);border-color:rgba(82,216,162,.3);color:var(--ok)}
+    .term-badge-hascards{background:rgba(61,209,159,.2);border-color:rgba(61,209,159,.35);color:var(--accent)}
+    .term-badge-stub{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.3);color:var(--warn)}
+    .term-badge-missing{background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.25);color:var(--danger)}
   </style>
 </head>
 <body><div class="container">
@@ -51,10 +86,27 @@
     </header>
     <div id="stats" class="stat-grid"></div>
     <div class="split">
+      <!-- LEFT COLUMN -->
       <div>
         <section class="panel section mb">
           <h2>Topics auswählen</h2>
           <div class="field"><input id="topicSearch" placeholder="Suche nach Name, ID oder Beschreibung…" /></div>
+          <!-- Filter bar -->
+          <div class="filter-bar">
+            <label class="filter-chip" id="filterNoCardsChip">
+              <input type="checkbox" id="filterNoCards" />
+              Nur ohne Karten
+            </label>
+            <button id="selectAllBtn" class="btn-small">Alle auswählen</button>
+            <button id="deselectAllBtn" class="btn-small">Auswahl aufheben</button>
+            <span id="selectedCountLabel" class="selected-count hidden">0 ausgewählt</span>
+          </div>
+          <!-- Batch action row -->
+          <div class="row mb" id="batchActionRow" style="display:none!important">
+            <button id="batchGenerateBtn" class="btn-primary btn-small">
+              <span id="batchGenerateBtnLabel">Alle ausgewählten generieren</span>
+            </button>
+          </div>
           <div id="topicList"></div>
         </section>
         <section class="panel section">
@@ -62,10 +114,17 @@
           <div id="existingCards"><span class="muted">Kein Topic gewählt</span></div>
         </section>
       </div>
+      <!-- RIGHT COLUMN -->
       <div>
         <section class="panel section mb">
           <h2>Ausgewähltes Topic</h2>
           <div id="selectedTopic"><span class="muted">Kein Topic gewählt</span></div>
+        </section>
+        <!-- Related Terms Section -->
+        <section id="relatedTermsSection" class="panel section mb hidden">
+          <h2>Verwandte Themen (Kernbegriffe)</h2>
+          <p class="small muted" style="margin-bottom:10px">Vom KI-Modell vorgeschlagene verwandte Begriffe. Grün = Topic vorhanden und hat Karten. Gelb = Topic vorhanden, noch keine Karten. Rot = Kein Topic vorhanden.</p>
+          <div id="relatedTermsList"></div>
         </section>
         <section class="panel section">
           <h2>KI Auto-Generator</h2>
@@ -74,7 +133,6 @@
             <b>Ablauf:</b> Der Server lädt Wikipedia-Quellen automatisch und übergibt den vollständigen Text an die KI.
             Die Quellen-Anzeige unten ist nur eine Vorschau. Long-Cards werden in einem <b>separaten KI-Aufruf</b> mit dediziertem Token-Budget generiert.
           </p>
-
           <div style="margin:14px 0">
             <div class="small" style="font-weight:600;margin-bottom:8px">Quellen (Server lädt diese automatisch bei der Generierung):</div>
             <table class="source-table">
@@ -86,7 +144,6 @@
             </table>
             <div class="small muted" style="margin-top:4px">Diese Badges zeigen, ob Quellen verfügbar sind – sie beeinflussen die Generierung nicht direkt. Der Server fetcht die Quellen eigenständig.</div>
           </div>
-
           <div class="row" style="margin-bottom:10px">
             <button id="generateAICardsBtn" class="btn-primary">6 KI-Cards automatisch erzeugen</button>
             <button id="publishTopicCardsBtn">Alle 6 Cards veröffentlichen</button>
@@ -96,66 +153,70 @@
         </section>
       </div>
     </div>
+    <!-- BATCH PROGRESS SECTION (full width, shown during batch run) -->
+    <section id="batchProgressSection" class="panel section batch-section hidden" style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h2 style="margin:0">Batch-Generierung</h2>
+        <div class="row">
+          <span id="batchProgressLabel" class="small muted"></span>
+          <button id="batchPublishAllBtn" class="btn-small hidden">Alle generierten veröffentlichen</button>
+          <button id="closeBatchBtn" class="btn-small">Schließen</button>
+        </div>
+      </div>
+      <div class="batch-progress-bar"><div id="batchProgressFill" class="batch-progress-fill" style="width:0%"></div></div>
+      <div id="batchProgressList"></div>
+    </section>
   </section>
 </div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import { getFirestore,collection,getDocs,query,where } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getFirestore,collection,getDocs,doc,setDoc,updateDoc,query,where } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { getFunctions,httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-functions.js";
 
 const firebaseConfig={apiKey:"AIzaSyBOjkDk1Mmr79wY7bpKHQ5jidqwuHDo_kg",authDomain:"swipe-82eeb.firebaseapp.com",projectId:"swipe-82eeb",storageBucket:"swipe-82eeb.firebasestorage.app",messagingSenderId:"649929298401",appId:"1:649929298401:web:d94f1a5ebf1407ac6502a0"};
 
 let app,auth,db,functions,user=null,topics=[],selectedTopic=null,existingCards=[],aiGenerationLoading=false;
+let batchSelected=new Set();
+let filterNoCards=false;
+let batchQueue=[];
+let batchRunning=false;
 
 const el=id=>document.getElementById(id);
 const safe=v=>v==null?"":String(v);
 const topicLabel=t=>safe(t?.title?.de||t?.title?.en||t?.wikidataId||"Unbenannt");
+const hasCards=t=>(t?.contentStatus?.hasShortCard||t?.contentStatus?.hasMediumCard||t?.contentStatus?.hasLongCard);
+const hasPublishedCards=t=>((t?.contentStatus?.cardsPublished||0)>0);
 
 function showStatus(m,t=""){const b=el("statusBar");b.className=`status ${t}`;b.textContent=m;}
 
 function extractWikipediaTitleFromUrl(url){try{const u=new URL(url);const p=u.pathname.split('/wiki/')[1]||"";return p?decodeURIComponent(p):"";}catch{return "";}}
-
 async function fetchWithFallback(url){try{return await fetch(url,{headers:{"Api-User-Agent":"SwipeKnowledgePrototype/0.1 (admin-local)"}});}catch{return fetch(url);}}
-
 async function fetchWikipediaSummary(url,lang){if(!url)return null;const t=extractWikipediaTitleFromUrl(url);const api=`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(t)}`;const r=await fetchWithFallback(api);if(!r.ok)throw new Error(`HTTP ${r.status}`);const d=await r.json();return safe(d.extract);}
-
 async function fetchWikipediaFullExtract(url,lang){if(!url)return "";const t=extractWikipediaTitleFromUrl(url);const api=`https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exintro=0&redirects=1&format=json&origin=*&titles=${encodeURIComponent(t)}`;const r=await fetchWithFallback(api);if(!r.ok)throw new Error(`HTTP ${r.status}`);const d=await r.json();const page=Object.values(d?.query?.pages||{})[0];return safe(page?.extract||"");}
-
 function setBadge(id,text,type){const s=el(id);if(!s)return;s.textContent=text;s.className=`badge${type?" "+type:""}`;}
 
 async function loadSourcesWithProgress(){
   const SOURCE_IDS=["srcWikidata","srcDeSummary","srcDeFull","srcEnSummary","srcEnFull"];
   SOURCE_IDS.forEach(id=>setBadge(id,"–",""));
   if(!selectedTopic)return;
-
   const de=selectedTopic?.sitelinks?.dewiki||"";
   const en=selectedTopic?.sitelinks?.enwiki||"";
-
-  // Wikidata — always available (data is already in Firestore)
   setBadge("srcWikidata","laden…","loading");
   await new Promise(r=>setTimeout(r,100));
   setBadge("srcWikidata","geladen","ok");
-
-  // Wikipedia DE Summary
   setBadge("srcDeSummary","laden…","loading");
   let ok=false;
   try{if(de){const s=await fetchWikipediaSummary(de,"de");ok=!!s;}}catch{}
   setBadge("srcDeSummary",ok?"geladen":"fehlt",ok?"ok":"miss");
-
-  // Wikipedia DE Volltext
   setBadge("srcDeFull","laden…","loading");
   ok=false;
   try{if(de){const t=await fetchWikipediaFullExtract(de,"de");ok=t.length>0;}}catch{}
   setBadge("srcDeFull",ok?"geladen":"fehlt",ok?"ok":"miss");
-
-  // Wikipedia EN Summary
   setBadge("srcEnSummary","laden…","loading");
   ok=false;
   try{if(en){const s=await fetchWikipediaSummary(en,"en");ok=!!s;}}catch{}
   setBadge("srcEnSummary",ok?"geladen":"fehlt",ok?"ok":"miss");
-
-  // Wikipedia EN Volltext
   setBadge("srcEnFull","laden…","loading");
   ok=false;
   try{if(en){const t=await fetchWikipediaFullExtract(en,"en");ok=t.length>0;}}catch{}
@@ -169,20 +230,80 @@ async function loadTopics(){
   renderStats();
 }
 
-function filterTopics(q){
-  const lower=q.toLowerCase().trim();
-  if(!lower)return topics;
-  return topics.filter(t=>{
-    return topicLabel(t).toLowerCase().includes(lower)||
-           safe(t?.description?.de).toLowerCase().includes(lower)||
-           safe(t.wikidataId).toLowerCase().includes(lower);
-  });
+function getFilteredTopics(q){
+  const lower=(q||"").toLowerCase().trim();
+  let list=topics;
+  if(filterNoCards)list=list.filter(t=>!hasCards(t));
+  if(lower)list=list.filter(t=>
+    topicLabel(t).toLowerCase().includes(lower)||
+    safe(t?.description?.de).toLowerCase().includes(lower)||
+    safe(t.wikidataId).toLowerCase().includes(lower)
+  );
+  return list;
 }
 
-function renderTopicList(list){
-  const items=list||topics;
-  el("topicList").innerHTML=items.map(t=>`<div class='topic-item'><b>${topicLabel(t)}</b><div class='small'>${t.wikidataId}</div><button data-t='${t.wikidataId}'>Auswählen</button></div>`).join("")||"<span class='muted'>Keine Topics gefunden.</span>";
-  document.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>selectTopic(b.dataset.t));
+function renderTopicList(){
+  const q=el("topicSearch").value;
+  const items=getFilteredTopics(q);
+  el("topicList").innerHTML=items.map(t=>{
+    const isSelected=batchSelected.has(t.wikidataId);
+    const cardBadge=hasPublishedCards(t)
+      ?`<span class='badge ok' style='font-size:.7rem'>✓ Karten</span>`
+      :hasCards(t)
+        ?`<span class='badge miss' style='font-size:.7rem'>Draft</span>`
+        :"";
+    return `<div class='topic-item${isSelected?" selected":""}' data-t='${t.wikidataId}'>
+      <div class='topic-item-check'><input type='checkbox' ${isSelected?"checked":""} data-cb='${t.wikidataId}' /></div>
+      <div class='topic-item-body'>
+        <b>${topicLabel(t)}</b>
+        <div class='small' style='display:flex;gap:6px;align-items:center;margin-top:2px'>
+          <span style='color:var(--muted)'>${t.wikidataId}</span>
+          ${cardBadge}
+        </div>
+      </div>
+      <div class='topic-item-actions'>
+        <button class='btn-small' data-select='${t.wikidataId}' style='font-size:.75rem'>Öffnen</button>
+      </div>
+    </div>`;
+  }).join("")||"<span class='muted'>Keine Topics gefunden.</span>";
+
+  // Wire checkbox clicks
+  el("topicList").querySelectorAll("[data-cb]").forEach(cb=>{
+    cb.onchange=e=>{e.stopPropagation();toggleBatchSelect(cb.dataset.cb);};
+  });
+  // Wire row click (toggle checkbox)
+  el("topicList").querySelectorAll(".topic-item").forEach(row=>{
+    row.onclick=e=>{
+      if(e.target.closest("[data-select]")||e.target.closest("[data-cb]"))return;
+      toggleBatchSelect(row.dataset.t);
+    };
+  });
+  // Wire "Öffnen" button
+  el("topicList").querySelectorAll("[data-select]").forEach(b=>{
+    b.onclick=e=>{e.stopPropagation();selectTopic(b.dataset.select);};
+  });
+  updateBatchControls();
+}
+
+function toggleBatchSelect(id){
+  if(batchSelected.has(id))batchSelected.delete(id);
+  else batchSelected.add(id);
+  renderTopicList();
+}
+
+function updateBatchControls(){
+  const n=batchSelected.size;
+  const label=el("selectedCountLabel");
+  const row=el("batchActionRow");
+  if(n>0){
+    label.textContent=`${n} ausgewählt`;
+    label.classList.remove("hidden");
+    row.style.removeProperty("display");
+    el("batchGenerateBtnLabel").textContent=`${n} Topic${n!==1?"s":""} generieren`;
+  }else{
+    label.classList.add("hidden");
+    row.style.setProperty("display","none","important");
+  }
 }
 
 async function selectTopic(id){
@@ -190,10 +311,10 @@ async function selectTopic(id){
   renderSelectedTopic();
   await loadExistingCards(id);
   setGenerationLoading(aiGenerationLoading);
-  // Reset source badges on new topic selection
   ["srcWikidata","srcDeSummary","srcDeFull","srcEnSummary","srcEnFull"].forEach(sid=>setBadge(sid,"–",""));
   el("aiAutoStatus").textContent="Noch keine automatische Generierung gestartet.";
   el("aiAutoResult").innerHTML="";
+  renderRelatedTerms();
 }
 
 function renderSelectedTopic(){
@@ -217,9 +338,103 @@ async function loadExistingCards(topicId){
 }
 
 function renderStats(){
-  el("stats").innerHTML=`<div class='panel section'><div class='small'>Topics</div><b>${topics.length}</b></div><div class='panel section'><div class='small'>Cards (Topic)</div><b>${existingCards.length}</b></div>`;
+  const noCardsCount=topics.filter(t=>!hasCards(t)).length;
+  const publishedCount=topics.filter(t=>hasPublishedCards(t)).length;
+  el("stats").innerHTML=`
+    <div class='panel section'><div class='small'>Topics gesamt</div><b>${topics.length}</b></div>
+    <div class='panel section'><div class='small'>Ohne Karten</div><b style='color:var(--warn)'>${noCardsCount}</b></div>
+    <div class='panel section'><div class='small'>Mit Karten</div><b style='color:var(--ok)'>${publishedCount}</b></div>
+    <div class='panel section'><div class='small'>Cards (Topic)</div><b>${existingCards.length}</b></div>`;
 }
 
+/* ─── Related Terms ─────────────────────────────── */
+function findTopicForTerm(term){
+  const titleLower=safe(term.title).toLowerCase().trim();
+  if(term.wikidataId){
+    const byId=topics.find(t=>t.wikidataId===term.wikidataId||t.id===term.wikidataId);
+    if(byId)return byId;
+  }
+  return topics.find(t=>
+    safe(t.title?.de).toLowerCase().trim()===titleLower||
+    safe(t.title?.en).toLowerCase().trim()===titleLower
+  )||null;
+}
+
+function renderRelatedTerms(){
+  const section=el("relatedTermsSection");
+  const list=el("relatedTermsList");
+  if(!selectedTopic){section.classList.add("hidden");return;}
+  const terms=Array.isArray(selectedTopic.relatedTerms)?selectedTopic.relatedTerms:[];
+  if(!terms.length){section.classList.add("hidden");return;}
+  section.classList.remove("hidden");
+
+  list.innerHTML=terms.map((term,idx)=>{
+    const matchedTopic=findTopicForTerm(term);
+    let statusBadge="",actions="";
+    if(matchedTopic){
+      if(hasPublishedCards(matchedTopic)){
+        statusBadge=`<span class='badge term-badge-hascards'>✓ Hat Karten</span>`;
+        actions=`<button class='btn-small' data-open-topic='${matchedTopic.wikidataId}'>Öffnen</button>`;
+      }else if(hasCards(matchedTopic)){
+        statusBadge=`<span class='badge term-badge-stub'>Draft</span>`;
+        actions=`<button class='btn-small' data-open-topic='${matchedTopic.wikidataId}'>Öffnen</button>`;
+      }else{
+        statusBadge=`<span class='badge term-badge-linked'>Topic vorhanden</span>`;
+        actions=`<button class='btn-small' data-open-topic='${matchedTopic.wikidataId}'>Öffnen &amp; generieren</button>`;
+      }
+    }else{
+      statusBadge=`<span class='badge term-badge-missing'>Kein Topic</span>`;
+      actions=`<button class='btn-small btn-primary' data-create-stub='${idx}' data-term-title='${safe(term.title).replace(/'/g,"&#39;")}'>Als Topic anlegen</button>`;
+    }
+    return `<div class='related-term-item'>
+      <div class='related-term-title'>${safe(term.title)}</div>
+      ${statusBadge}
+      <div class='related-term-actions'>${actions}</div>
+    </div>`;
+  }).join("")||"<span class='muted'>Keine verwandten Themen hinterlegt.</span>";
+
+  list.querySelectorAll("[data-open-topic]").forEach(b=>{
+    b.onclick=()=>selectTopic(b.dataset.openTopic);
+  });
+  list.querySelectorAll("[data-create-stub]").forEach(b=>{
+    b.onclick=()=>createStubTopic(b.dataset.termTitle,parseInt(b.dataset.createStub));
+  });
+}
+
+async function createStubTopic(termTitle,termIndex){
+  if(!selectedTopic)return;
+  if(!confirm(`Topic "${termTitle}" als Stub anlegen? Das Topic kann danach direkt für die KI-Generierung ausgewählt werden.`))return;
+  try{
+    const newDocRef=doc(collection(db,"topics"));
+    const newId=newDocRef.id;
+    await setDoc(newDocRef,{
+      wikidataId:newId,
+      title:{de:termTitle,en:termTitle},
+      description:{de:"",en:""},
+      status:"stub",
+      contentStatus:{hasShortCard:false,hasMediumCard:false,hasLongCard:false,cardsPublished:0},
+      tags:[],
+      mainCategory:safe(selectedTopic.mainCategory),
+      topicType:safe(selectedTopic.topicType),
+      relatedTerms:[],
+      import:{source:"admin_related_term",importedAt:new Date().toISOString()},
+      createdAt:new Date(),
+      updatedAt:new Date(),
+    });
+    // Update the parent topic's relatedTerms to link the new wikidataId
+    const updatedTerms=[...(selectedTopic.relatedTerms||[])];
+    updatedTerms[termIndex]={...updatedTerms[termIndex],wikidataId:newId};
+    await updateDoc(doc(db,"topics",selectedTopic.wikidataId),{relatedTerms:updatedTerms});
+    selectedTopic.relatedTerms=updatedTerms;
+    showStatus(`Topic "${termTitle}" angelegt (ID: ${newId}).`,"");
+    await loadTopics();
+    renderRelatedTerms();
+  }catch(e){
+    showStatus(`Fehler beim Anlegen: ${e.message}`,"error");
+  }
+}
+
+/* ─── Generation Loading State ──────────────────── */
 function setGenerationLoading(isLoading){
   aiGenerationLoading=!!isLoading;
   const genBtn=el("generateAICardsBtn");
@@ -263,20 +478,14 @@ async function generateAICards(){
   if(!user)return showStatus("Bitte einloggen.","error");
   if(!selectedTopic)return showStatus("Bitte Topic auswählen.","error");
   if(!confirm("Für dieses Topic werden 6 Draft-Cards erstellt. Fortfahren?"))return;
-
   setGenerationLoading(true);
   el("aiAutoResult").innerHTML="";
   try{
-    // Step 1: Load and display all sources
     renderAIStatus("Quellen werden geladen…");
     await loadSourcesWithProgress();
-
-    // Step 2: Call Cloud Function for AI generation
     renderAIStatus("Schritt 1/2: Short & Medium Cards werden generiert…");
     const call=httpsCallable(functions,"generateSwipeCardsForTopic");
     const resp=await call({topicId:selectedTopic.wikidataId||selectedTopic.id});
-    // Note: the server internally runs a second AI call for Long cards automatically
-
     renderAIResult(resp.data||{});
     renderAIStatus("Fertig.");
     showStatus("6 Cards erstellt.","success");
@@ -288,12 +497,12 @@ async function generateAICards(){
   }finally{
     setGenerationLoading(false);
   }
-  // Reload card list and topic stats after successful generation.
-  // Kept outside the generation try/catch so a reload failure never
-  // overwrites the success result with a misleading error message.
   try{
     await loadExistingCards(selectedTopic.wikidataId);
     await loadTopics();
+    // Reload related terms after generation (suggestedRelatedTopics may have been saved)
+    selectedTopic=topics.find(t=>t.wikidataId===selectedTopic.wikidataId)||selectedTopic;
+    renderRelatedTerms();
   }catch(reloadErr){
     console.warn("Neuladen nach Generierung fehlgeschlagen:", reloadErr);
   }
@@ -303,7 +512,6 @@ async function publishCards(){
   if(!user)return showStatus("Bitte einloggen.","error");
   if(!selectedTopic)return showStatus("Bitte Topic auswählen.","error");
   if(!confirm("Alle 6 Draft-Cards dieses Topics veröffentlichen?"))return;
-
   setGenerationLoading(true);
   try{
     const call=httpsCallable(functions,"publishCardsForTopic");
@@ -319,6 +527,88 @@ async function publishCards(){
   }finally{
     setGenerationLoading(false);
   }
+}
+
+/* ─── Batch Generation ──────────────────────────── */
+function startBatchGeneration(){
+  if(!user)return showStatus("Bitte einloggen.","error");
+  if(batchSelected.size===0)return showStatus("Bitte mindestens ein Topic auswählen.","error");
+  if(batchRunning)return;
+  const ids=[...batchSelected];
+  if(!confirm(`${ids.length} Topic${ids.length!==1?"s":""} werden nacheinander generiert. Fortfahren?\n\nDies kann mehrere Minuten dauern.`))return;
+  batchQueue=ids.map(id=>{
+    const t=topics.find(x=>x.wikidataId===id);
+    return{topicId:id,label:t?topicLabel(t):id,status:"pending",error:null};
+  });
+  el("batchProgressSection").classList.remove("hidden");
+  el("batchPublishAllBtn").classList.add("hidden");
+  runBatch();
+}
+
+async function runBatch(){
+  batchRunning=true;
+  renderBatchProgress();
+  const call=httpsCallable(functions,"generateSwipeCardsForTopic");
+  for(let i=0;i<batchQueue.length;i++){
+    if(batchQueue[i].status==="done")continue;
+    batchQueue[i].status="running";
+    renderBatchProgress();
+    try{
+      await call({topicId:batchQueue[i].topicId});
+      batchQueue[i].status="done";
+    }catch(e){
+      batchQueue[i].status="error";
+      batchQueue[i].error=safe(e?.message||"Unbekannter Fehler");
+    }
+    renderBatchProgress();
+  }
+  batchRunning=false;
+  renderBatchProgress();
+  const doneCount=batchQueue.filter(x=>x.status==="done").length;
+  showStatus(`Batch abgeschlossen: ${doneCount}/${batchQueue.length} Topics generiert.`);
+  if(doneCount>0)el("batchPublishAllBtn").classList.remove("hidden");
+  try{await loadTopics();}catch{}
+}
+
+function renderBatchProgress(){
+  const total=batchQueue.length;
+  const done=batchQueue.filter(x=>x.status==="done").length;
+  const errors=batchQueue.filter(x=>x.status==="error").length;
+  const pct=total>0?Math.round((done+errors)/total*100):0;
+  el("batchProgressFill").style.width=`${pct}%`;
+  el("batchProgressLabel").textContent=batchRunning
+    ?`Generiere… ${done+errors}/${total}`
+    :`Abgeschlossen: ${done} OK, ${errors} Fehler`;
+  el("batchProgressList").innerHTML=batchQueue.map(item=>{
+    const statusMap={pending:"⏳ Wartend",running:"⚡ Generiert…",done:"✅ Fertig",error:"❌ Fehler"};
+    const cls={pending:"status-pending",running:"status-running",done:"status-done",error:"status-error"};
+    return `<div class='batch-item'>
+      <div class='batch-item-label' title='${item.topicId}'>${item.label}</div>
+      <div class='batch-item-status ${cls[item.status]}'>${statusMap[item.status]||item.status}</div>
+      ${item.error?`<div class='small' style='color:var(--danger);font-size:.75rem' title='${safe(item.error)}'>${safe(item.error).slice(0,60)}</div>`:""}
+    </div>`;
+  }).join("");
+}
+
+async function publishAllBatch(){
+  const doneIds=batchQueue.filter(x=>x.status==="done").map(x=>x.topicId);
+  if(!doneIds.length)return;
+  if(!confirm(`Alle ${doneIds.length} generierten Topics veröffentlichen?`))return;
+  const call=httpsCallable(functions,"publishCardsForTopic");
+  let ok=0,err=0;
+  for(const topicId of doneIds){
+    const item=batchQueue.find(x=>x.topicId===topicId);
+    try{
+      await call({topicId});
+      if(item)item.status="done";
+      ok++;
+    }catch(e){
+      err++;
+      console.warn(`Publish fehlgeschlagen für ${topicId}:`,e.message);
+    }
+  }
+  showStatus(`Veröffentlicht: ${ok} Topics. Fehler: ${err}.`);
+  try{await loadTopics();}catch{}
 }
 
 function init(){
@@ -338,9 +628,37 @@ function init(){
   el("loginBtn").onclick=()=>signInWithEmailAndPassword(auth,el("emailInput").value.trim(),el("passwordInput").value);
   el("logoutBtn").onclick=()=>signOut(auth);
   el("reloadTopicsBtn").onclick=loadTopics;
-  el("topicSearch").oninput=e=>renderTopicList(filterTopics(e.target.value));
+  el("topicSearch").oninput=()=>renderTopicList();
   el("generateAICardsBtn").onclick=()=>generateAICards().catch(renderAIError);
   el("publishTopicCardsBtn").onclick=()=>publishCards().catch(renderAIError);
+
+  // Filter chip
+  el("filterNoCardsChip").onclick=()=>{
+    filterNoCards=!filterNoCards;
+    el("filterNoCards").checked=filterNoCards;
+    el("filterNoCardsChip").classList.toggle("active",filterNoCards);
+    batchSelected.clear();
+    renderTopicList();
+  };
+
+  // Select / Deselect all
+  el("selectAllBtn").onclick=()=>{
+    const items=getFilteredTopics(el("topicSearch").value);
+    items.forEach(t=>batchSelected.add(t.wikidataId));
+    renderTopicList();
+  };
+  el("deselectAllBtn").onclick=()=>{
+    batchSelected.clear();
+    renderTopicList();
+  };
+
+  // Batch generate
+  el("batchGenerateBtn").onclick=startBatchGeneration;
+  el("batchPublishAllBtn").onclick=publishAllBatch;
+  el("closeBatchBtn").onclick=()=>{
+    if(batchRunning){if(!confirm("Batch läuft noch. Wirklich schließen?"))return;}
+    el("batchProgressSection").classList.add("hidden");
+  };
 }
 init();
 </script></body></html>
