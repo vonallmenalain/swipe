@@ -9,7 +9,7 @@ const db = admin.firestore();
 
 const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 const ADMIN_EMAIL = "alain.sc2@gmail.com";
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.2";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const API_USER_AGENT = "SwipeKnowledgePrototype/0.1 (admin-local; alain.sc2@gmail.com)";
 const FULL_EXTRACT_LIMIT = 60000;
 
@@ -17,6 +17,7 @@ const ALLOWED_MAIN_CATEGORIES = ["geschichte","wissenschaft","geografie","politi
 const ALLOWED_TOPIC_TYPES = ["person","historical_event","historical_period","place","country","organization","concept","scientific_concept","religion","ideology","technology","invention","conflict","treaty","natural_object","cultural_work","sport_event","other"];
 const ALLOWED_DIFFICULTIES = ["beginner", "intermediate", "advanced"];
 const REQUIRED_CARD_KEYS = ["de_short", "de_medium", "de_long", "en_short", "en_medium", "en_long"];
+const PREVIEW_MAX_CHARS = 3000;
 
 const swipeCardsSchema = {
   type: "object",
@@ -198,11 +199,47 @@ function buildSourcePack(topic, wikiDe, wikiEn) {
   });
 }
 
-function buildOpenAIPrompt(sourcePack) { return `Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp.\nAbsolute Regeln: Verwende ausschliesslich SOURCE PACK Informationen; erfinde keine Fakten; keine externen Quellen; keine anderen Wikipedia-Artikel; fehlende Infos weglassen; DE auf Deutsch, EN auf Englisch; übersetzen nur aus SOURCE PACK; medium/long bevorzugt Full Extract; neu formulieren; nur JSON gemäss Schema.\nLängen: short 50-120 Wörter, medium 400-900, long 1800-3000 wenn Material reicht, sonst needsMoreSourceMaterial=true.\nmainCategory/topicType dürfen nicht unknown sein.\nSOURCE PACK:\n${JSON.stringify(sourcePack)}`; }
-function validateAIOutput(output) {
+function buildOpenAIPrompt(sourcePack) { return `Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp.
+Gib AUSSCHLIESSLICH ein JSON-Objekt in dieser Top-Level-Struktur zurück:
+{"topicMeta": {...}, "cards": [...]}
+Kein Markdown, keine Backticks, keine Erklärungen.
+Regeln:
+- Nutze nur Informationen aus dem SOURCE PACK.
+- Erfinde keine Fakten, keine externen Quellen.
+- Erstelle exakt 6 Cards: de-short, de-medium, de-long, en-short, en-medium, en-long.
+- Jede Card MUSS body verwenden (niemals text).
+- Jede Card MUSS sourceBasis und sourceIds enthalten.
+- Wenn Quellenmaterial nicht reicht: body nicht aufblasen, needsMoreSourceMaterial=true.
+- Sprache: de auf Deutsch, en auf Englisch.
+SOURCE PACK:
+${JSON.stringify(sourcePack)}`; }
+function preview(value) { return safeString(value).slice(0, PREVIEW_MAX_CHARS); }
+function stripJsonFences(text) { return safeString(text).trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim(); }
+function safeJsonParse(text) { try { return { ok: true, value: JSON.parse(text), error: null }; } catch (error) { return { ok: false, value: null, error: error.message }; } }
+function extractOpenAIText(response) {
+  if (safeString(response?.output_text).trim()) return response.output_text;
+  const chunks = [];
+  for (const item of Array.isArray(response?.output) ? response.output : []) {
+    for (const content of Array.isArray(item?.content) ? item.content : []) {
+      const t = safeString(content?.text || content?.output_text || content?.value);
+      if (t.trim()) chunks.push(t);
+    }
+  }
+  return chunks.join("\n").trim();
+}
+function unwrapAIOutput(parsed) {
+  if (parsed && typeof parsed === "object" && parsed.topicMeta && parsed.cards) return parsed;
+  for (const key of ["data", "result", "output"]) {
+    const nested = parsed?.[key];
+    if (nested && typeof nested === "object" && nested.topicMeta && nested.cards) return nested;
+  }
+  return parsed;
+}
+function validateAIOutput(output, warnings = []) {
   if (!output || typeof output !== "object") throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: Kein Objekt.");
   if (!output.topicMeta || typeof output.topicMeta !== "object") throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: topicMeta fehlt.");
-  if (!Array.isArray(output.cards)) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: cards fehlt oder ist kein Array.");
+  if (output.cards == null) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: cards fehlt.");
+  if (!Array.isArray(output.cards)) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: cards ist kein Array.");
   if (output.cards.length !== 6) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: Es müssen genau 6 Cards sein.");
 
   if (!ALLOWED_MAIN_CATEGORIES.includes(output.topicMeta.mainCategory)) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: mainCategory ungültig.");
@@ -222,9 +259,17 @@ function validateAIOutput(output) {
     seen.add(key);
     if (!safeString(card?.title).trim()) throw new HttpsError("failed-precondition", `Leerer title in ${key}.`);
     if (!safeString(card?.hook).trim()) throw new HttpsError("failed-precondition", `Leerer hook in ${key}.`);
-    if (!safeString(card?.body).trim()) throw new HttpsError("failed-precondition", `Leerer body in ${key}.`);
+    if (!safeString(card?.body).trim() && safeString(card?.text).trim()) {
+      card.body = safeString(card.text);
+      warnings.push(`Card ${key}: text statt body erhalten, automatisch nach body übernommen.`);
+    }
+    if (!safeString(card?.body).trim()) throw new HttpsError("failed-precondition", `Card hat kein body: ${key}.`);
+    if (safeString(card?.text).trim()) warnings.push(`Card ${key}: Feld text ignoriert.`);
     if (!Array.isArray(card?.sourceBasis) || !card.sourceBasis.length) throw new HttpsError("failed-precondition", `sourceBasis fehlt in ${key}.`);
-    if (!Array.isArray(card?.sourceIds)) throw new HttpsError("failed-precondition", `sourceIds fehlt in ${key}.`);
+    if (!Array.isArray(card?.sourceIds)) throw new HttpsError("failed-precondition", `sourceIds fehlt oder falscher Typ in ${key}.`);
+    if (!ALLOWED_DIFFICULTIES.includes(safeString(card?.difficulty))) throw new HttpsError("failed-precondition", `difficulty ungültig in ${key}.`);
+    if (!["de", "en"].includes(safeString(card?.language))) throw new HttpsError("failed-precondition", `language ungültig in ${key}.`);
+    if (!["short", "medium", "long"].includes(safeString(card?.length))) throw new HttpsError("failed-precondition", `length ungültig in ${key}.`);
   }
   for (const requiredKey of REQUIRED_CARD_KEYS) {
     if (!seen.has(requiredKey)) throw new HttpsError("failed-precondition", `Fehlende Karten-Kombination: ${requiredKey}`);
@@ -235,7 +280,7 @@ function buildAvailableSourceIds(sp) { const ids = [sp.sources.wikidata.id]; if 
 function buildAvailableSources(sp) { const out = [{ type: "wikidata", title: safeString(sp.topic?.title?.de || sp.topic?.title?.en), url: sp.sources.wikidata.url, license: "CC0", publisher: "Wikidata" }]; if (sp.sources.wikipediaDe.available) out.push({ type: "wikipedia", language: "de", title: sp.sources.wikipediaDe.summaryTitle || safeString(sp.topic?.title?.de), url: sp.sources.wikipediaDe.url, license: "CC BY-SA 4.0", publisher: "Wikipedia" }); if (sp.sources.wikipediaEn.available) out.push({ type: "wikipedia", language: "en", title: sp.sources.wikipediaEn.summaryTitle || safeString(sp.topic?.title?.en), url: sp.sources.wikipediaEn.url, license: "CC BY-SA 4.0", publisher: "Wikipedia" }); return out; }
 
 exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSeconds: 300, memory: "1GiB", maxInstances: 2, concurrency: 1, secrets: [OPENAI_API_KEY] }, async (request) => {
-  const warnings = []; const cardIds = []; let topicId = ""; let wikidataId = ""; let sourceAvailability = null;
+  const warnings = []; const cardIds = []; let topicId = ""; let wikidataId = ""; let sourceAvailability = null; let debugDetails = {};
   try {
     if (!request.auth) throw new HttpsError("unauthenticated", "Bitte zuerst einloggen.");
     if (request.auth?.token?.email !== ADMIN_EMAIL) throw new HttpsError("permission-denied", "Nur Admins dürfen KI-Cards generieren.");
@@ -287,16 +332,26 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
       throw new HttpsError("failed-precondition", `OpenAI-Aufruf fehlgeschlagen: ${e.message}`, { model: OPENAI_MODEL, sourceAvailability });
     }
 
-    try {
-      output = JSON.parse(response.output_text);
-    } catch (parseError) {
+    const rawOpenAIText = extractOpenAIText(response);
+    const cleanedText = stripJsonFences(rawOpenAIText);
+    const parsed = safeJsonParse(cleanedText);
+    if (!parsed.ok) {
       throw new HttpsError("failed-precondition", "OpenAI hat keine gültige JSON-Antwort geliefert.", {
-        originalError: parseError.message,
-        outputPreview: String(response.output_text || "").slice(0, 1000),
+        originalError: parsed.error, rawOpenAITextPreview: preview(rawOpenAIText), responseKeys: Object.keys(response || {}),
       });
     }
+    output = unwrapAIOutput(parsed.value);
+    debugDetails = {
+      outputKeys: Object.keys(output || {}),
+      outputPreview: preview(JSON.stringify(output)),
+      rawOpenAITextPreview: preview(rawOpenAIText),
+      responseKeys: Object.keys(response || {}),
+    };
+    if (!output?.topicMeta || !output?.cards) {
+      throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: topicMeta/cards fehlen.", debugDetails);
+    }
 
-    validateAIOutput(output);
+    validateAIOutput(output, warnings);
 
     const sourcePackHash = crypto.createHash("sha256").update(JSON.stringify(sourcePack)).digest("hex");
     const sourceIds = buildAvailableSourceIds(sourcePack); const sources = buildAvailableSources(sourcePack);
@@ -335,7 +390,8 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
     return { success: true, topicId, cardsCreated: 6, cardIds, topicMeta: output.topicMeta, warnings, sourceAvailability, generationRunId };
   } catch (error) {
     const message = error instanceof HttpsError ? error.message : safeString(error?.message || "Unbekannter Fehler");
-    try { await db.collection("generationRuns").add({ type: "openai_swipe_cards_generation", topicId, wikidataId, status: "error", cardsCreated: cardIds.length || 0, cardIds, model: OPENAI_MODEL, sourceAvailability, warnings, errorMessage: message, createdAt: admin.firestore.FieldValue.serverTimestamp() }); } catch (_) {}
+    const details = removeUndefinedDeep(error?.details || {});
+    try { await db.collection("generationRuns").add({ type: "openai_swipe_cards_generation", topicId, wikidataId, status: "error", cardsCreated: cardIds.length || 0, cardIds, model: OPENAI_MODEL, sourceAvailability, warnings, errorMessage: message, errorCode: error?.code || null, errorDetails: details, outputKeys: debugDetails.outputKeys || details.outputKeys || null, outputPreview: preview(debugDetails.outputPreview || details.outputPreview || ""), rawOpenAITextPreview: preview(debugDetails.rawOpenAITextPreview || details.rawOpenAITextPreview || ""), responseKeys: debugDetails.responseKeys || details.responseKeys || null, createdAt: admin.firestore.FieldValue.serverTimestamp() }); } catch (_) {}
     if (error instanceof HttpsError) throw error;
     throw new HttpsError("internal", message, { topicId, wikidataId, sourceAvailability, warnings });
   }
@@ -347,17 +403,24 @@ exports.publishCardsForTopic = onCall({ region: "europe-west1" }, async (request
   if (request.auth?.token?.email !== ADMIN_EMAIL) throw new HttpsError("permission-denied", "Nur Admins dürfen veröffentlichen.");
   const topicId = safeString(request.data?.topicId).trim();
   if (!topicId) throw new HttpsError("invalid-argument", "topicId muss gesetzt sein.");
-  const snap = await db.collection("swipeCards").where("topicId", "==", topicId).get();
+  const topicRef = db.collection("topics").doc(topicId);
+  const topicSnap = await topicRef.get();
+  const activeGenerationRunId = safeString(topicSnap.data()?.activeGenerationRunId).trim();
+  const snap = activeGenerationRunId
+    ? await db.collection("swipeCards").where("topicId", "==", topicId).where("generationRunId", "==", activeGenerationRunId).where("status", "==", "draft").get()
+    : await db.collection("swipeCards").where("topicId", "==", topicId).where("status", "==", "draft").get();
   const batch = db.batch();
   let updatedCards = 0;
+  const validDrafts = [];
   snap.forEach((d) => {
     const data = d.data() || {};
     if (["de_short","de_medium","de_long","en_short","en_medium","en_long"].includes(`${safeString(data.language)}_${safeString(data.length)}`)) {
-      batch.update(d.ref, { status: "published", reviewStatus: "approved", publishedAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
-      updatedCards += 1;
+      validDrafts.push(d);
     }
   });
-  batch.set(db.collection("topics").doc(topicId), { status: "ready", "contentStatus.reviewStatus": "approved", updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  if (validDrafts.length !== 6) throw new HttpsError("failed-precondition", `Es sind nicht genau 6 Draft-Cards für die neueste Generation vorhanden (gefunden: ${validDrafts.length}).`);
+  validDrafts.forEach((d) => { batch.update(d.ref, { status: "published", reviewStatus: "approved", publishedAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() }); updatedCards += 1; });
+  batch.set(topicRef, { status: "ready", "contentStatus.reviewStatus": "approved", "contentStatus.cardsPublished": 6, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
   await batch.commit();
   return { success: true, topicId, updatedCards };
 });
