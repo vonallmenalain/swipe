@@ -280,14 +280,22 @@ async function generateAICards(){
     renderAIResult(resp.data||{});
     renderAIStatus("Fertig.");
     showStatus("6 Cards erstellt.","success");
-    await loadExistingCards(selectedTopic.wikidataId);
-    await loadTopics();
   }catch(e){
     renderAIError(e);
     renderAIStatus("Generierung fehlgeschlagen.");
     showStatus(e.message||"Generierung fehlgeschlagen","error");
+    return;
   }finally{
     setGenerationLoading(false);
+  }
+  // Reload card list and topic stats after successful generation.
+  // Kept outside the generation try/catch so a reload failure never
+  // overwrites the success result with a misleading error message.
+  try{
+    await loadExistingCards(selectedTopic.wikidataId);
+    await loadTopics();
+  }catch(reloadErr){
+    console.warn("Neuladen nach Generierung fehlgeschlagen:", reloadErr);
   }
 }
 
