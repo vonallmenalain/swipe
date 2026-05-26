@@ -162,15 +162,9 @@
           <h2>Vorhandene Cards</h2>
           <div id="existingCards"><span class="muted">Kein Topic gewählt</span></div>
         </section>
-        <!-- Related Terms Section (from cards + AI suggestions) -->
-        <section id="relatedTermsSection" class="panel section mb hidden">
-          <h2>Verwandte Themen (Kernbegriffe)</h2>
-          <p class="small muted" style="margin-bottom:10px">Begriffe aus den generierten Karten und vom KI-Modell vorgeschlagene verwandte Themen. Klicke auf einen Begriff, um ihn auf Wikidata zu suchen und als neues Topic anzulegen.</p>
-          <div id="relatedTermsList"></div>
-        </section>
-        <!-- Wikidata Search & Import Section -->
+        <!-- Wikidata Search & Import Section (above related terms) -->
         <section id="wikidataSearchSection" class="panel section mb hidden">
-          <h2>Wikidata-Suche & Import</h2>
+          <h2>Alternativen suchen</h2>
           <p class="small muted" style="margin-bottom:10px">Suche auf Wikidata nach einem Begriff und importiere ihn direkt als neues Topic.</p>
           <div class="field">
             <div class="row">
@@ -181,9 +175,18 @@
           <div id="wikidataSearchStatus" class="small muted" style="margin-bottom:8px"></div>
           <div id="wikidataSearchResults"></div>
         </section>
+        <!-- Related Terms Section (from cards + AI suggestions) -->
+        <section id="relatedTermsSection" class="panel section mb hidden">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h2 style="margin:0">Verwandte Themen (Kernbegriffe)</h2>
+            <button id="linkSelectedTermsBtn" class="btn-primary btn-small hidden">Verknüpfen</button>
+          </div>
+          <p class="small muted" style="margin-bottom:10px">Nur echte Topics werden angezeigt. Wähle mehrere aus und klicke "Verknüpfen", um sie gegenseitig zu verlinken.</p>
+          <div id="relatedTermsList"></div>
+        </section>
         <section class="panel section">
           <h2>KI Auto-Generator</h2>
-          <p class="small">Erstellt automatisch 6 Draft-Cards (Short, Medium, Long) auf Deutsch und Englisch aus Wikidata und Wikipedia.</p>
+          <p class="small">Erstellt automatisch 6 Cards (Short, Medium, Long) auf Deutsch und Englisch aus Wikidata und Wikipedia und veröffentlicht sie sofort.</p>
           <p class="small" style="color:var(--muted);margin-top:4px">
             <b>Ablauf:</b> Der Server lädt Wikipedia-Quellen automatisch und übergibt den vollständigen Text an die KI.
             Die Quellen-Anzeige unten ist nur eine Vorschau. Short/Medium und Long-Cards werden <b>parallel in zwei KI-Aufrufen</b> generiert.
@@ -200,8 +203,7 @@
             <div class="small muted" style="margin-top:4px">Diese Badges zeigen, ob Quellen verfügbar sind – sie beeinflussen die Generierung nicht direkt. Der Server fetcht die Quellen eigenständig.</div>
           </div>
           <div class="row" style="margin-bottom:10px">
-            <button id="generateAICardsBtn" class="btn-primary">6 KI-Cards automatisch erzeugen</button>
-            <button id="publishTopicCardsBtn">Alle 6 Cards veröffentlichen</button>
+            <button id="generateAICardsBtn" class="btn-primary">6 KI-Cards erzeugen & veröffentlichen</button>
           </div>
           <div id="aiAutoStatus" class="small muted">Noch keine automatische Generierung gestartet.</div>
           <div id="aiAutoResult"></div>
@@ -449,6 +451,8 @@ function collectAllRelatedTerms(){
   return[...termSet.values()];
 }
 
+let relatedTermsSelected=new Set();
+
 function renderRelatedTerms(){
   const section=el("relatedTermsSection");
   const list=el("relatedTermsList");
@@ -458,57 +462,100 @@ function renderRelatedTerms(){
   wdSection.classList.remove("hidden");
 
   const terms=collectAllRelatedTerms();
-  if(!terms.length){section.classList.add("hidden");return;}
+  const realTopicTerms=terms.filter(term=>findTopicForTerm(term)!==null);
+  if(!realTopicTerms.length){
+    section.classList.remove("hidden");
+    list.innerHTML="<span class='muted'>Keine verwandten Topics gefunden. Nutze \"Alternativen suchen\" oben, um neue Topics zu importieren.</span>";
+    el("linkSelectedTermsBtn").classList.add("hidden");
+    return;
+  }
   section.classList.remove("hidden");
+  relatedTermsSelected.clear();
+  updateLinkButton();
 
-  list.innerHTML=terms.map((term,idx)=>{
+  list.innerHTML=realTopicTerms.map((term,idx)=>{
     const matchedTopic=findTopicForTerm(term);
-    let statusBadge="",actions="";
-    if(matchedTopic){
-      if(hasPublishedCards(matchedTopic)){
-        statusBadge=`<span class='badge term-badge-hascards'>✓ Hat Karten</span>`;
-        actions=`<button class='btn-small' data-open-topic='${matchedTopic.wikidataId}'>Öffnen</button>`;
-      }else if(hasCards(matchedTopic)){
-        statusBadge=`<span class='badge term-badge-stub'>Draft</span>`;
-        actions=`<button class='btn-small' data-open-topic='${matchedTopic.wikidataId}'>Öffnen</button>`;
-      }else{
-        statusBadge=`<span class='badge term-badge-linked'>Topic vorhanden</span>`;
-        actions=`<button class='btn-small' data-open-topic='${matchedTopic.wikidataId}'>Öffnen</button>`;
-      }
+    const qid=safe(matchedTopic.wikidataId||matchedTopic.id);
+    const desc=safe(matchedTopic.description?.de||matchedTopic.description?.en||"Keine Beschreibung");
+    let statusBadge="";
+    if(hasPublishedCards(matchedTopic)){
+      statusBadge=`<span class='badge term-badge-hascards'>✓ Hat Karten</span>`;
+    }else if(hasCards(matchedTopic)){
+      statusBadge=`<span class='badge term-badge-stub'>Draft</span>`;
     }else{
-      statusBadge=`<span class='badge term-badge-missing'>Kein Topic</span>`;
-      actions=`<button class='btn-small btn-primary' data-wd-search-term='${safe(term.title).replace(/'/g,"&#39;")}'>Auf Wikidata suchen</button>`;
+      statusBadge=`<span class='badge term-badge-linked'>Topic vorhanden</span>`;
     }
-    const sourceIcon=term.source==="card"?"📄":"🤖";
-    return `<div class='related-term-item term-clickable' data-term-click='${safe(term.title).replace(/'/g,"&#39;")}'>
-      <span style='font-size:.7rem;opacity:.6' title='${term.source==="card"?"Aus Card-Inhalt":"KI-Vorschlag"}'>${sourceIcon}</span>
-      <div class='related-term-title'>${safe(term.title)}</div>
+    return `<div class='related-term-item' data-link-id='${qid}' style='cursor:pointer'>
+      <input type='checkbox' class='related-term-cb' data-link-cb='${qid}' style='width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0' />
+      <div style='flex:1;min-width:0'>
+        <div class='related-term-title'>${safe(term.title)}</div>
+        <div class='small muted' style='margin-top:2px'>${qid} · ${desc}</div>
+      </div>
       ${statusBadge}
-      <div class='related-term-actions'>${actions}</div>
+      <div class='related-term-actions'>
+        <button class='btn-small' data-open-topic='${matchedTopic.wikidataId}'>Öffnen</button>
+      </div>
     </div>`;
-  }).join("")||"<span class='muted'>Keine verwandten Themen hinterlegt.</span>";
+  }).join("");
 
   list.querySelectorAll("[data-open-topic]").forEach(b=>{
     b.onclick=e=>{e.stopPropagation();selectTopic(b.dataset.openTopic);};
   });
-  list.querySelectorAll("[data-wd-search-term]").forEach(b=>{
-    b.onclick=e=>{
-      e.stopPropagation();
-      const term=b.dataset.wdSearchTerm;
-      el("wikidataSearchInput").value=term;
-      runWikidataSearch(term);
-      el("wikidataSearchSection").scrollIntoView({behavior:"smooth",block:"start"});
-    };
-  });
-  list.querySelectorAll("[data-term-click]").forEach(row=>{
+  list.querySelectorAll(".related-term-item[data-link-id]").forEach(row=>{
     row.onclick=e=>{
       if(e.target.closest("button"))return;
-      const term=row.dataset.termClick;
-      el("wikidataSearchInput").value=term;
-      runWikidataSearch(term);
-      el("wikidataSearchSection").scrollIntoView({behavior:"smooth",block:"start"});
+      const cb=row.querySelector(".related-term-cb");
+      if(e.target!==cb){cb.checked=!cb.checked;}
+      const id=cb.dataset.linkCb;
+      if(cb.checked)relatedTermsSelected.add(id);
+      else relatedTermsSelected.delete(id);
+      updateLinkButton();
     };
   });
+}
+
+function updateLinkButton(){
+  const btn=el("linkSelectedTermsBtn");
+  if(relatedTermsSelected.size>=2){
+    btn.classList.remove("hidden");
+    btn.textContent=`${relatedTermsSelected.size} Topics verknüpfen`;
+  }else{
+    btn.classList.add("hidden");
+  }
+}
+
+async function linkSelectedTopics(){
+  const ids=[...relatedTermsSelected];
+  if(ids.length<2)return showStatus("Bitte mindestens 2 Topics auswählen.","error");
+  if(!confirm(`${ids.length} Topics werden gegenseitig verknüpft. Fortfahren?`))return;
+  try{
+    for(const id of ids){
+      const topicRef=doc(db,"topics",id);
+      const topicSnap=await getDoc(topicRef);
+      if(!topicSnap.exists())continue;
+      const topicData=topicSnap.data();
+      const existing=Array.isArray(topicData.relatedTerms)?topicData.relatedTerms:[];
+      const existingTitles=new Set(existing.map(t=>safe(t.title).toLowerCase().trim()));
+      const newTerms=[...existing];
+      for(const otherId of ids){
+        if(otherId===id)continue;
+        const otherTopic=topics.find(t=>t.wikidataId===otherId||t.id===otherId);
+        if(!otherTopic)continue;
+        const otherTitle=safe(otherTopic.title?.de||otherTopic.title?.en||otherId);
+        if(!existingTitles.has(otherTitle.toLowerCase().trim())){
+          newTerms.push({title:otherTitle,wikidataId:otherId});
+          existingTitles.add(otherTitle.toLowerCase().trim());
+        }
+      }
+      await updateDoc(topicRef,{relatedTerms:newTerms,updatedAt:serverTimestamp()});
+    }
+    showStatus(`${ids.length} Topics erfolgreich verknüpft.`);
+    await loadTopics();
+    selectedTopic=topics.find(t=>t.wikidataId===selectedTopic?.wikidataId)||selectedTopic;
+    renderRelatedTerms();
+  }catch(e){
+    showStatus(`Verknüpfung fehlgeschlagen: ${e.message}`,"error");
+  }
 }
 
 async function createStubTopic(termTitle,termIndex){
@@ -683,9 +730,7 @@ async function runWikidataSearch(query){
 function setGenerationLoading(isLoading){
   aiGenerationLoading=!!isLoading;
   const genBtn=el("generateAICardsBtn");
-  const pubBtn=el("publishTopicCardsBtn");
   if(genBtn)genBtn.disabled=aiGenerationLoading||!user||!selectedTopic;
-  if(pubBtn)pubBtn.disabled=aiGenerationLoading||!user||!selectedTopic;
 }
 
 function renderAIStatus(message){el("aiAutoStatus").textContent=message;}
@@ -695,7 +740,7 @@ function renderAIResult(result){
   const warnings=result?.warnings||[];
   const longWarnings=warnings.filter(w=>w.includes("_long hat nur"));
   el("aiAutoResult").innerHTML=`<div class='status' style='margin-top:10px'>
-    <div style='margin-bottom:6px'>✅ <b>6 Cards erfolgreich erstellt.</b> (2 KI-Aufrufe: Short/Medium + Long)</div>
+    <div style='margin-bottom:6px'>✅ <b>6 Cards erfolgreich erstellt & veröffentlicht.</b> (2 KI-Aufrufe: Short/Medium + Long)</div>
     <div class='small'>Run-ID: ${safe(result.generationRunId)}</div>
     <div class='small' style='margin-top:6px'>Quellen (Server): Wikidata ✓ | DE Summary ${sa.wikipediaDeSummary?"✓":"–"} | DE Volltext ${sa.wikipediaDeFull?"✓":"–"} | EN Summary ${sa.wikipediaEnSummary?"✓":"–"} | EN Volltext ${sa.wikipediaEnFull?"✓":"–"}</div>
     ${longWarnings.length?`<div class='small' style='margin-top:6px;color:var(--warn)'>⚠️ ${longWarnings.join(" | ")}</div>`:""}
@@ -722,7 +767,7 @@ function renderAIError(error){
 async function generateAICards(){
   if(!user)return showStatus("Bitte einloggen.","error");
   if(!selectedTopic)return showStatus("Bitte Topic auswählen.","error");
-  if(!confirm("Für dieses Topic werden 6 Draft-Cards erstellt. Fortfahren?"))return;
+  if(!confirm("Für dieses Topic werden 6 Cards erstellt und direkt veröffentlicht. Fortfahren?"))return;
   setGenerationLoading(true);
   el("aiAutoResult").innerHTML="";
   try{
@@ -753,26 +798,6 @@ async function generateAICards(){
   }
 }
 
-async function publishCards(){
-  if(!user)return showStatus("Bitte einloggen.","error");
-  if(!selectedTopic)return showStatus("Bitte Topic auswählen.","error");
-  if(!confirm("Alle 6 Draft-Cards dieses Topics veröffentlichen?"))return;
-  setGenerationLoading(true);
-  try{
-    const call=httpsCallable(functions,"publishCardsForTopic",{timeout:60000});
-    const resp=await call({topicId:selectedTopic.wikidataId||selectedTopic.id});
-    renderAIStatus(`Veröffentlicht: ${resp.data?.updatedCards||0} Cards`);
-    showStatus("Cards veröffentlicht.","success");
-    await loadExistingCards(selectedTopic.wikidataId);
-    await loadTopics();
-  }catch(e){
-    renderAIError(e);
-    renderAIStatus("Veröffentlichung fehlgeschlagen.");
-    showStatus(e.message||"Publish fehlgeschlagen","error");
-  }finally{
-    setGenerationLoading(false);
-  }
-}
 
 /* ─── Batch Generation ──────────────────────────── */
 function startBatchGeneration(){
@@ -954,7 +979,6 @@ function init(){
   el("reloadTopicsBtn").onclick=loadTopics;
   el("topicSearch").oninput=()=>renderTopicList();
   el("generateAICardsBtn").onclick=()=>generateAICards().catch(renderAIError);
-  el("publishTopicCardsBtn").onclick=()=>publishCards().catch(renderAIError);
 
   // Filter chip – e.preventDefault() stops the browser from firing a second synthetic
   // click on the hidden checkbox (which would bubble back to the label and toggle twice)
@@ -981,6 +1005,8 @@ function init(){
   // Wikidata search
   el("wikidataSearchBtn").onclick=()=>runWikidataSearch(el("wikidataSearchInput").value);
   el("wikidataSearchInput").onkeydown=e=>{if(e.key==="Enter")runWikidataSearch(el("wikidataSearchInput").value);};
+  // Link topics
+  el("linkSelectedTermsBtn").onclick=linkSelectedTopics;
   // Batch generate
   el("batchGenerateBtn").onclick=startBatchGeneration;
   el("batchPublishAllBtn").onclick=publishAllBatch;
