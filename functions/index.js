@@ -10,8 +10,10 @@ const db = admin.firestore();
 const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 const ADMIN_EMAIL = "alain.sc2@gmail.com";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const OPENAI_MODEL_LONG = process.env.OPENAI_MODEL_LONG || process.env.OPENAI_MODEL || "gpt-4o-mini";
 const API_USER_AGENT = "SwipeKnowledgePrototype/0.1 (admin-local; alain.sc2@gmail.com)";
 const FULL_EXTRACT_LIMIT = 60000;
+const LONG_CARD_MIN_WORDS = 1200;
 
 const ALLOWED_MAIN_CATEGORIES = ["geschichte","wissenschaft","geografie","politik","gesellschaft","religion","philosophie","technik","wirtschaft","kultur","sport","biografie","natur","medizin","mythologie","allgemeinwissen"];
 const ALLOWED_TOPIC_TYPES = ["person","historical_event","historical_period","place","country","organization","concept","scientific_concept","religion","ideology","technology","invention","conflict","treaty","natural_object","cultural_work","sport_event","other"];
@@ -19,58 +21,79 @@ const ALLOWED_DIFFICULTIES = ["beginner", "intermediate", "advanced"];
 const REQUIRED_CARD_KEYS = ["de_short", "de_medium", "de_long", "en_short", "en_medium", "en_long"];
 const PREVIEW_MAX_CHARS = 3000;
 
+const topicMetaSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["wikidataId", "mainCategory", "topicType", "tags", "suggestedRelatedTopics", "factualLimitations", "qualityNotes"],
+  properties: {
+    wikidataId: { type: "string" },
+    mainCategory: { type: "string", enum: ALLOWED_MAIN_CATEGORIES },
+    topicType: { type: "string", enum: ALLOWED_TOPIC_TYPES },
+    tags: { type: "array", items: { type: "string" } },
+    suggestedRelatedTopics: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "reason"],
+        properties: {
+          title: { type: "string" },
+          reason: { type: "string" },
+        },
+      },
+    },
+    factualLimitations: { type: "array", items: { type: "string" } },
+    qualityNotes: { type: "string" },
+  },
+};
+
+const cardItemSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["language", "length", "cardType", "title", "hook", "body", "needsMoreSourceMaterial", "sourceBasis", "sourceIds", "sourceLimitations"],
+  properties: {
+    language: { type: "string", enum: ["de", "en"] },
+    length: { type: "string", enum: ["short", "medium", "long"] },
+    cardType: { type: "string", enum: ["intro", "fact", "timeline", "deep_dive", "comparison", "myth_buster"] },
+    title: { type: "string" },
+    hook: { type: "string" },
+    body: { type: "string" },
+    needsMoreSourceMaterial: { type: "boolean" },
+    sourceBasis: { type: "array", items: { type: "string", enum: ["wikidata", "wikipedia_de", "wikipedia_en"] } },
+    sourceIds: { type: "array", items: { type: "string" } },
+    sourceLimitations: { type: "array", items: { type: "string" } },
+  },
+};
+
+// Used for final combined-output validation (6 cards)
 const swipeCardsSchema = {
   type: "object",
   additionalProperties: false,
   required: ["topicMeta", "cards"],
   properties: {
-    topicMeta: {
-      type: "object",
-      additionalProperties: false,
-      required: ["wikidataId", "mainCategory", "topicType", "tags", "suggestedRelatedTopics", "factualLimitations", "qualityNotes"],
-      properties: {
-        wikidataId: { type: "string" },
-        mainCategory: { type: "string", enum: ALLOWED_MAIN_CATEGORIES },
-        topicType: { type: "string", enum: ALLOWED_TOPIC_TYPES },
-        tags: { type: "array", items: { type: "string" } },
-        suggestedRelatedTopics: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: false,
-            required: ["title", "reason"],
-            properties: {
-              title: { type: "string" },
-              reason: { type: "string" },
-            },
-          },
-        },
-        factualLimitations: { type: "array", items: { type: "string" } },
-        qualityNotes: { type: "string" },
-      },
-    },
-    cards: {
-      type: "array",
-      minItems: 6,
-      maxItems: 6,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["language", "length", "cardType", "title", "hook", "body", "needsMoreSourceMaterial", "sourceBasis", "sourceIds", "sourceLimitations"],
-        properties: {
-          language: { type: "string", enum: ["de", "en"] },
-          length: { type: "string", enum: ["short", "medium", "long"] },
-          cardType: { type: "string", enum: ["intro", "fact", "timeline", "deep_dive", "comparison", "myth_buster"] },
-          title: { type: "string" },
-          hook: { type: "string" },
-          body: { type: "string" },
-          needsMoreSourceMaterial: { type: "boolean" },
-          sourceBasis: { type: "array", items: { type: "string", enum: ["wikidata", "wikipedia_de", "wikipedia_en"] } },
-          sourceIds: { type: "array", items: { type: "string" } },
-          sourceLimitations: { type: "array", items: { type: "string" } },
-        },
-      },
-    },
+    topicMeta: topicMetaSchema,
+    cards: { type: "array", minItems: 6, maxItems: 6, items: cardItemSchema },
+  },
+};
+
+// Call 1: short + medium cards (4 cards) + topicMeta
+const shortMediumCardsSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["topicMeta", "cards"],
+  properties: {
+    topicMeta: topicMetaSchema,
+    cards: { type: "array", minItems: 4, maxItems: 4, items: cardItemSchema },
+  },
+};
+
+// Call 2: long cards only (2 cards, dedicated full token budget)
+const longCardsSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["cards"],
+  properties: {
+    cards: { type: "array", minItems: 2, maxItems: 2, items: cardItemSchema },
   },
 };
 
@@ -198,48 +221,86 @@ function buildSourcePack(topic, wikiDe, wikiEn) {
   });
 }
 
-function buildOpenAIPrompt(sourcePack) { return `Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp.
+function buildOpenAIPromptShortMedium(sourcePack) {
+  return `Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp.
 Gib AUSSCHLIESSLICH ein JSON-Objekt in dieser Top-Level-Struktur zurück:
 {"topicMeta": {...}, "cards": [...]}
 Kein Markdown, keine Backticks, keine Erklärungen außerhalb des JSON.
 
 ALLGEMEINE REGELN:
 - Nutze ausschliesslich Informationen aus dem SOURCE PACK. Erfinde keine Fakten, keine externen Quellen.
-- Erstelle exakt 6 Cards: de-short, de-medium, de-long, en-short, en-medium, en-long.
+- Erstelle exakt 4 Cards: de-short, de-medium, en-short, en-medium.
+- length MUSS exakt "short" oder "medium" sein (KEIN "long" in diesem Aufruf).
 - Jede Card MUSS das Feld body verwenden (niemals text).
 - Jede Card MUSS sourceBasis und sourceIds enthalten.
 - language MUSS exakt "de" oder "en" sein.
-- length MUSS exakt "short", "medium" oder "long" sein.
 - Sprache: de-Cards auf Deutsch, en-Cards auf Englisch.
 - Wenn Quellenmaterial nicht ausreicht: needsMoreSourceMaterial=true, body trotzdem so gut wie möglich aus verfügbarem Material.
 
-INHALTLICHE VORGABEN PRO KARTENTYP:
-
 SHORT (80–150 Wörter):
 - Genau 2–4 prägnante, dichte Sätze, die den absoluten Kerninhalt des Themas auf den Punkt bringen.
-- Teasercharakter: Der Leser erhält sofort die wichtigsten Informationen und wird neugierig auf mehr – ohne dass explizit auf weitere Versionen oder mehr Details hingewiesen wird.
+- Teasercharakter: Der Leser erhält sofort die wichtigsten Informationen und wird neugierig auf mehr.
 - Kein "Lies mehr", kein "In der langen Version", keine Aufforderung zum Weiterlesen.
-- Trotz Kürze eine stichhaltige, faktisch korrekte Zusammenfassung – kein Blabla, kein Fülltext.
-- Der hook darf eine direkte Frage oder eine überraschende Aussage sein, die das Interesse weckt.
+- Trotz Kürze eine stichhaltige, faktisch korrekte Zusammenfassung – kein Fülltext.
+- Der hook darf eine direkte Frage oder eine überraschende Aussage sein.
 
 MEDIUM (400–900 Wörter):
 - Deutlich ausführlicher als Short: mehrere gut strukturierte Absätze.
-- Enthält Kontext, Hintergrund, historische oder wissenschaftliche Bedeutung sowie die wichtigsten Details und Zusammenhänge.
+- Enthält Kontext, Hintergrund, historische oder wissenschaftliche Bedeutung sowie die wichtigsten Details.
 - Nutze primär den Wikipedia-Volltext aus dem SOURCE PACK; gehe über die Kurzbeschreibung hinaus.
 - Keine Kapitelüberschriften nötig, aber klare Absatztrennung und logischer Aufbau.
 - Sachlich, informativ und verständlich für ein breites Publikum ohne Vorkenntnisse.
 
-LONG (1800–3000 Wörter):
-- Vollständiger, tiefgreifender Bericht mit mehreren Unterkapiteln.
-- Verwende ## für Kapitelüberschriften im body-Text (z.B. ## Geschichte, ## Bedeutung, ## Hintergrund, ## Wirkung, ## Rezeption).
-- Mindestens 3, idealerweise 4–5 Unterkapitel je nach Quellenmaterial.
-- Nutze den Wikipedia-Volltext aus dem SOURCE PACK ausführlich: zusammenfassen, strukturieren, didaktisch aufbereiten.
-- Niemals Satz für Satz kopieren – neu formulieren und verständlich erklären, aber alle Fakten aus dem SOURCE PACK.
-- Ziel: Der Leser soll sich wirklich in das Thema vertiefen können, wie in einem hochwertigen Enzyklopädie-Artikel.
-- Wenn Quellenmaterial begrenzt: needsMoreSourceMaterial=true, aber vorhandenes Material maximal ausschöpfen.
-
 SOURCE PACK:
-${JSON.stringify(sourcePack)}`; }
+${JSON.stringify(sourcePack)}`;
+}
+
+function buildOpenAIPromptLong(sourcePack) {
+  const deTitle = safeString(sourcePack?.topic?.title?.de || sourcePack?.topic?.title?.en);
+  const enTitle = safeString(sourcePack?.topic?.title?.en || sourcePack?.topic?.title?.de);
+  return `Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp.
+Gib AUSSCHLIESSLICH ein JSON-Objekt zurück: {"cards": [...]}
+Kein Markdown, keine Backticks, keine Erklärungen außerhalb des JSON.
+
+Erstelle GENAU 2 Long-Deep-Dive-Cards: de-long (auf Deutsch) und en-long (auf Englisch).
+- language MUSS exakt "de" bzw. "en" sein.
+- length MUSS exakt "long" sein.
+- cardType MUSS "deep_dive" sein.
+- Jede Card MUSS das Feld body verwenden (niemals text).
+- Jede Card MUSS sourceBasis und sourceIds enthalten.
+- Nutze ausschliesslich Informationen aus dem SOURCE PACK. Erfinde keine Fakten.
+
+LONG DEEP DIVE – PFLICHTANFORDERUNGEN (KRITISCH):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. MINDESTLÄNGE: Der body MUSS mindestens 1800 Wörter enthalten. 2000–3000 Wörter sind das Ziel.
+2. STRUKTUR: Verwende ## für Kapitelüberschriften. Mindestens 4 Unterkapitel, je mindestens 300 Wörter.
+3. INHALT: Nutze den gesamten Wikipedia-Volltext aus dem SOURCE PACK. Strukturiere, fasse zusammen
+   und erkläre didaktisch – nicht Satz für Satz kopieren, aber ALLE Fakten aus dem SOURCE PACK verwenden.
+4. TIEFE: Jedes Unterkapitel soll in die Tiefe gehen. Kein Fülltext – echter Inhalt aus dem SOURCE PACK.
+5. Wenn Quellenmaterial begrenzt ist: needsMoreSourceMaterial=true, aber vorhandenes Material maximal ausschöpfen.
+
+PFLICHTSTRUKTUR für de-long body (Thema: "${deTitle}"):
+## Überblick
+[Mindestens 300 Wörter: Das Thema vorstellen, seine zentrale Bedeutung erklären, historischen Kontext einbetten]
+
+## [Themenspezifisches Kapitel 1 aus Wikipedia-Inhalt]
+[Mindestens 350 Wörter: Wichtigste Aspekte, Details, Zusammenhänge aus Wikipedia-Volltext]
+
+## [Themenspezifisches Kapitel 2 aus Wikipedia-Inhalt]
+[Mindestens 350 Wörter: Weitere wichtige Aspekte aus Wikipedia-Volltext]
+
+## [Themenspezifisches Kapitel 3 aus Wikipedia-Inhalt]
+[Mindestens 300 Wörter: Kontext, Hintergründe, Auswirkungen aus Wikipedia-Volltext]
+
+## Bedeutung und Nachwirkung
+[Mindestens 300 Wörter: Historische oder gesellschaftliche Bedeutung, Rezeption, Einfluss bis heute]
+
+PFLICHTSTRUKTUR für en-long body (Topic: "${enTitle}"):
+[Gleiche Struktur auf Englisch, mit Kapiteln in Englisch basierend auf dem englischen Wikipedia-Material]
+
+SOURCE PACK (Wikipedia-Volltext ist der primäre Inhalt für die Long-Cards):
+${JSON.stringify(sourcePack)}`;
+}
 function preview(value) { return safeString(value).slice(0, PREVIEW_MAX_CHARS); }
 function stripJsonFences(text) { return safeString(text).trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim(); }
 function safeJsonParse(text) { try { return { ok: true, value: JSON.parse(text), error: null }; } catch (error) { return { ok: false, value: null, error: error.message }; } }
@@ -444,102 +505,146 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
 
     const client = new OpenAI({ apiKey: OPENAI_API_KEY.value() });
     let output;
-    let response;
-    let rawOpenAIText = "";
     let responseDebug = {};
-    const callOpenAI = async (useFallback = false) => {
-      const userPrompt = useFallback
-        ? `${buildOpenAIPrompt(sourcePack)}
 
-Return only valid JSON. No Markdown.`
-        : buildOpenAIPrompt(sourcePack);
+    // Helper: parse and clean an OpenAI response into a plain JS object
+    const parseOpenAIResponse = (response, callLabel) => {
+      const rawText = extractOpenAIText(response);
+      const debug = buildResponseDebugSummary(response, rawText);
+      if (!rawText) {
+        throw createFailedPrecondition("openai_empty_response", `OpenAI (${callLabel}) hat keine Text-/JSON-Antwort geliefert.`, {
+          responseStatus: debug.responseStatus || null,
+          incompleteDetails: debug.incompleteDetails || null,
+          outputTypes: debug.outputTypes || [],
+          outputTextLength: safeString(response?.output_text).length,
+          usage: debug.usage || null,
+          model: debug.responseModel || OPENAI_MODEL,
+        });
+      }
+      const cleanedText = stripJsonFences(rawText);
+      let parsed = safeJsonParse(cleanedText);
+      if (!parsed.ok) {
+        const firstObj = extractFirstJsonObject(cleanedText);
+        if (firstObj) {
+          const fb = safeJsonParse(firstObj);
+          if (fb.ok && fb.value && typeof fb.value === "object" && !Array.isArray(fb.value)) {
+            parsed = fb;
+            warnings.push(`${callLabel}: OpenAI-Antwort enthielt zusätzlichen Text; erstes JSON-Objekt wurde verwendet.`);
+          }
+        }
+      }
+      if (!parsed.ok) {
+        throw createFailedPrecondition("openai_invalid_json", `OpenAI (${callLabel}) hat kein gültiges JSON geliefert.`, {
+          originalError: parsed.error,
+          rawOpenAITextPreview: preview(rawText),
+          rawOpenAITextLength: safeString(rawText).length,
+          ...debug,
+        });
+      }
+      return { value: parsed.value, debug, rawText };
+    };
+
+    // ── Call 1: short + medium cards (4 cards) + topicMeta ───────────────────
+    const callShortMedium = async (useFallback = false) => {
+      const userPrompt = useFallback
+        ? `${buildOpenAIPromptShortMedium(sourcePack)}\n\nReturn only valid JSON. No Markdown.`
+        : buildOpenAIPromptShortMedium(sourcePack);
       return client.responses.create({
         model: OPENAI_MODEL,
+        max_output_tokens: 8000,
+        input: [
+          {
+            role: "system",
+            content: "Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp. Verwende ausschliesslich Informationen aus dem SOURCE PACK. Gib ausschliesslich gültiges JSON zurück. language MUSS exakt \"de\" oder \"en\" sein. length MUSS exakt \"short\" oder \"medium\" sein. Der Haupttext MUSS im Feld \"body\" stehen, niemals in \"text\". SHORT: 2–4 prägnante Sätze. MEDIUM: 400–900 Wörter, mehrere Absätze.",
+          },
+          { role: "user", content: userPrompt },
+        ],
+        text: useFallback
+          ? { format: { type: "json_object" } }
+          : { format: { type: "json_schema", name: "short_medium_cards", schema: shortMediumCardsSchema, strict: true } },
+      });
+    };
+
+    // ── Call 2: long cards only (2 cards, dedicated full token budget) ────────
+    const callLong = async (useFallback = false) => {
+      const userPrompt = useFallback
+        ? `${buildOpenAIPromptLong(sourcePack)}\n\nReturn only valid JSON. No Markdown.`
+        : buildOpenAIPromptLong(sourcePack);
+      return client.responses.create({
+        model: OPENAI_MODEL_LONG,
         max_output_tokens: 16000,
         input: [
           {
             role: "system",
-            content: "Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp. Verwende ausschliesslich Informationen aus dem SOURCE PACK. Erfinde keine Fakten. Gib ausschliesslich gültiges JSON gemäss Schema zurück. WICHTIG: language MUSS exakt \"de\" oder \"en\" sein. length MUSS exakt \"short\", \"medium\" oder \"long\" sein. Der Haupttext MUSS im Feld \"body\" stehen, niemals in \"text\". SHORT-Cards: 2–4 prägnante Sätze, Teasercharakter, kein Hinweis auf weitere Versionen. MEDIUM-Cards: 400–900 Wörter, mehrere Absätze, ausführlich. LONG-Cards: 1800–3000 Wörter, Unterkapitel mit ## Überschriften, tiefgreifend.",
+            content: "Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp. Verwende ausschliesslich Informationen aus dem SOURCE PACK. Gib ausschliesslich gültiges JSON zurück. KRITISCH: Erstelle GENAU 2 Long-Cards (de-long und en-long). length MUSS exakt \"long\" sein. Der body MUSS MINDESTENS 1800 Wörter enthalten – das ist eine harte Anforderung. Verwende ## Kapitelüberschriften. Mindestens 4 Unterkapitel à mindestens 300 Wörter. Nutze den gesamten Wikipedia-Volltext aus dem SOURCE PACK.",
           },
-          {
-            role: "user",
-            content: userPrompt,
-          },
+          { role: "user", content: userPrompt },
         ],
         text: useFallback
           ? { format: { type: "json_object" } }
-          : {
-            format: {
-              type: "json_schema",
-              name: "swipe_cards_generation",
-              schema: swipeCardsSchema,
-              strict: true,
-            },
-          },
+          : { format: { type: "json_schema", name: "long_cards", schema: longCardsSchema, strict: true } },
       });
     };
 
+    let shortMediumOutput;
+    let longOutput;
+
+    // Call 1: short + medium
+    let resp1;
     try {
-      response = await callOpenAI(false);
-      rawOpenAIText = extractOpenAIText(response);
-      responseDebug = buildResponseDebugSummary(response, rawOpenAIText);
-      const shouldFallback = !rawOpenAIText || response?.status === "incomplete";
-      if (shouldFallback) {
-        response = await callOpenAI(true);
-        rawOpenAIText = extractOpenAIText(response);
-        responseDebug = {
-          ...buildResponseDebugSummary(response, rawOpenAIText),
-          fallbackUsed: true,
-        };
-      }
+      resp1 = await callShortMedium(false);
     } catch (e) {
-      throw new HttpsError("failed-precondition", `OpenAI-Aufruf fehlgeschlagen: ${e.message}`, removeUndefinedDeep({ errorType: "openai_call_failed", model: OPENAI_MODEL, sourceAvailability }));
+      throw new HttpsError("failed-precondition", `OpenAI Netzwerkfehler (Aufruf 1 Short/Medium): ${e.message}`, removeUndefinedDeep({ errorType: "openai_call1_failed", model: OPENAI_MODEL, sourceAvailability }));
     }
-
-    debugDetails = { ...responseDebug };
-    const outputTextLength = safeString(response?.output_text).length;
-    const outputTypes = responseDebug.outputTypes || [];
-    if (!rawOpenAIText) {
-      throw createFailedPrecondition("openai_empty_response", "OpenAI hat keine sichtbare Text-/JSON-Antwort geliefert.", {
-        responseStatus: responseDebug.responseStatus || null,
-        incompleteDetails: responseDebug.incompleteDetails || null,
-        outputTypes,
-        outputTextLength,
-        usage: responseDebug.usage || null,
-        outputItemPreview: responseDebug.outputItemPreview || "",
-        model: responseDebug.responseModel || OPENAI_MODEL,
-      });
+    let r1 = parseOpenAIResponse(resp1, "call1-short-medium");
+    if (resp1?.status === "incomplete") {
+      let resp1fb;
+      try { resp1fb = await callShortMedium(true); } catch (e) { throw new HttpsError("failed-precondition", `OpenAI Netzwerkfehler (Aufruf 1 Fallback): ${e.message}`, { errorType: "openai_call1_fallback_failed" }); }
+      r1 = parseOpenAIResponse(resp1fb, "call1-short-medium-fallback");
+      warnings.push("call1 fallback (json_object) verwendet.");
+      r1.debug.fallbackUsed = true;
     }
+    shortMediumOutput = unwrapAIOutput(r1.value);
+    responseDebug = { call1: r1.debug };
 
-    const cleanedText = stripJsonFences(rawOpenAIText);
-    let parsed = safeJsonParse(cleanedText);
-    if (!parsed.ok) {
-      const firstJsonObject = extractFirstJsonObject(cleanedText);
-      if (firstJsonObject) {
-        const fallbackParsed = safeJsonParse(firstJsonObject);
-        if (fallbackParsed.ok && fallbackParsed.value && typeof fallbackParsed.value === "object" && !Array.isArray(fallbackParsed.value)) {
-          parsed = fallbackParsed;
-          warnings.push("OpenAI-Antwort enthielt zusätzlichen Text nach dem ersten JSON-Objekt; erstes JSON-Objekt wurde verwendet.");
-        }
+    // Call 2: long cards
+    let resp2;
+    try {
+      resp2 = await callLong(false);
+    } catch (e) {
+      throw new HttpsError("failed-precondition", `OpenAI Netzwerkfehler (Aufruf 2 Long): ${e.message}`, removeUndefinedDeep({ errorType: "openai_call2_failed", model: OPENAI_MODEL_LONG, sourceAvailability }));
+    }
+    let r2 = parseOpenAIResponse(resp2, "call2-long");
+    if (resp2?.status === "incomplete") {
+      let resp2fb;
+      try { resp2fb = await callLong(true); } catch (e) { throw new HttpsError("failed-precondition", `OpenAI Netzwerkfehler (Aufruf 2 Fallback): ${e.message}`, { errorType: "openai_call2_fallback_failed" }); }
+      r2 = parseOpenAIResponse(resp2fb, "call2-long-fallback");
+      warnings.push("call2 fallback (json_object) verwendet.");
+      r2.debug.fallbackUsed = true;
+    }
+    longOutput = unwrapAIOutput(r2.value);
+    responseDebug = { ...responseDebug, call2: r2.debug };
+
+    // Merge both calls into a single output object
+    const longCards = Array.isArray(longOutput?.cards) ? longOutput.cards : [];
+    output = {
+      topicMeta: shortMediumOutput?.topicMeta,
+      cards: [...(Array.isArray(shortMediumOutput?.cards) ? shortMediumOutput.cards : []), ...longCards],
+    };
+
+    // Warn if long cards are shorter than expected
+    for (const card of longCards) {
+      const wordCount = safeString(card?.body).trim().split(/\s+/).filter(Boolean).length;
+      if (wordCount < LONG_CARD_MIN_WORDS) {
+        warnings.push(`WARNUNG: ${safeString(card?.language)}_long hat nur ${wordCount} Wörter (Minimum: ${LONG_CARD_MIN_WORDS}). Quellenmaterial prüfen.`);
       }
     }
-    if (!parsed.ok) {
-      throw createFailedPrecondition("openai_invalid_json", "OpenAI hat Text geliefert, aber kein gültiges JSON.", {
-        originalError: parsed.error,
-        rawOpenAITextPreview: preview(rawOpenAIText),
-        rawOpenAITextLength: safeString(rawOpenAIText).length,
-        rawOpenAITextStart: safeString(rawOpenAIText).slice(0, 1000),
-        rawOpenAITextEnd: safeString(rawOpenAIText).slice(-1000),
-        ...responseDebug,
-      });
-    }
-    output = unwrapAIOutput(parsed.value);
+
     output = normalizeAIOutput(output, warnings, { sourceAvailability, topicId, wikidataId });
     debugDetails = {
       ...responseDebug,
       outputKeys: Object.keys(output || {}),
       outputPreview: JSON.stringify(output || {}).slice(0, PREVIEW_MAX_CHARS),
-      rawOpenAITextPreview: preview(rawOpenAIText),
     };
     if (!output?.topicMeta || !output?.cards) {
       throw createFailedPrecondition("schema_missing_topicMeta_cards", "Ungültige KI-Antwort: topicMeta/cards fehlen.", debugDetails);
@@ -579,7 +684,7 @@ Return only valid JSON. No Markdown.`
         topicTitle: { de: safeString(topic?.title?.de), en: safeString(topic?.title?.en) },
         sourceIds: resolvedSourceIds, sources, sourceBasis: resolvedSourceBasis, sourceLimitations: Array.isArray(card.sourceLimitations) ? card.sourceLimitations : [], needsMoreSourceMaterial: !!card.needsMoreSourceMaterial,
         tags: Array.isArray(output?.topicMeta?.tags) ? output.topicMeta.tags : [], mainCategory: output.topicMeta.mainCategory, topicType: output.topicMeta.topicType,
-        generation: { method: "openai_cloud_function", aiGenerated: true, sourceRestricted: true, noNewFactsInstruction: true, sourcePackHash, model: OPENAI_MODEL, generatedAt: admin.firestore.FieldValue.serverTimestamp() },
+        generation: { method: "openai_cloud_function_split", aiGenerated: true, sourceRestricted: true, noNewFactsInstruction: true, sourcePackHash, model: card.length === "long" ? OPENAI_MODEL_LONG : OPENAI_MODEL, generatedAt: admin.firestore.FieldValue.serverTimestamp() },
         status: "draft", reviewStatus: "needs_review", qualityScore: 0, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }));
     }
@@ -589,13 +694,13 @@ Return only valid JSON. No Markdown.`
     if (sourcePack.sources.wikipediaEn.available) batch.set(db.collection("sourceDocs").doc(`wikipedia_en_${wikidataId}`), { sourceType: "wikipedia", wikidataId, title: safeString(sourcePack.sources.wikipediaEn.summaryTitle || topic?.title?.en), url: safeString(sourcePack.sources.wikipediaEn.url), license: "CC BY-SA 4.0", publisher: "Wikipedia", language: "en", fetchedAt: admin.firestore.FieldValue.serverTimestamp(), trustLevel: "medium-high" }, { merge: true });
 
     batch.set(topicRef, { mainCategory: output.topicMeta.mainCategory, topicType: output.topicMeta.topicType, tags: output.topicMeta.tags || [], activeGenerationRunId: generationRunId, activeCardGroupId: cardGroupId, "contentStatus.hasShortCard": true, "contentStatus.hasMediumCard": true, "contentStatus.hasLongCard": true, "contentStatus.reviewStatus": "cards_generated", status: "ready", updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-    batch.set(runRef, { type: "openai_swipe_cards_generation", topicId, wikidataId, generationRunId, cardGroupId, status: "success", cardsCreated: 6, cardIds, model: OPENAI_MODEL, sourceAvailability, warnings, errorMessage: null, sourcePackHash, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    batch.set(runRef, { type: "openai_swipe_cards_generation_split", topicId, wikidataId, generationRunId, cardGroupId, status: "success", cardsCreated: 6, cardIds, modelShortMedium: OPENAI_MODEL, modelLong: OPENAI_MODEL_LONG, sourceAvailability, warnings, errorMessage: null, sourcePackHash, createdAt: admin.firestore.FieldValue.serverTimestamp() });
     await batch.commit();
     return { success: true, topicId, cardsCreated: 6, cardIds, topicMeta: output.topicMeta, warnings, sourceAvailability, generationRunId };
   } catch (error) {
     const message = error instanceof HttpsError ? error.message : safeString(error?.message || "Unbekannter Fehler");
     const details = removeUndefinedDeep(error?.details || {});
-    try { await db.collection("generationRuns").add({ type: "openai_swipe_cards_generation", topicId, wikidataId, status: "error", cardsCreated: cardIds.length || 0, cardIds, model: OPENAI_MODEL, sourceAvailability, warnings, errorMessage: message, errorCode: error?.code || null, errorDetails: details, outputKeys: debugDetails.outputKeys || details.outputKeys || null, outputPreview: preview(debugDetails.outputPreview || details.outputPreview || ""), rawOpenAITextPreview: preview(debugDetails.rawOpenAITextPreview || details.rawOpenAITextPreview || ""), responseKeys: debugDetails.responseKeys || details.responseKeys || null, responseStatus: debugDetails.responseStatus || details.responseStatus || null, incompleteDetails: debugDetails.incompleteDetails || details.incompleteDetails || null, outputTypes: debugDetails.outputTypes || details.outputTypes || [], outputTextLength: Number(debugDetails.outputTextLength || details.outputTextLength || 0), usage: debugDetails.usage || details.usage || null, outputItemPreview: preview(debugDetails.outputItemPreview || details.outputItemPreview || ""), createdAt: admin.firestore.FieldValue.serverTimestamp() }); } catch (_) {}
+    try { await db.collection("generationRuns").add({ type: "openai_swipe_cards_generation_split", topicId, wikidataId, status: "error", cardsCreated: cardIds.length || 0, cardIds, modelShortMedium: OPENAI_MODEL, modelLong: OPENAI_MODEL_LONG, sourceAvailability, warnings, errorMessage: message, errorCode: error?.code || null, errorDetails: details, outputKeys: debugDetails.outputKeys || details.outputKeys || null, outputPreview: preview(debugDetails.outputPreview || details.outputPreview || ""), createdAt: admin.firestore.FieldValue.serverTimestamp() }); } catch (_) {}
     if (error instanceof HttpsError) throw error;
     throw new HttpsError("internal", message, { topicId, wikidataId, sourceAvailability, warnings });
   }

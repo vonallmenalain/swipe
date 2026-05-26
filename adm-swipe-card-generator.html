@@ -70,9 +70,13 @@
         <section class="panel section">
           <h2>KI Auto-Generator</h2>
           <p class="small">Erstellt automatisch 6 Draft-Cards (Short, Medium, Long) auf Deutsch und Englisch aus Wikidata und Wikipedia.</p>
+          <p class="small" style="color:var(--muted);margin-top:4px">
+            <b>Ablauf:</b> Der Server lädt Wikipedia-Quellen automatisch und übergibt den vollständigen Text an die KI.
+            Die Quellen-Anzeige unten ist nur eine Vorschau. Long-Cards werden in einem <b>separaten KI-Aufruf</b> mit dediziertem Token-Budget generiert.
+          </p>
 
           <div style="margin:14px 0">
-            <div class="small" style="font-weight:600;margin-bottom:8px">Quellen:</div>
+            <div class="small" style="font-weight:600;margin-bottom:8px">Quellen (Server lädt diese automatisch bei der Generierung):</div>
             <table class="source-table">
               <tr><td>Wikidata</td><td><span id="srcWikidata" class="badge">–</span></td></tr>
               <tr><td>Wikipedia DE Summary</td><td><span id="srcDeSummary" class="badge">–</span></td></tr>
@@ -80,6 +84,7 @@
               <tr><td>Wikipedia EN Summary</td><td><span id="srcEnSummary" class="badge">–</span></td></tr>
               <tr><td>Wikipedia EN Volltext</td><td><span id="srcEnFull" class="badge">–</span></td></tr>
             </table>
+            <div class="small muted" style="margin-top:4px">Diese Badges zeigen, ob Quellen verfügbar sind – sie beeinflussen die Generierung nicht direkt. Der Server fetcht die Quellen eigenständig.</div>
           </div>
 
           <div class="row" style="margin-bottom:10px">
@@ -227,11 +232,14 @@ function renderAIStatus(message){el("aiAutoStatus").textContent=message;}
 
 function renderAIResult(result){
   const sa=result?.sourceAvailability||{};
+  const warnings=result?.warnings||[];
+  const longWarnings=warnings.filter(w=>w.includes("_long hat nur"));
   el("aiAutoResult").innerHTML=`<div class='status' style='margin-top:10px'>
-    <div style='margin-bottom:6px'>✅ <b>6 Cards erfolgreich erstellt.</b></div>
+    <div style='margin-bottom:6px'>✅ <b>6 Cards erfolgreich erstellt.</b> (2 KI-Aufrufe: Short/Medium + Long)</div>
     <div class='small'>Run-ID: ${safe(result.generationRunId)}</div>
     <div class='small' style='margin-top:6px'>Quellen (Server): Wikidata ✓ | DE Summary ${sa.wikipediaDeSummary?"✓":"–"} | DE Volltext ${sa.wikipediaDeFull?"✓":"–"} | EN Summary ${sa.wikipediaEnSummary?"✓":"–"} | EN Volltext ${sa.wikipediaEnFull?"✓":"–"}</div>
-    ${result.warnings?.length?`<details style='margin-top:6px'><summary class='small'>Warnungen (${result.warnings.length})</summary><div class='small'>${result.warnings.join("<br>")}</div></details>`:""}
+    ${longWarnings.length?`<div class='small' style='margin-top:6px;color:var(--warn)'>⚠️ ${longWarnings.join(" | ")}</div>`:""}
+    ${warnings.filter(w=>!w.includes("_long hat nur")).length?`<details style='margin-top:6px'><summary class='small'>Warnungen (${warnings.length})</summary><div class='small'>${warnings.join("<br>")}</div></details>`:""}
   </div>`;}
 
 function renderAIError(error){
@@ -264,9 +272,10 @@ async function generateAICards(){
     await loadSourcesWithProgress();
 
     // Step 2: Call Cloud Function for AI generation
-    renderAIStatus("Generierung läuft. Das kann 1–2 Minuten dauern…");
+    renderAIStatus("Schritt 1/2: Short & Medium Cards werden generiert…");
     const call=httpsCallable(functions,"generateSwipeCardsForTopic");
     const resp=await call({topicId:selectedTopic.wikidataId||selectedTopic.id});
+    // Note: the server internally runs a second AI call for Long cards automatically
 
     renderAIResult(resp.data||{});
     renderAIStatus("Fertig.");
