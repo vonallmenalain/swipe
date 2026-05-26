@@ -13,7 +13,6 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.2";
 const API_USER_AGENT = "SwipeKnowledgePrototype/0.1 (admin-local; alain.sc2@gmail.com)";
 const FULL_EXTRACT_LIMIT = 60000;
 
-const ALLOWED_SAVE_MODES = ["draft", "published", "archived"];
 const ALLOWED_MAIN_CATEGORIES = ["geschichte","wissenschaft","geografie","politik","gesellschaft","religion","philosophie","technik","wirtschaft","kultur","sport","biografie","natur","medizin","mythologie","allgemeinwissen"];
 const ALLOWED_TOPIC_TYPES = ["person","historical_event","historical_period","place","country","organization","concept","scientific_concept","religion","ideology","technology","invention","conflict","treaty","natural_object","cultural_work","sport_event","other"];
 const ALLOWED_DIFFICULTIES = ["beginner", "intermediate", "advanced"];
@@ -57,7 +56,7 @@ const swipeCardsSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["language", "length", "cardType", "title", "hook", "body", "needsMoreSourceMaterial", "sourceBasis", "sourceLimitations"],
+        required: ["language", "length", "cardType", "title", "hook", "body", "needsMoreSourceMaterial", "sourceBasis", "sourceIds", "sourceLimitations"],
         properties: {
           language: { type: "string", enum: ["de", "en"] },
           length: { type: "string", enum: ["short", "medium", "long"] },
@@ -67,6 +66,7 @@ const swipeCardsSchema = {
           body: { type: "string" },
           needsMoreSourceMaterial: { type: "boolean" },
           sourceBasis: { type: "array", items: { type: "string", enum: ["wikidata", "wikipedia_de", "wikipedia_en"] } },
+          sourceIds: { type: "array", items: { type: "string" } },
           sourceLimitations: { type: "array", items: { type: "string" } },
         },
       },
@@ -223,6 +223,8 @@ function validateAIOutput(output) {
     if (!safeString(card?.title).trim()) throw new HttpsError("failed-precondition", `Leerer title in ${key}.`);
     if (!safeString(card?.hook).trim()) throw new HttpsError("failed-precondition", `Leerer hook in ${key}.`);
     if (!safeString(card?.body).trim()) throw new HttpsError("failed-precondition", `Leerer body in ${key}.`);
+    if (!Array.isArray(card?.sourceBasis) || !card.sourceBasis.length) throw new HttpsError("failed-precondition", `sourceBasis fehlt in ${key}.`);
+    if (!Array.isArray(card?.sourceIds)) throw new HttpsError("failed-precondition", `sourceIds fehlt in ${key}.`);
   }
   for (const requiredKey of REQUIRED_CARD_KEYS) {
     if (!seen.has(requiredKey)) throw new HttpsError("failed-precondition", `Fehlende Karten-Kombination: ${requiredKey}`);
@@ -238,9 +240,7 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
     if (!request.auth) throw new HttpsError("unauthenticated", "Bitte zuerst einloggen.");
     if (request.auth?.token?.email !== ADMIN_EMAIL) throw new HttpsError("permission-denied", "Nur Admins dürfen KI-Cards generieren.");
     topicId = safeString(request.data?.topicId).trim();
-    const saveMode = safeString(request.data?.saveMode || "draft").trim() || "draft";
     if (!topicId) throw new HttpsError("invalid-argument", "topicId muss gesetzt sein.");
-    if (!ALLOWED_SAVE_MODES.includes(saveMode)) throw new HttpsError("invalid-argument", "Ungültiger saveMode.");
 
     const topicRef = db.collection("topics").doc(topicId); const snap = await topicRef.get();
     if (!snap.exists) throw new HttpsError("not-found", "Topic nicht gefunden.");
@@ -300,32 +300,64 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
 
     const sourcePackHash = crypto.createHash("sha256").update(JSON.stringify(sourcePack)).digest("hex");
     const sourceIds = buildAvailableSourceIds(sourcePack); const sources = buildAvailableSources(sourcePack);
-    const timestampShort = Math.floor(Date.now() / 1000);
+    const runRef = db.collection("generationRuns").doc();
+    const generationRunId = runRef.id;
+    const cardGroupId = `${topicId}_ai_${generationRunId}`;
+
+    const batch = db.batch();
+    const existingDrafts = await db.collection("swipeCards").where("topicId", "==", topicId).where("status", "==", "draft").get();
+    existingDrafts.forEach((d) => batch.update(d.ref, { status: "archived", archivedAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() }));
 
     for (const card of output.cards) {
       const stats = calculateReadingStats(card.body);
       const cardType = safeString(card.cardType || (card.length === "long" ? "deep_dive" : "intro"));
-      const cardId = `${topicId}_${card.language}_${card.length}_${cardType}_${timestampShort}`; cardIds.push(cardId);
-      await db.collection("swipeCards").doc(cardId).set(removeUndefinedDeep({
-        cardId, topicId, wikidataId, cardGroupId: `${topicId}_ai_intro`, language: card.language, length: card.length, readingTimeSec: stats.readingTimeSec, wordCount: stats.wordCount,
+      const cardId = `${topicId}_${card.language}_${card.length}_${cardType}_${generationRunId}`; cardIds.push(cardId);
+      const resolvedSourceBasis = Array.isArray(card.sourceBasis) ? card.sourceBasis : ["wikidata"];
+      const resolvedSourceIds = Array.isArray(card.sourceIds) && card.sourceIds.length ? card.sourceIds.filter((id) => sourceIds.includes(id)) : sourceIds;
+      batch.set(db.collection("swipeCards").doc(cardId), removeUndefinedDeep({
+        cardId, topicId, wikidataId, cardGroupId, generationRunId, language: card.language, length: card.length, readingTimeSec: stats.readingTimeSec, wordCount: stats.wordCount,
         cardType, title: safeString(card.title), hook: safeString(card.hook), body: safeString(card.body),
         topicTitle: { de: safeString(topic?.title?.de), en: safeString(topic?.title?.en) },
-        sourceIds, sources, sourceBasis: Array.isArray(card.sourceBasis) ? card.sourceBasis : [], sourceLimitations: Array.isArray(card.sourceLimitations) ? card.sourceLimitations : [], needsMoreSourceMaterial: !!card.needsMoreSourceMaterial,
+        sourceIds: resolvedSourceIds, sources, sourceBasis: resolvedSourceBasis, sourceLimitations: Array.isArray(card.sourceLimitations) ? card.sourceLimitations : [], needsMoreSourceMaterial: !!card.needsMoreSourceMaterial,
         tags: Array.isArray(output?.topicMeta?.tags) ? output.topicMeta.tags : [], mainCategory: output.topicMeta.mainCategory, topicType: output.topicMeta.topicType, difficulty: output.topicMeta.difficulty,
         generation: { method: "openai_cloud_function", aiGenerated: true, sourceRestricted: true, noNewFactsInstruction: true, sourcePackHash, model: OPENAI_MODEL, generatedAt: admin.firestore.FieldValue.serverTimestamp() },
         status: "draft", reviewStatus: "needs_review", qualityScore: 0, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }));
     }
 
-    await db.collection("sourceDocs").doc(`wikidata_${wikidataId}`).set({ sourceType: "wikidata", wikidataId, title: safeString(topic?.title?.de || topic?.title?.en), url: `https://www.wikidata.org/wiki/${wikidataId}`, license: "CC0", publisher: "Wikidata", fetchedAt: admin.firestore.FieldValue.serverTimestamp(), trustLevel: "high" }, { merge: true });
-    await topicRef.set({ mainCategory: output.topicMeta.mainCategory, topicType: output.topicMeta.topicType, tags: output.topicMeta.tags || [], "contentStatus.hasShortCard": true, "contentStatus.hasMediumCard": true, "contentStatus.hasLongCard": true, "contentStatus.reviewStatus": "cards_generated", status: "ready", updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    batch.set(db.collection("sourceDocs").doc(`wikidata_${wikidataId}`), { sourceType: "wikidata", wikidataId, title: safeString(topic?.title?.de || topic?.title?.en), url: `https://www.wikidata.org/wiki/${wikidataId}`, license: "CC0", publisher: "Wikidata", fetchedAt: admin.firestore.FieldValue.serverTimestamp(), trustLevel: "high" }, { merge: true });
+    if (sourcePack.sources.wikipediaDe.available) batch.set(db.collection("sourceDocs").doc(`wikipedia_de_${wikidataId}`), { sourceType: "wikipedia", wikidataId, title: safeString(sourcePack.sources.wikipediaDe.summaryTitle || topic?.title?.de), url: safeString(sourcePack.sources.wikipediaDe.url), license: "CC BY-SA 4.0", publisher: "Wikipedia", language: "de", fetchedAt: admin.firestore.FieldValue.serverTimestamp(), trustLevel: "medium-high" }, { merge: true });
+    if (sourcePack.sources.wikipediaEn.available) batch.set(db.collection("sourceDocs").doc(`wikipedia_en_${wikidataId}`), { sourceType: "wikipedia", wikidataId, title: safeString(sourcePack.sources.wikipediaEn.summaryTitle || topic?.title?.en), url: safeString(sourcePack.sources.wikipediaEn.url), license: "CC BY-SA 4.0", publisher: "Wikipedia", language: "en", fetchedAt: admin.firestore.FieldValue.serverTimestamp(), trustLevel: "medium-high" }, { merge: true });
 
-    const run = await db.collection("generationRuns").add({ type: "openai_swipe_cards_generation", topicId, wikidataId, status: "success", cardsCreated: 6, cardIds, model: OPENAI_MODEL, sourceAvailability, warnings, errorMessage: null, createdAt: admin.firestore.FieldValue.serverTimestamp() });
-    return { success: true, topicId, cardsCreated: 6, cardIds, topicMeta: output.topicMeta, warnings, sourceAvailability, generationRunId: run.id };
+    batch.set(topicRef, { mainCategory: output.topicMeta.mainCategory, topicType: output.topicMeta.topicType, tags: output.topicMeta.tags || [], activeGenerationRunId: generationRunId, activeCardGroupId: cardGroupId, "contentStatus.hasShortCard": true, "contentStatus.hasMediumCard": true, "contentStatus.hasLongCard": true, "contentStatus.reviewStatus": "cards_generated", status: "ready", updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    batch.set(runRef, { type: "openai_swipe_cards_generation", topicId, wikidataId, generationRunId, cardGroupId, status: "success", cardsCreated: 6, cardIds, model: OPENAI_MODEL, sourceAvailability, warnings, errorMessage: null, sourcePackHash, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    await batch.commit();
+    return { success: true, topicId, cardsCreated: 6, cardIds, topicMeta: output.topicMeta, warnings, sourceAvailability, generationRunId };
   } catch (error) {
     const message = error instanceof HttpsError ? error.message : safeString(error?.message || "Unbekannter Fehler");
     try { await db.collection("generationRuns").add({ type: "openai_swipe_cards_generation", topicId, wikidataId, status: "error", cardsCreated: cardIds.length || 0, cardIds, model: OPENAI_MODEL, sourceAvailability, warnings, errorMessage: message, createdAt: admin.firestore.FieldValue.serverTimestamp() }); } catch (_) {}
     if (error instanceof HttpsError) throw error;
     throw new HttpsError("internal", message, { topicId, wikidataId, sourceAvailability, warnings });
   }
+});
+
+
+exports.publishCardsForTopic = onCall({ region: "europe-west1" }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Bitte zuerst einloggen.");
+  if (request.auth?.token?.email !== ADMIN_EMAIL) throw new HttpsError("permission-denied", "Nur Admins dürfen veröffentlichen.");
+  const topicId = safeString(request.data?.topicId).trim();
+  if (!topicId) throw new HttpsError("invalid-argument", "topicId muss gesetzt sein.");
+  const snap = await db.collection("swipeCards").where("topicId", "==", topicId).get();
+  const batch = db.batch();
+  let updatedCards = 0;
+  snap.forEach((d) => {
+    const data = d.data() || {};
+    if (["de_short","de_medium","de_long","en_short","en_medium","en_long"].includes(`${safeString(data.language)}_${safeString(data.length)}`)) {
+      batch.update(d.ref, { status: "published", reviewStatus: "approved", publishedAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+      updatedCards += 1;
+    }
+  });
+  batch.set(db.collection("topics").doc(topicId), { status: "ready", "contentStatus.reviewStatus": "approved", updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  await batch.commit();
+  return { success: true, topicId, updatedCards };
 });

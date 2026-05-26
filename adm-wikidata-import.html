@@ -402,10 +402,30 @@
       const normalized = normalizeWikidataEntity(entity);
       const topicRef = doc(db, "topics", qid);
       const existingSnap = await getDoc(topicRef);
-      if (existingSnap.exists()) showStatus("Bereits vorhanden – wird aktualisiert", "warn");
+      const existingTopic = existingSnap.exists() ? (existingSnap.data() || {}) : null;
+      if (existingTopic) showStatus("Bereits vorhanden – wird aktualisiert", "warn");
+
+      const topicPayload = {
+        wikidataId: normalized.wikidataId,
+        entityType: normalized.entityType,
+        title: normalized.title,
+        description: normalized.description,
+        aliases: normalized.aliases,
+        sitelinks: normalized.sitelinks,
+        claimsRaw: normalized.claimsRaw,
+        claimsMeta: normalized.claimsMeta,
+        sourceIds: Array.from(new Set([...(Array.isArray(existingTopic?.sourceIds) ? existingTopic.sourceIds : []), `wikidata_${qid}`])),
+        import: {
+          source: "wikidata",
+          importedAt: existingTopic?.import?.importedAt || serverTimestamp(),
+          lastFetchedAt: serverTimestamp()
+        },
+        createdAt: existingTopic?.createdAt || serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
 
       try {
-        await setDoc(topicRef, normalized, { merge: false });
+        await setDoc(topicRef, topicPayload, { merge: true });
 
         const sourceRef = doc(db, "sourceDocs", `wikidata_${qid}`);
         await setDoc(sourceRef, {
