@@ -852,20 +852,26 @@ exports.startBatchGeneration = onCall({ region: "europe-west1", timeoutSeconds: 
     completedAt: null,
   });
 
-  const queue = getFunctions().taskQueue("processSwipeCardTask");
+  const queue = getFunctions().taskQueue("locations/europe-west1/functions/processSwipeCardTask");
   const targetUri = getFunctionUrl("processSwipeCardTask");
 
-  const enqueuePromises = tasks.map((task, index) =>
-    queue.enqueue(
-      { topicId: task.topicId, batchJobId, taskIndex: index },
-      {
-        dispatchDeadlineSeconds: 600,
-        ...(targetUri ? { uri: targetUri } : {}),
-      }
-    )
-  );
+  try {
+    const enqueuePromises = tasks.map((task, index) =>
+      queue.enqueue(
+        { topicId: task.topicId, batchJobId, taskIndex: index },
+        {
+          dispatchDeadlineSeconds: 600,
+          ...(targetUri ? { uri: targetUri } : {}),
+        }
+      )
+    );
 
-  await Promise.all(enqueuePromises);
+    await Promise.all(enqueuePromises);
+  } catch (enqueueError) {
+    await jobRef.update({ status: "failed", updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+    const msg = safeString(enqueueError?.message || "Unbekannter Enqueue-Fehler");
+    throw new HttpsError("internal", `Tasks konnten nicht in die Queue eingereiht werden: ${msg}`, { batchJobId });
+  }
 
   return { success: true, batchJobId, totalTasks: topicIds.length };
 });
