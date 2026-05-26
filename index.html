@@ -153,7 +153,7 @@
     }
 
     .cat-emoji { font-size: 1.75rem; display: block; margin-bottom: 6px; }
-    .cat-name  { font-size: .82rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+    .cat-name  { font-size: .82rem; font-weight: 700; color: var(--text); line-height: 1.2; overflow-wrap: break-word; word-break: break-word; }
     .cat-count { font-size: .7rem; color: var(--text2); margin-top: 3px; }
 
     .cat-placeholder {
@@ -800,7 +800,7 @@
       <div class="dev-wrap">
         <button class="dev-btn" id="devBtn" title="Dev-Menü">DEV</button>
         <div class="dev-menu" id="devMenu">
-          <a href="adm-church-import.html">🕍 Kirche Import</a>
+          <a href="adm-church-import.html">📖 Evangelium Import</a>
         </div>
       </div>
     </div>
@@ -910,7 +910,7 @@
     medizin:         { label: "Medizin",         emoji: "🩺" },
     mythologie:      { label: "Mythologie",      emoji: "⚡" },
     allgemeinwissen: { label: "Allgemeinwissen", emoji: "💡" },
-    kirche:          { label: "Kirche",          emoji: "🕍" },
+    kirche:          { label: "Verkündet mein Evangelium", emoji: "📖" },
   };
 
   const LENGTH_LABELS = { short: "Kurz", long: "Lang" };
@@ -1089,13 +1089,12 @@
 
     $("catGrid").innerHTML = entries.map(([cat, count]) => {
       const meta  = CAT_META[cat] ?? { label: cat, emoji: "📌" };
-      const label = meta.label.length > 12 ? meta.label.slice(0, 12) + "…" : meta.label;
       return `
         <div class="cat-card${selectedCats.has(cat) ? " active" : ""}"
              data-cat="${esc(cat)}" role="button" tabindex="0"
              aria-pressed="${selectedCats.has(cat)}">
           <span class="cat-emoji">${meta.emoji}</span>
-          <div class="cat-name">${esc(label)}</div>
+          <div class="cat-name">${esc(meta.label)}</div>
           <div class="cat-count">${count} Karte${count !== 1 ? "n" : ""}</div>
         </div>`;
     }).join("");
@@ -1460,11 +1459,10 @@
     grid.innerHTML = sorted.slice(0, 8).map(cat => {
       const meta  = CAT_META[cat] ?? { label: cat, emoji: "📌" };
       const count = categoryCounts[cat] ?? 0;
-      const label = meta.label.length > 12 ? meta.label.slice(0, 12) + "…" : meta.label;
       return `
         <div class="cat-card" data-cat="${esc(cat)}" role="button" tabindex="0">
           <span class="cat-emoji">${meta.emoji}</span>
-          <div class="cat-name">${esc(label)}</div>
+          <div class="cat-name">${esc(meta.label)}</div>
           <div class="cat-count">${count} Karte${count !== 1 ? "n" : ""}</div>
         </div>`;
     }).join("");
