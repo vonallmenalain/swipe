@@ -33,6 +33,7 @@
     .badge-len{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.25);color:var(--warn)}
     .badge-type{background:rgba(82,216,162,.1);border-color:rgba(82,216,162,.2);color:var(--ok)}
     .badge-cat{background:rgba(91,156,246,.2);border-color:rgba(91,156,246,.4);color:var(--accent2)}
+    .badge-related{background:rgba(126,179,255,.1);border-color:rgba(126,179,255,.3);color:var(--accent2)}
     .small,.muted{color:var(--muted);font-size:.88rem}
     .hidden{display:none!important}
     h1{margin:0 0 4px;font-size:1.3rem}
@@ -106,6 +107,34 @@
     /* Template download badge */
     .template-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid rgba(91,156,246,.3);background:rgba(91,156,246,.08);color:var(--accent2);font-size:.82rem;cursor:pointer;text-decoration:none}
     .template-badge:hover{background:rgba(91,156,246,.15)}
+
+    /* Related Topics Editor */
+    .related-topics-editor{background:#080e1e;border:1px solid rgba(126,179,255,.2);border-radius:10px;padding:12px;margin-top:10px}
+    .related-topics-editor h3{color:var(--accent2);font-size:.85rem;margin:0 0 8px}
+    .related-chips{display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-bottom:8px}
+    .related-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(91,156,246,.12);border:1px solid rgba(91,156,246,.3);border-radius:999px;padding:4px 10px;font-size:.78rem}
+    .related-chip-title{color:var(--text)}
+    .related-chip-id{color:var(--muted);font-size:.7rem}
+    .related-chip-remove{background:none;border:none;color:var(--muted);padding:0 2px;cursor:pointer;font-size:.9rem;line-height:1;border-radius:50%}
+    .related-chip-remove:hover{color:var(--danger);border-color:transparent}
+    .related-search-wrap{position:relative}
+    .related-search-input{width:100%;padding:7px 12px;font-size:.83rem;border-radius:8px}
+    .related-search-results{position:absolute;top:100%;left:0;right:0;background:#0c1830;border:1px solid var(--accent);border-radius:8px;z-index:200;max-height:220px;overflow-y:auto;margin-top:2px}
+    .related-search-result-item{padding:8px 12px;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--line)}
+    .related-search-result-item:last-child{border-bottom:none}
+    .related-search-result-item:hover{background:rgba(91,156,246,.15)}
+    .related-search-result-id{color:var(--muted);font-size:.72rem;display:block}
+    .related-manual-row{display:flex;gap:6px;margin-top:6px}
+    .related-manual-input{flex:1;padding:6px 10px;font-size:.8rem;border-radius:8px}
+    .related-topics-empty{color:var(--muted);font-size:.78rem;font-style:italic}
+
+    /* Related topics edit panel for existing topics */
+    .topic-edit-panel{background:#060d1c;border:1px solid rgba(91,156,246,.2);border-radius:8px;padding:12px;margin-top:8px}
+
+    /* JSON output section */
+    .json-output-section{background:#060d1c;border:1px solid rgba(91,156,246,.2);border-radius:10px;padding:14px;margin-top:16px}
+    .json-output-section h3{color:var(--accent2);font-size:.9rem;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+    .json-output-section textarea{background:#040810;border-color:rgba(91,156,246,.15);min-height:220px;font-size:.75rem}
   </style>
 </head>
 <body><div class="container">
@@ -154,7 +183,7 @@
           <h2>Schritt 1 – ChatGPT-Prompt</h2>
           <p class="muted small">Kopiere diesen Prompt, öffne ChatGPT und füge <strong>danach deinen Text / deine PDF-Inhalte</strong> hinzu. ChatGPT generiert das fertige JSON automatisch.</p>
           <div class="prompt-box mb">
-            <textarea id="promptText" rows="16" readonly></textarea>
+            <textarea id="promptText" rows="18" readonly></textarea>
             <button id="copyPromptBtn" class="btn-primary btn-small copy-btn">📋 Kopieren</button>
           </div>
           <div class="row">
@@ -179,15 +208,26 @@
           </div>
           <div class="row">
             <button id="backTo1Btn" class="btn-ghost btn-small">← Zurück</button>
-            <button id="validateBtn" class="btn-primary">✓ Prüfen & Vorschau →</button>
+            <button id="validateBtn" class="btn-primary">✓ Prüfen &amp; Vorschau →</button>
           </div>
         </section>
 
         <!-- STEP 3: Validate & Preview -->
         <section id="step3" class="panel section mb step-panel">
-          <h2>Schritt 3 – Prüfen & Vorschau</h2>
+          <h2>Schritt 3 – Prüfen, Verwandte Themen &amp; Vorschau</h2>
           <div id="validationResult"></div>
           <div id="previewArea"></div>
+
+          <!-- JSON Output -->
+          <div id="jsonOutputSection" class="json-output-section hidden">
+            <h3>📋 Vollständige JSON (kopierbar)
+              <button id="copyJsonOutputBtn" class="btn-primary btn-small">📋 JSON kopieren</button>
+            </h3>
+            <div class="prompt-box">
+              <textarea id="jsonOutputText" readonly></textarea>
+            </div>
+          </div>
+
           <div class="row mt">
             <button id="backTo2Btn" class="btn-ghost btn-small">← Zurück</button>
             <button id="importBtn" class="btn-ok hidden">✅ Jetzt importieren →</button>
@@ -220,17 +260,18 @@
             <p>Pflichtfelder pro Topic:</p>
             <ul style="padding-left:18px;margin:4px 0">
               <li><code>topicId</code> – z.B. <code>lds_nelson_apr2024</code></li>
-              <li><code>topicTitle.de</code> + <code>topicTitle.en</code></li>
+              <li><code>topicTitle.de</code></li>
               <li><code>cards</code> – Array mit mindestens 1 Karte</li>
+              <li><code>relatedTopics</code> – Array mit verwandten Themen</li>
             </ul>
             <p>Pflichtfelder pro Karte:</p>
             <ul style="padding-left:18px;margin:4px 0">
-              <li><code>language</code>: <code>"de"</code> oder <code>"en"</code></li>
-              <li><code>length</code>: <code>"short"</code> / <code>"medium"</code> / <code>"long"</code></li>
+              <li><code>language</code>: <code>"de"</code></li>
+              <li><code>length</code>: <code>"short"</code> oder <code>"long"</code></li>
               <li><code>cardType</code>: <code>"intro"</code>, <code>"fact"</code>, <code>"deep_dive"</code>, <code>"myth_buster"</code>, <code>"comparison"</code>, <code>"timeline"</code></li>
               <li><code>title</code>, <code>hook</code>, <code>body</code></li>
             </ul>
-            <p>Empfehlung: 3 DE-Karten (short/medium/long). Array-Import für mehrere Topics möglich.</p>
+            <p>Empfehlung: 2 DE-Karten (short + long). Array-Import für mehrere Topics möglich.</p>
           </div>
         </section>
       </div>
@@ -241,16 +282,21 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import { getFirestore,collection,getDocs,doc,setDoc,getDoc,query,where,serverTimestamp,writeBatch } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getFirestore,collection,getDocs,doc,setDoc,getDoc,query,where,serverTimestamp,writeBatch,updateDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 const firebaseConfig={apiKey:"AIzaSyBOjkDk1Mmr79wY7bpKHQ5jidqwuHDo_kg",authDomain:"swipe-82eeb.firebaseapp.com",projectId:"swipe-82eeb",storageBucket:"swipe-82eeb.firebasestorage.app",messagingSenderId:"649929298401",appId:"1:649929298401:web:d94f1a5ebf1407ac6502a0"};
 
 let app,auth,db,user=null;
-let parsedImportData=null; // validated import data (array of topics)
+let parsedImportData=null;
 let currentStep=1;
 
-const VALID_LANGUAGES=["de","en"];
-const VALID_LENGTHS=["short","medium","long"];
+// Verwandte-Themen-Editor-State: {topicId: [{topicId, title}]}
+let relatedTopicsEditors={};
+// Cache aller Kirchenthemen für Autocomplete
+let allChurchTopics=[];
+
+const VALID_LANGUAGES=["de"];
+const VALID_LENGTHS=["short","long"];
 const VALID_TYPES=["intro","fact","timeline","deep_dive","comparison","myth_buster"];
 
 /* ─── Helpers ─────────────────────────────────── */
@@ -263,51 +309,51 @@ function showStatus(msg,type=''){
   bar.className='status'+(type?` ${type}`:'');
 }
 
-/* ─── ChatGPT Prompt template ─────────────────── */
+/* ─── ChatGPT Prompt ──────────────────────────── */
 const CHATGPT_PROMPT=`Du bist ein Assistent, der Inhalte der Kirche Jesu Christi der Heiligen der Letzten Tage in strukturierte Lernkarten (SwipeCards) für eine Lern-App umwandelt.
 
-Analysiere den folgenden Text und erstelle SwipeCards. Gib das Ergebnis AUSSCHLIESSLICH als gültiges JSON zurück (kein Text davor oder danach).
+Analysiere den folgenden Text und erstelle SwipeCards auf DEUTSCH. Gib das Ergebnis AUSSCHLIESSLICH als gültiges JSON zurück (kein Text davor oder danach, kein Markdown, keine Erklärungen).
 
-=== FORMAT ===
+=== JSON-FORMAT ===
 {
   "topicId": "lds_[kurzer_bezeichner_lowercase_unterstriche]",
   "topicTitle": {
-    "de": "Titel auf Deutsch (präzise, max. 80 Zeichen)",
-    "en": "Title in English (concise, max. 80 chars)"
+    "de": "Titel auf Deutsch (präzise, max. 80 Zeichen)"
   },
   "description": {
-    "de": "Kurze Beschreibung auf Deutsch (1-2 Sätze, worum geht es?)",
-    "en": "Short description in English (1-2 sentences)"
+    "de": "Kurze Beschreibung auf Deutsch (1-2 Sätze, worum geht es?)"
   },
   "tags": ["tag1", "tag2", "tag3", "tag4"],
   "source": {
     "title": "Quellenangabe, z.B. Generalkonferenz April 2024 – Russell M. Nelson",
     "url": "https://www.churchofjesuschrist.org/..."
   },
+  "relatedTopics": [
+    {
+      "title": "Titel eines thematisch verwandten Themas",
+      "topicId": "lds_verwandtes_thema"
+    },
+    {
+      "title": "Weiteres verwandtes Thema",
+      "topicId": ""
+    }
+  ],
   "cards": [
     {
       "language": "de",
       "length": "short",
       "cardType": "intro",
-      "title": "Titel der Karte (max. 70 Zeichen)",
+      "title": "Kurztitel der Karte (max. 70 Zeichen)",
       "hook": "Ein Satz, der sofort Interesse weckt (max. 130 Zeichen)",
-      "body": "Die Kernbotschaft in 3-5 klaren Sätzen. Prägnant, inspirierend, direkt aus dem Original."
-    },
-    {
-      "language": "de",
-      "length": "medium",
-      "cardType": "fact",
-      "title": "Titel",
-      "hook": "Hook-Satz",
-      "body": "Ausführlichere Darstellung in 6-10 Sätzen. Wichtige Lehrpunkte, Schriftstellen und Beispiele aus dem Text."
+      "body": "Die Kernbotschaft in 3-5 klaren Sätzen. Prägnant, inspirierend, direkt aus dem Original. Ca. 50-100 Wörter."
     },
     {
       "language": "de",
       "length": "long",
       "cardType": "deep_dive",
-      "title": "Titel",
-      "hook": "Hook-Satz",
-      "body": "## Einleitung\\nAusführliche Einleitung...\\n\\n## Hauptlehre\\nDetaillierte Erklärung der Kernbotschaft...\\n\\n## Schriftstellen und Belege\\nRelevante Verse und Zitate...\\n\\n## Anwendung im Alltag\\nPraktische Schlussfolgerungen..."
+      "title": "Langtitel der Karte (max. 70 Zeichen)",
+      "hook": "Ein tiefergehender Hook-Satz (max. 130 Zeichen)",
+      "body": "## Einleitung\\nAusführliche Einleitung in 3-4 Sätzen...\\n\\n## Hauptlehre\\nDetaillierte Erklärung der Kernbotschaft mit wichtigen Lehrpunkten...\\n\\n## Schriftstellen und Belege\\nRelevante Verse, Zitate und Beispiele aus dem Text...\\n\\n## Anwendung im Alltag\\nPraktische Schlussfolgerungen für den Alltag... Ca. 300-500 Wörter gesamt."
     }
   ]
 }
@@ -315,24 +361,25 @@ Analysiere den folgenden Text und erstelle SwipeCards. Gib das Ergebnis AUSSCHLI
 === REGELN ===
 - topicId: Nur Kleinbuchstaben a-z, Ziffern und _, beginnt immer mit lds_
   Beispiele: lds_nelson_glaube_2024, lds_bom_nephi_1ne3, lds_wp_familienverklaerung
-- language: "de" (Deutsch) oder "en" (Englisch) – du kannst beide Sprachen erstellen
-- length-Regeln:
-    "short"  → body: 3-5 Sätze, ca. 50-100 Wörter
-    "medium" → body: 6-10 Sätze, ca. 100-200 Wörter
-    "long"   → body: mind. 15 Sätze mit ##-Abschnitten, ca. 300-500 Wörter
-- cardType-Optionen: "intro", "fact", "deep_dive", "myth_buster", "comparison", "timeline"
-  Wähle passend zum Inhalt:
-    intro      → Einführung in ein Thema
-    fact       → Wichtige Lehre / Kernaussage
-    deep_dive  → Tiefgehende Analyse
+- Sprache: NUR Deutsch (language: "de"). Erstelle KEINE englischen Karten.
+- Kartenlängen (length):
+    "short" → body: 3-5 Sätze, ca. 50-100 Wörter, KEIN ##-Markdown
+    "long"  → body: mind. 15 Sätze mit ##-Abschnitten, ca. 300-500 Wörter
+- Für "long"-Karten MUSS der body ## Überschriften enthalten
+- cardType passend zum Inhalt wählen:
+    intro       → Einführung in ein Thema
+    fact        → Wichtige Lehre / Kernaussage
+    deep_dive   → Tiefgehende Analyse (empfohlen für "long")
     myth_buster → Missverständnis aufklären
     comparison  → Vergleich zweier Konzepte
     timeline    → Chronologische Abfolge
-- Für "long"-Karten MUSS der body ## Überschriften enthalten
-- Bleibe NÖRTET am Originaltext. Erfinde keine Fakten oder Lehren.
-- Erstelle mindestens 3 deutsche Karten (short + medium + long)
-- Optionale englische Karten sind willkommen
-- Falls mehrere Themen im Text: erstelle ein Array von Topic-Objekten: [{...},{...}]
+- PRO TOPIC genau 2 Karten erstellen: 1× short + 1× long
+- Verwandte Themen (relatedTopics): Schlage 3-5 thematisch verwandte Themen vor.
+  Die topicId kannst du leer lassen (""), wenn du sie nicht kennst. Wichtig sind die Titel.
+  Beispiele für verwandte Themen: andere Ansprachen derselben Konferenz, verwandte Schriftstellen,
+  ähnliche Lehrpunkte (Glaube, Buße, Taufe, Heiliger Geist, Buch Mormon etc.)
+- Bleibe STRIKT am Originaltext. Erfinde keine Fakten oder Lehren.
+- Falls mehrere Themen im Text erkannt werden: erstelle ein Array von Topic-Objekten: [{...},{...}]
 
 === DEIN TEXT / ANSPRACHE ===
 [FÜGE HIER DEINEN TEXT EIN – z.B. die ganze Ansprache, Schriftstelle oder Buchkapitel]`;
@@ -340,13 +387,17 @@ Analysiere den folgenden Text und erstelle SwipeCards. Gib das Ergebnis AUSSCHLI
 /* ─── JSON Template ───────────────────────────── */
 const JSON_TEMPLATE={
   topicId:"lds_beispiel_ansprache_2024",
-  topicTitle:{de:"Beispiel: Titel der Ansprache auf Deutsch",en:"Example: Title of the Talk in English"},
-  description:{de:"Kurze Beschreibung worum es in dieser Ansprache geht.",en:"Short description of what this talk is about."},
+  topicTitle:{de:"Beispiel: Titel der Ansprache auf Deutsch"},
+  description:{de:"Kurze Beschreibung worum es in dieser Ansprache geht."},
   tags:["glaube","hoffnung","generalkonferenz"],
   source:{title:"Generalkonferenz Oktober 2024 – Vorname Nachname",url:"https://www.churchofjesuschrist.org/study/general-conference/2024/10?lang=deu"},
+  relatedTopics:[
+    {title:"Glaube und Vertrauen auf den Herrn",topicId:"lds_glaube_vertrauen"},
+    {title:"Das Buch Mormon als Zeuge Christi",topicId:"lds_buch_mormon"},
+    {title:"Die Kraft der Buße",topicId:""}
+  ],
   cards:[
     {language:"de",length:"short",cardType:"intro",title:"Kurzversion: Kernbotschaft",hook:"Ein Satz, der sofort Interesse weckt.",body:"Die Kernbotschaft der Ansprache in 3-5 klaren Sätzen. Prägnant und inspirierend."},
-    {language:"de",length:"medium",cardType:"fact",title:"Mittelversion: Wichtigste Punkte",hook:"Hook-Satz für die mittlere Karte.",body:"Ausführlichere Darstellung der wichtigsten Lehrpunkte in 6-10 Sätzen. Belege und Beispiele aus dem Originaltext."},
     {language:"de",length:"long",cardType:"deep_dive",title:"Langversion: Tiefe Analyse",hook:"Hook-Satz für die lange Karte.",body:"## Einleitung\nAusführliche Einleitung...\n\n## Hauptlehre\nDetaillierte Erklärung der Kernbotschaft...\n\n## Schriftstellen\nRelevante Verse und Zitate...\n\n## Anwendung\nPraktische Schlussfolgerungen..."}
   ]
 };
@@ -374,13 +425,17 @@ function validateTopicObj(obj,idx){
   else{
     obj.cards.forEach((c,ci)=>{
       const cp=`${prefix}cards[${ci}]: `;
-      if(!VALID_LANGUAGES.includes(c.language)) errs.push(`${cp}language ungültig: ${c.language}`);
-      if(!VALID_LENGTHS.includes(c.length)) errs.push(`${cp}length ungültig: ${c.length}`);
+      if(!VALID_LANGUAGES.includes(c.language)) errs.push(`${cp}language ungültig: ${c.language} (erlaubt: de)`);
+      if(!VALID_LENGTHS.includes(c.length)) errs.push(`${cp}length ungültig: ${c.length} (erlaubt: short, long)`);
       if(!VALID_TYPES.includes(c.cardType)) errs.push(`${cp}cardType ungültig: ${c.cardType}`);
       if(!c.title?.trim()) errs.push(`${cp}title fehlt`);
       if(!c.hook?.trim()) errs.push(`${cp}hook fehlt`);
       if(!c.body?.trim()) errs.push(`${cp}body fehlt`);
     });
+    const hasShort=obj.cards.some(c=>c.length==='short');
+    const hasLong=obj.cards.some(c=>c.length==='long');
+    if(!hasShort) errs.push(`${prefix}Fehlende Karte: short`);
+    if(!hasLong) errs.push(`${prefix}Fehlende Karte: long`);
   }
   return errs;
 }
@@ -393,6 +448,7 @@ function validateAndPreview(){
     el("validationResult").innerHTML=`<div class="val-error">❌ Ungültiges JSON: ${esc(e.message)}</div>`;
     el("previewArea").innerHTML='';
     el("importBtn").classList.add('hidden');
+    el("jsonOutputSection").classList.add('hidden');
     goToStep(3);return;
   }
   const topics=Array.isArray(parsed)?parsed:[parsed];
@@ -405,23 +461,33 @@ function validateAndPreview(){
     el("validationResult").innerHTML=`<div class="val-error">❌ <strong>${allErrors.length} Fehler gefunden:</strong><ul style="margin:6px 0 0;padding-left:18px">${allErrors.map(e=>`<li>${esc(e)}</li>`).join('')}</ul></div>`;
     el("previewArea").innerHTML='';
     el("importBtn").classList.add('hidden');
+    el("jsonOutputSection").classList.add('hidden');
     parsedImportData=null;
   }else{
     el("validationResult").innerHTML=`<div class="val-ok">✅ <strong>${topics.length} Topic${topics.length!==1?'s':''}</strong> mit <strong>${topics.reduce((s,t)=>s+t.cards.length,0)} Karten</strong> – bereit zum Importieren</div>`;
+    // Initialize relatedTopics editors from parsed data
+    topics.forEach(t=>{
+      if(!relatedTopicsEditors[t.topicId]){
+        relatedTopicsEditors[t.topicId]=Array.isArray(t.relatedTopics)?t.relatedTopics.map(r=>({topicId:r.topicId||'',title:r.title||''})):[];
+      }
+    });
     renderPreview(topics);
     el("importBtn").classList.remove('hidden');
     parsedImportData=topics;
+    updateJsonOutput();
+    el("jsonOutputSection").classList.remove('hidden');
   }
   goToStep(3);
 }
 
+/* ─── Preview rendering ───────────────────────── */
 function renderPreview(topics){
   const html=topics.map(t=>{
     const cardsHtml=t.cards.map(c=>`
       <div class="preview-card">
         <div class="preview-card-header">
           <span class="badge badge-lang">${esc(c.language)}</span>
-          <span class="badge badge-len">${esc(c.length)}</span>
+          <span class="badge badge-len">${esc(c.length==='short'?'kurz':'lang')}</span>
           <span class="badge badge-type">${esc(c.cardType)}</span>
         </div>
         <div class="preview-card-title">${esc(c.title)}</div>
@@ -440,9 +506,208 @@ function renderPreview(topics){
         <summary class="small muted" style="cursor:pointer">${t.cards.length} Karte${t.cards.length!==1?'n':''} anzeigen</summary>
         ${cardsHtml}
       </details>
+      ${renderRelatedTopicsEditor(t.topicId,relatedTopicsEditors[t.topicId]||[],'import')}
     </div>`;
   }).join('');
   el("previewArea").innerHTML=html;
+  // Attach search listeners
+  topics.forEach(t=>attachRelatedSearchListeners(t.topicId,'import'));
+}
+
+/* ─── Related Topics Editor ───────────────────── */
+function renderRelatedTopicsEditor(topicId,related,mode){
+  const safeId=topicId.replace(/[^a-z0-9_]/g,'_');
+  const chipsHtml=related.length===0
+    ?`<span class="related-topics-empty">Noch keine verwandten Themen hinzugefügt.</span>`
+    :related.map((r,i)=>`
+      <span class="related-chip">
+        <span class="related-chip-title">${esc(r.title||r.topicId)}</span>
+        ${r.topicId?`<span class="related-chip-id">${esc(r.topicId)}</span>`:''}
+        <button class="related-chip-remove" data-topic="${esc(topicId)}" data-idx="${i}" data-mode="${esc(mode)}" title="Entfernen">✕</button>
+      </span>`).join('');
+  return `
+    <div class="related-topics-editor" id="rte_${safeId}">
+      <h3>🔗 Verwandte Themen <span class="muted" style="font-weight:400;font-size:.78rem">(${related.length})</span></h3>
+      <div class="related-chips" id="chips_${safeId}">${chipsHtml}</div>
+      <div class="related-search-wrap">
+        <input type="text" class="related-search-input" id="rsi_${safeId}"
+          placeholder="Bestehendes Thema suchen…"
+          data-topic="${esc(topicId)}" data-mode="${esc(mode)}" autocomplete="off" />
+        <div class="related-search-results hidden" id="rsr_${safeId}"></div>
+      </div>
+      <div class="related-manual-row">
+        <input type="text" class="related-manual-input" id="rmi_title_${safeId}" placeholder="Titel des verwandten Themas" />
+        <input type="text" class="related-manual-input" id="rmi_id_${safeId}" placeholder="topicId (optional)" style="max-width:200px" />
+        <button class="btn-ghost btn-small related-add-manual" data-topic="${esc(topicId)}" data-mode="${esc(mode)}">+ Hinzufügen</button>
+      </div>
+    </div>`;
+}
+
+function getRelatedState(topicId,mode){
+  if(mode==='import') return relatedTopicsEditors[topicId]||[];
+  return relatedTopicsEditors['_existing_'+topicId]||[];
+}
+
+function setRelatedState(topicId,mode,arr){
+  if(mode==='import') relatedTopicsEditors[topicId]=arr;
+  else relatedTopicsEditors['_existing_'+topicId]=arr;
+}
+
+function refreshRelatedChips(topicId,mode){
+  const safeId=topicId.replace(/[^a-z0-9_]/g,'_');
+  const chipsEl=document.getElementById('chips_'+safeId);
+  if(!chipsEl)return;
+  const related=getRelatedState(topicId,mode);
+  if(related.length===0){
+    chipsEl.innerHTML=`<span class="related-topics-empty">Noch keine verwandten Themen hinzugefügt.</span>`;
+  }else{
+    chipsEl.innerHTML=related.map((r,i)=>`
+      <span class="related-chip">
+        <span class="related-chip-title">${esc(r.title||r.topicId)}</span>
+        ${r.topicId?`<span class="related-chip-id">${esc(r.topicId)}</span>`:''}
+        <button class="related-chip-remove" data-topic="${esc(topicId)}" data-idx="${i}" data-mode="${esc(mode)}" title="Entfernen">✕</button>
+      </span>`).join('');
+  }
+  if(mode==='import') updateJsonOutput();
+}
+
+function addRelatedEntry(topicId,mode,title,relatedTopicId){
+  if(!title.trim()&&!relatedTopicId.trim())return;
+  const state=getRelatedState(topicId,mode);
+  const alreadyExists=relatedTopicId&&state.some(r=>r.topicId===relatedTopicId);
+  if(alreadyExists)return;
+  state.push({title:title.trim()||relatedTopicId,topicId:relatedTopicId.trim()});
+  setRelatedState(topicId,mode,state);
+  refreshRelatedChips(topicId,mode);
+}
+
+function removeRelatedEntry(topicId,mode,idx){
+  const state=getRelatedState(topicId,mode);
+  state.splice(idx,1);
+  setRelatedState(topicId,mode,state);
+  refreshRelatedChips(topicId,mode);
+}
+
+function attachRelatedSearchListeners(topicId,mode){
+  const safeId=topicId.replace(/[^a-z0-9_]/g,'_');
+  const searchInput=document.getElementById('rsi_'+safeId);
+  const searchResults=document.getElementById('rsr_'+safeId);
+  if(!searchInput||!searchResults)return;
+
+  searchInput.addEventListener('input',()=>{
+    const q=searchInput.value.trim().toLowerCase();
+    if(q.length<1){searchResults.classList.add('hidden');searchResults.innerHTML='';return;}
+    const matches=allChurchTopics.filter(t=>
+      (t.title?.de||'').toLowerCase().includes(q)||t.id.toLowerCase().includes(q)
+    ).slice(0,8);
+    if(matches.length===0){searchResults.classList.add('hidden');searchResults.innerHTML='';return;}
+    searchResults.innerHTML=matches.map(t=>`
+      <div class="related-search-result-item" data-id="${esc(t.id)}" data-title="${esc(t.title?.de||t.id)}">
+        ${esc(t.title?.de||t.id)}
+        <span class="related-search-result-id">${esc(t.id)}</span>
+      </div>`).join('');
+    searchResults.classList.remove('hidden');
+    searchResults.querySelectorAll('.related-search-result-item').forEach(item=>{
+      item.onclick=()=>{
+        addRelatedEntry(topicId,mode,item.dataset.title,item.dataset.id);
+        searchInput.value='';
+        searchResults.classList.add('hidden');
+        searchResults.innerHTML='';
+      };
+    });
+  });
+  searchInput.addEventListener('blur',()=>setTimeout(()=>{searchResults.classList.add('hidden');},200));
+}
+
+/* ─── JSON Output ─────────────────────────────── */
+function updateJsonOutput(){
+  if(!parsedImportData)return;
+  const enriched=parsedImportData.map(t=>({
+    ...t,
+    relatedTopics:relatedTopicsEditors[t.topicId]||[],
+  }));
+  const json=JSON.stringify(enriched.length===1?enriched[0]:enriched,null,2);
+  const ta=el("jsonOutputText");
+  if(ta)ta.value=json;
+}
+
+/* ─── Delegated events for related topics ─────── */
+document.addEventListener('click',e=>{
+  // Remove chip
+  const removeBtn=e.target.closest('.related-chip-remove');
+  if(removeBtn){
+    removeRelatedEntry(removeBtn.dataset.topic,removeBtn.dataset.mode,Number(removeBtn.dataset.idx));
+    return;
+  }
+  // Manual add button
+  const addBtn=e.target.closest('.related-add-manual');
+  if(addBtn){
+    const topicId=addBtn.dataset.topic;
+    const mode=addBtn.dataset.mode;
+    const safeId=topicId.replace(/[^a-z0-9_]/g,'_');
+    const titleInput=document.getElementById('rmi_title_'+safeId);
+    const idInput=document.getElementById('rmi_id_'+safeId);
+    if(!titleInput||!idInput)return;
+    addRelatedEntry(topicId,mode,titleInput.value,idInput.value);
+    titleInput.value='';
+    idInput.value='';
+    return;
+  }
+  // Edit existing topic related topics
+  const editBtn=e.target.closest('.btn-edit-related');
+  if(editBtn){
+    const topicId=editBtn.dataset.topic;
+    const safeId=topicId.replace(/[^a-z0-9_]/g,'_');
+    const panel=document.getElementById('panel_'+safeId);
+    if(!panel)return;
+    const isOpen=panel.classList.toggle('topic-edit-panel');
+    if(!relatedTopicsEditors['_existing_'+topicId]){
+      relatedTopicsEditors['_existing_'+topicId]=JSON.parse(editBtn.dataset.related||'[]');
+    }
+    panel.innerHTML=renderRelatedTopicsEditor(topicId,relatedTopicsEditors['_existing_'+topicId],'existing')
+      +`<div class="row mt"><button class="btn-ok btn-small btn-save-related" data-topic="${esc(topicId)}">💾 Speichern</button><button class="btn-ghost btn-small btn-cancel-related" data-topic="${esc(topicId)}">Abbrechen</button></div>`;
+    attachRelatedSearchListeners(topicId,'existing');
+    return;
+  }
+  // Save existing topic related topics
+  const saveBtn=e.target.closest('.btn-save-related');
+  if(saveBtn){
+    saveExistingTopicRelatedTopics(saveBtn.dataset.topic);
+    return;
+  }
+  // Cancel
+  const cancelBtn=e.target.closest('.btn-cancel-related');
+  if(cancelBtn){
+    const topicId=cancelBtn.dataset.topic;
+    const safeId=topicId.replace(/[^a-z0-9_]/g,'_');
+    const panel=document.getElementById('panel_'+safeId);
+    if(panel){panel.innerHTML='';panel.classList.remove('topic-edit-panel');}
+  }
+});
+
+/* ─── Save existing topic related topics ─────── */
+async function saveExistingTopicRelatedTopics(topicId){
+  if(!user){showStatus("Nicht eingeloggt.","error");return;}
+  const related=relatedTopicsEditors['_existing_'+topicId]||[];
+  try{
+    showStatus("Speichere verwandte Themen…");
+    const topicRef=doc(db,'topics',topicId);
+    await updateDoc(topicRef,{relatedTopics:related,updatedAt:serverTimestamp()});
+    // Also update all cards of this topic
+    const cSnap=await getDocs(query(collection(db,'swipeCards'),where('topicId','==',topicId)));
+    if(!cSnap.empty){
+      const batch=writeBatch(db);
+      cSnap.docs.forEach(d=>batch.update(d.ref,{relatedTopics:related,updatedAt:serverTimestamp()}));
+      await batch.commit();
+    }
+    showStatus(`Verwandte Themen für "${topicId}" gespeichert.`,"ok");
+    const safeId=topicId.replace(/[^a-z0-9_]/g,'_');
+    const panel=document.getElementById('panel_'+safeId);
+    if(panel){
+      panel.innerHTML=`<div class="status ok" style="margin:0">✅ Gespeichert (${related.length} verwandte Themen)</div>`;
+      setTimeout(()=>{if(panel){panel.innerHTML='';panel.classList.remove('topic-edit-panel');}loadChurchTopics();},2000);
+    }
+  }catch(e){showStatus("Fehler beim Speichern: "+e.message,"error");}
 }
 
 /* ─── Import ──────────────────────────────────── */
@@ -461,30 +726,27 @@ async function importData(){
     try{
       const topicId=topicData.topicId;
       const cardsForTopic=topicData.cards;
+      const relatedTopics=relatedTopicsEditors[topicId]||topicData.relatedTopics||[];
 
-      // Build contentStatus
-      const langs=[...new Set(cardsForTopic.map(c=>c.language))];
       const hasShortDE=cardsForTopic.some(c=>c.language==='de'&&c.length==='short');
-      const hasMediumDE=cardsForTopic.some(c=>c.language==='de'&&c.length==='medium');
       const hasLongDE=cardsForTopic.some(c=>c.language==='de'&&c.length==='long');
 
-      // Write topic
       const topicRef=doc(db,'topics',topicId);
       const existingSnap=await getDoc(topicRef);
       const topicPayload={
         wikidataId:topicId,
-        title:topicData.topicTitle||{de:topicId,en:topicId},
-        description:topicData.description||{de:'',en:''},
+        title:topicData.topicTitle||{de:topicId},
+        description:topicData.description||{de:''},
         aliases:{de:[],en:[]},
         sitelinks:{},
         tags:Array.isArray(topicData.tags)?topicData.tags:[],
+        relatedTopics,
         sourceIds:[],
         mainCategory:'kirche',
         topicType:'other',
         status:'active',
         contentStatus:{
           hasShortCard:hasShortDE,
-          hasMediumCard:hasMediumDE,
           hasLongCard:hasLongDE,
           reviewStatus:'approved',
         },
@@ -494,7 +756,6 @@ async function importData(){
       };
       await setDoc(topicRef,topicPayload,{merge:true});
 
-      // Write cards in batches of 500
       const BATCH_SIZE=400;
       let batchObj=writeBatch(db);
       let batchCount=0;
@@ -513,8 +774,9 @@ async function importData(){
           hook:card.hook||'',
           body:card.body||'',
           mainCategory:'kirche',
-          topicTitle:topicData.topicTitle||{de:topicId,en:topicId},
+          topicTitle:topicData.topicTitle||{de:topicId},
           tags:Array.isArray(topicData.tags)?topicData.tags:[],
+          relatedTopics,
           relatedTerms:[],
           sources:source,
           sourceIds:[],
@@ -533,13 +795,12 @@ async function importData(){
       }
       if(batchCount>0) await batchObj.commit();
 
-      results.push({topicId,title:topicData.topicTitle?.de||topicId,cards:cardsForTopic.length,status:'ok'});
+      results.push({topicId,title:topicData.topicTitle?.de||topicId,cards:cardsForTopic.length,related:relatedTopics.length,status:'ok'});
     }catch(e){
-      results.push({topicId:topicData.topicId,title:topicData.topicTitle?.de||topicData.topicId,cards:0,status:'error',error:e.message});
+      results.push({topicId:topicData.topicId,title:topicData.topicTitle?.de||topicData.topicId,cards:0,related:0,status:'error',error:e.message});
     }
   }
 
-  // Render result
   const okCount=results.filter(r=>r.status==='ok').length;
   const errCount=results.filter(r=>r.status==='error').length;
   const html=`
@@ -550,7 +811,9 @@ async function importData(){
     ${results.map(r=>`<div class="import-result-item ${r.status}">
       ${r.status==='ok'?'✅':'❌'} <strong>${esc(r.title)}</strong>
       <span class="muted small">${esc(r.topicId)}</span>
-      ${r.status==='ok'?`<span class="muted small">${r.cards} Karten</span>`:`<span style="color:var(--danger)">${esc(r.error)}</span>`}
+      ${r.status==='ok'
+        ?`<span class="muted small">${r.cards} Karten · ${r.related} Verknüpfungen</span>`
+        :`<span style="color:var(--danger)">${esc(r.error)}</span>`}
     </div>`).join('')}`;
   el("importResult").innerHTML=html;
   showStatus(`Import abgeschlossen: ${okCount} OK${errCount>0?`, ${errCount} Fehler`:''}`, errCount===0?'ok':'warn');
@@ -567,13 +830,12 @@ async function loadChurchTopics(){
   try{
     const snap=await getDocs(query(collection(db,'topics'),where('mainCategory','==','kirche')));
     const topics=snap.docs.map(d=>({id:d.id,...d.data()}));
+    allChurchTopics=topics; // update autocomplete cache
     if(topics.length===0){listEl.innerHTML='<span class="muted small">Noch keine Kircheninhalte importiert.</span>';return;}
     topics.sort((a,b)=>(a.title?.de||'').localeCompare(b.title?.de||''));
 
-    // Load card counts per topic
     const topicIds=topics.map(t=>t.id);
     let cardCounts={};
-    // Query in chunks of 10 (Firestore "in" limit)
     for(let i=0;i<topicIds.length;i+=10){
       const chunk=topicIds.slice(i,i+10);
       const cSnap=await getDocs(query(collection(db,'swipeCards'),where('topicId','in',chunk)));
@@ -586,17 +848,23 @@ async function loadChurchTopics(){
     listEl.innerHTML=topics.map(t=>{
       const cs=t.contentStatus||{};
       const count=cardCounts[t.id]||0;
+      const related=Array.isArray(t.relatedTopics)?t.relatedTopics:[];
+      const safeId=t.id.replace(/[^a-z0-9_]/g,'_');
+      const relatedJson=esc(JSON.stringify(related));
       return `<div class="topic-row">
         <div class="topic-row-body">
           <div class="topic-row-title" title="${esc(t.id)}">${esc(t.title?.de||t.id)}</div>
           <div class="topic-row-meta">${esc(t.id)}</div>
           <div class="topic-row-badges">
             <span class="badge ${cs.hasShortCard?'badge-has':'badge-miss'}">${cs.hasShortCard?'✓':'✗'} kurz</span>
-            <span class="badge ${cs.hasMediumCard?'badge-has':'badge-miss'}">${cs.hasMediumCard?'✓':'✗'} mittel</span>
             <span class="badge ${cs.hasLongCard?'badge-has':'badge-miss'}">${cs.hasLongCard?'✓':'✗'} lang</span>
-            <span class="badge muted">${count} Karten total</span>
+            <span class="badge badge-related">🔗 ${related.length} Verknüpfungen</span>
+            <span class="badge muted">${count} Karten</span>
           </div>
+          ${related.length>0?`<div style="margin-top:5px;font-size:.73rem;color:var(--muted)">${related.slice(0,3).map(r=>esc(r.title||r.topicId)).join(' · ')}${related.length>3?` · +${related.length-3}`:''}</div>`:''}
+          <div id="panel_${safeId}"></div>
         </div>
+        <button class="btn-ghost btn-small btn-edit-related" data-topic="${esc(t.id)}" data-related="${relatedJson}" style="flex-shrink:0;margin-top:4px">✏️ Verknüpfungen</button>
       </div>`;
     }).join('');
   }catch(e){listEl.innerHTML=`<span class="muted small">Fehler: ${esc(e.message)}</span>`;}
@@ -646,6 +914,18 @@ function init(){
     });
   };
 
+  el("copyJsonOutputBtn").onclick=()=>{
+    const ta=el("jsonOutputText");
+    navigator.clipboard.writeText(ta.value).then(()=>{
+      el("copyJsonOutputBtn").textContent="✓ Kopiert!";
+      setTimeout(()=>{el("copyJsonOutputBtn").textContent="📋 JSON kopieren";},2000);
+    }).catch(()=>{
+      ta.select();document.execCommand('copy');
+      el("copyJsonOutputBtn").textContent="✓ Kopiert!";
+      setTimeout(()=>{el("copyJsonOutputBtn").textContent="📋 JSON kopieren";},2000);
+    });
+  };
+
   el("toStep2Btn").onclick=()=>goToStep(2);
   el("backTo1Btn").onclick=()=>goToStep(1);
   el("backTo2Btn").onclick=()=>goToStep(2);
@@ -657,12 +937,13 @@ function init(){
     el("previewArea").innerHTML='';
     el("importResult").innerHTML='';
     el("importBtn").classList.add('hidden');
+    el("jsonOutputSection").classList.add('hidden');
     parsedImportData=null;
+    relatedTopicsEditors={};
     goToStep(1);
   };
   el("reloadTopicsBtn").onclick=loadChurchTopics;
 
-  // Step tabs click
   document.querySelectorAll('.step').forEach(s=>{
     s.onclick=()=>{
       const n=Number(s.dataset.step);
@@ -670,7 +951,6 @@ function init(){
     };
   });
 
-  // File drop zone
   const dz=el("dropZone");
   dz.onclick=()=>el("fileInput").click();
   el("fileInput").onchange=e=>handleFile(e.target.files[0]);
@@ -678,7 +958,6 @@ function init(){
   dz.ondragleave=()=>dz.classList.remove('drag-over');
   dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag-over');handleFile(e.dataTransfer.files[0]);};
 
-  // Paste shortcut in JSON textarea
   el("jsonInput").addEventListener('paste',()=>setTimeout(()=>showStatus("JSON eingefügt. Klicke 'Prüfen & Vorschau'."),100));
 }
 
