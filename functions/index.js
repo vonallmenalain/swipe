@@ -17,7 +17,6 @@ const LONG_CARD_MIN_WORDS = 1200;
 
 const ALLOWED_MAIN_CATEGORIES = ["geschichte","wissenschaft","geografie","politik","gesellschaft","religion","philosophie","technik","wirtschaft","kultur","sport","biografie","natur","medizin","mythologie","allgemeinwissen"];
 const ALLOWED_TOPIC_TYPES = ["person","historical_event","historical_period","place","country","organization","concept","scientific_concept","religion","ideology","technology","invention","conflict","treaty","natural_object","cultural_work","sport_event","other"];
-const ALLOWED_DIFFICULTIES = ["beginner", "intermediate", "advanced"];
 const REQUIRED_CARD_KEYS = ["de_short", "de_medium", "de_long", "en_short", "en_medium", "en_long"];
 const PREVIEW_MAX_CHARS = 3000;
 
@@ -366,15 +365,6 @@ function unwrapAIOutput(parsed) {
     if (nested && typeof nested === "object" && nested.topicMeta && nested.cards) return nested;
   }
   return parsed;
-}
-function normalizeDifficulty(value) {
-  const key = safeString(value).trim().toLowerCase();
-  const mapping = new Map([
-    ["beginner", "beginner"], ["easy", "beginner"], ["basic", "beginner"], ["simple", "beginner"], ["leicht", "beginner"], ["einfach", "beginner"], ["anfänger", "beginner"], ["anfaenger", "beginner"], ["einsteiger", "beginner"],
-    ["intermediate", "intermediate"], ["medium", "intermediate"], ["mittel", "intermediate"], ["normal", "intermediate"], ["fortgeschritten", "intermediate"],
-    ["advanced", "advanced"], ["hard", "advanced"], ["difficult", "advanced"], ["schwer", "advanced"], ["anspruchsvoll", "advanced"], ["experte", "advanced"], ["expert", "advanced"],
-  ]);
-  return mapping.get(key) || null;
 }
 function normalizeLanguage(value) {
   const key = safeString(value).trim().toLowerCase();
