@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kirche – Inhalte importieren</title>
+  <title>Verkündet mein Evangelium – Inhalte importieren</title>
   <style>
     :root{--bg:#0a0f1a;--bg-soft:#0e1626;--card:#121e36;--text:#e5eeff;--muted:#7a94c4;--accent:#5b9cf6;--accent2:#7eb3ff;--line:rgba(100,150,255,.1);--warn:#ffd166;--ok:#52d8a2;--danger:#ff6b6b;--radius:14px;--shadow:0 8px 30px rgba(0,0,0,.32);}
     *{box-sizing:border-box}
@@ -153,7 +153,7 @@
 
   <!-- LOGIN -->
   <section id="loginBox" class="panel section mb">
-    <h1>🕍 Kirche – Inhalte importieren</h1>
+    <h1>📖 Verkündet mein Evangelium – Inhalte importieren</h1>
     <p class="muted">Admin-Zugang erforderlich</p>
     <div class="field"><label>E-Mail</label><input id="emailInput" type="email" /></div>
     <div class="field"><label>Passwort</label><input id="passwordInput" type="password" /></div>
@@ -164,7 +164,7 @@
   <div id="appRoot" class="hidden">
     <header class="panel header mb">
       <div>
-        <h1>🕍 Kirche – Inhalte importieren</h1>
+        <h1>📖 Verkündet mein Evangelium – Inhalte importieren</h1>
         <div class="small muted">Ansprachen, Schriftstellen und Lehrmaterial als SwipeCards importieren</div>
       </div>
       <div class="row">
@@ -282,7 +282,7 @@
       <div>
         <section class="panel section mb">
           <div class="row mb" style="justify-content:space-between">
-            <h2 style="margin:0">Bereits importierte Kircheninhalte</h2>
+            <h2 style="margin:0">Bereits importierte Inhalte</h2>
             <button id="reloadTopicsBtn" class="btn-ghost btn-small">🔄</button>
           </div>
           <div id="churchTopicsList"><span class="muted small">Wird geladen…</span></div>
@@ -534,7 +534,7 @@ function renderPreview(topics){
       </div>`).join('');
     return `<div class="preview-topic">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-        <span class="badge badge-cat">🕍 kirche</span>
+        <span class="badge badge-cat">📖 Verkündet mein Evangelium</span>
         ${selectedImportCategory?`<span class="badge badge-subcat">📂 ${esc(selectedImportCategory.name)}</span>`:''}
         <strong>${esc(t.topicTitle?.de||t.topicId)}</strong>
         <span class="muted small">${esc(t.topicId)}</span>
@@ -872,7 +872,7 @@ async function loadChurchTopics(){
     const snap=await getDocs(query(collection(db,'topics'),where('mainCategory','==','kirche')));
     const topics=snap.docs.map(d=>({id:d.id,...d.data()}));
     allChurchTopics=topics; // update autocomplete cache
-    if(topics.length===0){listEl.innerHTML='<span class="muted small">Noch keine Kircheninhalte importiert.</span>';return;}
+    if(topics.length===0){listEl.innerHTML='<span class="muted small">Noch keine Inhalte importiert.</span>';return;}
     topics.sort((a,b)=>(a.title?.de||'').localeCompare(b.title?.de||''));
 
     const topicIds=topics.map(t=>t.id);
