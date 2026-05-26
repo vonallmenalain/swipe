@@ -111,6 +111,19 @@
       <div class="batch-progress-bar"><div id="batchProgressFill" class="batch-progress-fill" style="width:0%"></div></div>
       <div id="batchProgressList"></div>
     </section>
+    <section id="serverBatchSection" class="panel section batch-section hidden" style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h2 style="margin:0">⚡ Server-Batch (läuft im Hintergrund)</h2>
+        <div class="row">
+          <span id="serverBatchStatusLabel" class="small muted"></span>
+          <button id="serverBatchRefreshBtn" class="btn-small">🔄 Aktualisieren</button>
+          <button id="closeServerBatchBtn" class="btn-small">Schließen</button>
+        </div>
+      </div>
+      <div class="batch-progress-bar"><div id="serverBatchProgressFill" class="batch-progress-fill" style="width:0%;background:var(--accent)"></div></div>
+      <div id="serverBatchInfo" class="small muted" style="margin:8px 0">Der Batch läuft auf dem Server weiter – du kannst den Browser schließen.</div>
+      <div id="serverBatchList"></div>
+    </section>
     <div class="split">
       <!-- LEFT COLUMN -->
       <div>
@@ -131,6 +144,9 @@
           <div class="row mb" id="batchActionRow" style="display:none!important">
             <button id="batchGenerateBtn" class="btn-primary btn-small">
               <span id="batchGenerateBtnLabel">Alle ausgewählten generieren</span>
+            </button>
+            <button id="serverBatchBtn" class="btn-small" style="background:var(--accent);color:#fff;border-color:var(--accent)">
+              <span id="serverBatchBtnLabel">⚡ Server-Batch (ohne Browser)</span>
             </button>
           </div>
           <div id="topicList"></div>
@@ -349,6 +365,7 @@ function updateBatchControls(){
     label.classList.remove("hidden");
     row.style.removeProperty("display");
     el("batchGenerateBtnLabel").textContent=`${n} Topic${n!==1?"s":""} generieren`;
+    el("serverBatchBtnLabel").textContent=`⚡ ${n} Topic${n!==1?"s":""} Server-Batch`;
   }else{
     label.classList.add("hidden");
     row.style.setProperty("display","none","important");
@@ -843,6 +860,81 @@ async function publishAllBatch(){
   try{await loadTopics();}catch{}
 }
 
+/* ─── Server-Side Batch Generation ──────────────── */
+let serverBatchJobId=null;
+let serverBatchPollTimer=null;
+
+async function startServerBatch(){
+  if(!user)return showStatus("Bitte einloggen.","error");
+  if(batchSelected.size===0)return showStatus("Bitte mindestens ein Topic auswählen.","error");
+  const ids=[...batchSelected];
+  if(!confirm(`${ids.length} Topic${ids.length!==1?"s":""} werden auf dem Server im Hintergrund generiert.\n\nDu kannst den Browser danach schließen – die Generierung läuft weiter.\n\nFortfahren?`))return;
+
+  el("serverBatchBtn").disabled=true;
+  el("serverBatchBtnLabel").textContent="Wird gestartet…";
+
+  try{
+    const call=httpsCallable(functions,"startBatchGeneration",{timeout:60000});
+    const resp=await call({topicIds:ids,autoPublish:false});
+    serverBatchJobId=resp.data.batchJobId;
+    el("serverBatchSection").classList.remove("hidden");
+    el("serverBatchInfo").textContent=`Batch-Job gestartet: ${resp.data.totalTasks} Topics werden generiert. Job-ID: ${serverBatchJobId}`;
+    showStatus(`Server-Batch gestartet: ${resp.data.totalTasks} Topics.`);
+    pollServerBatch();
+  }catch(e){
+    showStatus(`Server-Batch Fehler: ${e.message}`,"error");
+  }finally{
+    el("serverBatchBtn").disabled=false;
+    el("serverBatchBtnLabel").textContent="⚡ Server-Batch (ohne Browser)";
+  }
+}
+
+async function pollServerBatch(){
+  if(!serverBatchJobId)return;
+  try{
+    const call=httpsCallable(functions,"getBatchJobStatus",{timeout:30000});
+    const resp=await call({batchJobId:serverBatchJobId});
+    const job=resp.data;
+    renderServerBatchProgress(job);
+    if(job.status==="running"){
+      serverBatchPollTimer=setTimeout(pollServerBatch,5000);
+    }else{
+      showStatus(`Server-Batch abgeschlossen: ${job.completedCount||0} OK, ${job.errorCount||0} Fehler.`);
+      try{await loadTopics();}catch{}
+    }
+  }catch(e){
+    el("serverBatchStatusLabel").textContent=`Polling-Fehler: ${e.message}`;
+    serverBatchPollTimer=setTimeout(pollServerBatch,10000);
+  }
+}
+
+function renderServerBatchProgress(job){
+  const total=job.totalTasks||0;
+  const done=job.completedCount||0;
+  const errors=job.errorCount||0;
+  const pct=total>0?Math.round((done+errors)/total*100):0;
+  el("serverBatchProgressFill").style.width=`${pct}%`;
+  const statusText=job.status==="running"
+    ?`Läuft… ${done+errors}/${total} (${done} OK, ${errors} Fehler)`
+    :`Abgeschlossen: ${done} OK, ${errors} Fehler`;
+  el("serverBatchStatusLabel").textContent=statusText;
+
+  const tasks=job.tasks||{};
+  const entries=Object.values(tasks).sort((a,b)=>a.taskIndex-b.taskIndex);
+  el("serverBatchList").innerHTML=entries.map(t=>{
+    const statusMap={pending:"⏳ Wartend",running:"⚡ Generiert…",done:"✅ Fertig",error:"❌ Fehler"};
+    const cls={pending:"status-pending",running:"status-running",done:"status-done",error:"status-error"};
+    const topicInfo=topics.find(x=>x.wikidataId===t.topicId);
+    const label=topicInfo?topicLabel(topicInfo):t.topicId;
+    const errMsg=t.error?`<div class='small' style='color:var(--danger);font-size:.72rem;margin-top:2px'>${safe(t.error).slice(0,80)}</div>`:"";
+    return `<div class='batch-item' style='flex-wrap:wrap'>
+      <div class='batch-item-label' title='${t.topicId}'>${label}</div>
+      <div class='batch-item-status ${cls[t.status]||""}'>${statusMap[t.status]||t.status||"unbekannt"}</div>
+      ${errMsg}
+    </div>`;
+  }).join("");
+}
+
 function init(){
   app=initializeApp(firebaseConfig);
   auth=getAuth(app);
@@ -895,6 +987,13 @@ function init(){
   el("closeBatchBtn").onclick=()=>{
     if(batchRunning){if(!confirm("Batch läuft noch. Wirklich schließen?"))return;}
     el("batchProgressSection").classList.add("hidden");
+  };
+  // Server-side batch
+  el("serverBatchBtn").onclick=startServerBatch;
+  el("serverBatchRefreshBtn").onclick=pollServerBatch;
+  el("closeServerBatchBtn").onclick=()=>{
+    if(serverBatchPollTimer)clearTimeout(serverBatchPollTimer);
+    el("serverBatchSection").classList.add("hidden");
   };
 }
 /* ─── Button ripple feedback ────────────────────── */

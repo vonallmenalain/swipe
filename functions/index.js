@@ -2,6 +2,8 @@ const crypto = require("node:crypto");
 const admin = require("firebase-admin");
 const OpenAI = require("openai");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onTaskDispatched } = require("firebase-functions/v2/tasks");
+const { getFunctions } = require("firebase-admin/functions");
 const { defineSecret } = require("firebase-functions/params");
 
 admin.initializeApp();
@@ -484,14 +486,11 @@ function calculateReadingStats(text) { const wordCount = safeString(text).trim()
 function buildAvailableSourceIds(sp) { const ids = [sp.sources.wikidata.id]; if (sp.sources.wikipediaDe.available) ids.push(sp.sources.wikipediaDe.id); if (sp.sources.wikipediaEn.available) ids.push(sp.sources.wikipediaEn.id); return ids; }
 function buildAvailableSources(sp) { const out = [{ type: "wikidata", title: safeString(sp.topic?.title?.de || sp.topic?.title?.en), url: sp.sources.wikidata.url, license: "CC0", publisher: "Wikidata" }]; if (sp.sources.wikipediaDe.available) out.push({ type: "wikipedia", language: "de", title: sp.sources.wikipediaDe.summaryTitle || safeString(sp.topic?.title?.de), url: sp.sources.wikipediaDe.url, license: "CC BY-SA 4.0", publisher: "Wikipedia" }); if (sp.sources.wikipediaEn.available) out.push({ type: "wikipedia", language: "en", title: sp.sources.wikipediaEn.summaryTitle || safeString(sp.topic?.title?.en), url: sp.sources.wikipediaEn.url, license: "CC BY-SA 4.0", publisher: "Wikipedia" }); return out; }
 
-exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSeconds: 540, memory: "1GiB", maxInstances: 2, concurrency: 1, secrets: [OPENAI_API_KEY] }, async (request) => {
-  const warnings = []; const cardIds = []; let topicId = ""; let wikidataId = ""; let sourceAvailability = null; let debugDetails = {};
-  try {
-    if (!request.auth) throw new HttpsError("unauthenticated", "Bitte zuerst einloggen.");
-    if (request.auth?.token?.email !== ADMIN_EMAIL) throw new HttpsError("permission-denied", "Nur Admins dürfen KI-Cards generieren.");
-    topicId = safeString(request.data?.topicId).trim();
-    if (!topicId) throw new HttpsError("invalid-argument", "topicId muss gesetzt sein.");
+async function generateCardsForTopicInternal(topicId) {
+  const warnings = []; const cardIds = []; let wikidataId = ""; let sourceAvailability = null; let debugDetails = {};
+  if (!topicId) throw new HttpsError("invalid-argument", "topicId muss gesetzt sein.");
 
+  try {
     const topicRef = db.collection("topics").doc(topicId); const snap = await topicRef.get();
     if (!snap.exists) throw new HttpsError("not-found", "Topic nicht gefunden.");
     const topic = snap.data() || {}; wikidataId = safeString(topic.wikidataId || topicId);
@@ -715,6 +714,13 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
     if (error instanceof HttpsError) throw error;
     throw new HttpsError("internal", message, { topicId, wikidataId, sourceAvailability, warnings });
   }
+}
+
+exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSeconds: 540, memory: "1GiB", maxInstances: 2, concurrency: 1, secrets: [OPENAI_API_KEY] }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Bitte zuerst einloggen.");
+  if (request.auth?.token?.email !== ADMIN_EMAIL) throw new HttpsError("permission-denied", "Nur Admins dürfen KI-Cards generieren.");
+  const topicId = safeString(request.data?.topicId).trim();
+  return generateCardsForTopicInternal(topicId);
 });
 
 
@@ -743,4 +749,136 @@ exports.publishCardsForTopic = onCall({ region: "europe-west1" }, async (request
   batch.set(topicRef, { status: "ready", "contentStatus.reviewStatus": "approved", "contentStatus.cardsPublished": 6, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
   await batch.commit();
   return { success: true, topicId, updatedCards };
+});
+
+
+/* ─── Server-Side Batch Generation via Cloud Tasks ─────────────────────────── */
+
+function getFunctionUrl(functionName) {
+  const projectId = process.env.GCLOUD_PROJECT || (process.env.FIREBASE_CONFIG && JSON.parse(process.env.FIREBASE_CONFIG).projectId) || "swipe-82eeb";
+  if (process.env.FUNCTIONS_EMULATOR === "true") return undefined;
+  return `https://europe-west1-${projectId}.cloudfunctions.net/${functionName}`;
+}
+
+exports.processSwipeCardTask = onTaskDispatched({
+  region: "europe-west1",
+  retryConfig: { maxAttempts: 2, minBackoffSeconds: 30 },
+  rateLimits: { maxConcurrentDispatches: 2 },
+  timeoutSeconds: 540,
+  memory: "1GiB",
+  secrets: [OPENAI_API_KEY],
+}, async (req) => {
+  const { topicId, batchJobId, taskIndex } = req.data || {};
+  if (!topicId || !batchJobId) throw new Error("topicId und batchJobId sind Pflichtfelder.");
+
+  const jobRef = db.collection("batchJobs").doc(batchJobId);
+
+  try {
+    await jobRef.update({
+      [`tasks.${taskIndex}.status`]: "running",
+      [`tasks.${taskIndex}.startedAt`]: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    const result = await generateCardsForTopicInternal(topicId);
+
+    await jobRef.update({
+      [`tasks.${taskIndex}.status`]: "done",
+      [`tasks.${taskIndex}.completedAt`]: admin.firestore.FieldValue.serverTimestamp(),
+      [`tasks.${taskIndex}.cardsCreated`]: result.cardsCreated || 6,
+      completedCount: admin.firestore.FieldValue.increment(1),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (error) {
+    const message = safeString(error?.message || "Unbekannter Fehler");
+    await jobRef.update({
+      [`tasks.${taskIndex}.status`]: "error",
+      [`tasks.${taskIndex}.error`]: message.slice(0, 500),
+      [`tasks.${taskIndex}.completedAt`]: admin.firestore.FieldValue.serverTimestamp(),
+      errorCount: admin.firestore.FieldValue.increment(1),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    throw error;
+  }
+
+  const jobSnap = await jobRef.get();
+  const jobData = jobSnap.data() || {};
+  const totalTasks = jobData.totalTasks || 0;
+  const completed = (jobData.completedCount || 0);
+  const errors = (jobData.errorCount || 0);
+  if (completed + errors >= totalTasks) {
+    await jobRef.update({
+      status: errors > 0 ? "completed_with_errors" : "completed",
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+});
+
+exports.startBatchGeneration = onCall({ region: "europe-west1", timeoutSeconds: 60 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Bitte zuerst einloggen.");
+  if (request.auth?.token?.email !== ADMIN_EMAIL) throw new HttpsError("permission-denied", "Nur Admins dürfen Batch-Generierung starten.");
+
+  const topicIds = request.data?.topicIds;
+  if (!Array.isArray(topicIds) || topicIds.length === 0) throw new HttpsError("invalid-argument", "topicIds muss ein nicht-leeres Array sein.");
+  if (topicIds.length > 100) throw new HttpsError("invalid-argument", "Maximal 100 Topics pro Batch.");
+
+  const autoPublish = !!request.data?.autoPublish;
+
+  const tasks = topicIds.map((id, index) => ({
+    topicId: safeString(id).trim(),
+    status: "pending",
+    taskIndex: index,
+    error: null,
+    cardsCreated: 0,
+    startedAt: null,
+    completedAt: null,
+  }));
+
+  const jobRef = db.collection("batchJobs").doc();
+  const batchJobId = jobRef.id;
+
+  await jobRef.set({
+    batchJobId,
+    status: "running",
+    totalTasks: topicIds.length,
+    completedCount: 0,
+    errorCount: 0,
+    autoPublish,
+    tasks: tasks.reduce((acc, t, i) => { acc[i] = t; return acc; }, {}),
+    createdBy: request.auth.token.email,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    completedAt: null,
+  });
+
+  const queue = getFunctions().taskQueue("processSwipeCardTask");
+  const targetUri = getFunctionUrl("processSwipeCardTask");
+
+  const enqueuePromises = tasks.map((task, index) =>
+    queue.enqueue(
+      { topicId: task.topicId, batchJobId, taskIndex: index },
+      {
+        dispatchDeadlineSeconds: 600,
+        ...(targetUri ? { uri: targetUri } : {}),
+      }
+    )
+  );
+
+  await Promise.all(enqueuePromises);
+
+  return { success: true, batchJobId, totalTasks: topicIds.length };
+});
+
+exports.getBatchJobStatus = onCall({ region: "europe-west1" }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Bitte zuerst einloggen.");
+  if (request.auth?.token?.email !== ADMIN_EMAIL) throw new HttpsError("permission-denied", "Nur Admins.");
+
+  const batchJobId = safeString(request.data?.batchJobId).trim();
+  if (!batchJobId) throw new HttpsError("invalid-argument", "batchJobId muss gesetzt sein.");
+
+  const snap = await db.collection("batchJobs").doc(batchJobId).get();
+  if (!snap.exists) throw new HttpsError("not-found", "Batch-Job nicht gefunden.");
+
+  return snap.data();
 });
