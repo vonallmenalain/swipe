@@ -135,6 +135,17 @@
     .json-output-section{background:#060d1c;border:1px solid rgba(91,156,246,.2);border-radius:10px;padding:14px;margin-top:16px}
     .json-output-section h3{color:var(--accent2);font-size:.9rem;margin:0 0 10px;display:flex;align-items:center;gap:8px}
     .json-output-section textarea{background:#040810;border-color:rgba(91,156,246,.15);min-height:220px;font-size:.75rem}
+
+    /* Category assignment */
+    .cat-assign-box{background:#060d1c;border:1px solid rgba(91,156,246,.2);border-radius:10px;padding:14px;margin-bottom:14px}
+    .cat-assign-box h3{color:var(--accent2);font-size:.9rem;margin:0 0 8px;font-weight:600}
+    .cat-divider-or{text-align:center;color:var(--muted);font-size:.78rem;margin:8px 0;position:relative}
+    .cat-divider-or::before,.cat-divider-or::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:var(--line)}
+    .cat-divider-or::before{left:0}.cat-divider-or::after{right:0}
+    #categorySelect{width:100%}
+    .cat-selected-badge{margin-top:8px;padding:8px 12px;background:rgba(82,216,162,.1);border:1px solid rgba(82,216,162,.3);border-radius:8px;font-size:.85rem;color:var(--ok)}
+    .cat-required-hint{margin-top:6px;font-size:.78rem;color:var(--warn)}
+    .badge-subcat{background:rgba(82,216,162,.12);border:1px solid rgba(82,216,162,.25);color:var(--ok)}
   </style>
 </head>
 <body><div class="container">
@@ -153,7 +164,7 @@
   <div id="appRoot" class="hidden">
     <header class="panel header mb">
       <div>
-        <h1>🕍 Kirche JCHNdLT – Inhalte importieren</h1>
+        <h1>🕍 Kirche – Inhalte importieren</h1>
         <div class="small muted">Ansprachen, Schriftstellen und Lehrmaterial als SwipeCards importieren</div>
       </div>
       <div class="row">
@@ -196,6 +207,29 @@
         <section id="step2" class="panel section mb step-panel">
           <h2>Schritt 2 – JSON einfügen oder hochladen</h2>
           <p class="muted small">Füge das von ChatGPT generierte JSON hier ein oder lade eine JSON-Datei hoch. Einzelnes Topic oder Array mit mehreren Topics.</p>
+
+          <!-- Category assignment -->
+          <div class="cat-assign-box">
+            <h3>📂 Hauptkategorie zuweisen</h3>
+            <p class="muted small" style="margin-bottom:10px">Alle importierten Karten werden dieser Kategorie zugewiesen. Wähle eine bestehende oder erstelle eine neue.</p>
+            <div class="field" style="margin-bottom:6px">
+              <label>Bestehende Kategorie wählen</label>
+              <select id="categorySelect">
+                <option value="">– Kategorie wählen –</option>
+              </select>
+            </div>
+            <div class="cat-divider-or">oder</div>
+            <div class="field" style="margin-bottom:6px">
+              <label>Neue Kategorie erstellen</label>
+              <div class="row" style="gap:8px">
+                <input type="text" id="newCategoryInput" placeholder="z.B. Verkündet mein Evangelium" style="flex:1" />
+                <button id="createCategoryBtn" class="btn-primary btn-small" style="white-space:nowrap">+ Erstellen</button>
+              </div>
+            </div>
+            <div id="selectedCategoryBadge" class="cat-selected-badge hidden"></div>
+            <div id="categoryRequiredHint" class="cat-required-hint hidden">⚠️ Bitte eine Kategorie wählen oder erstellen, bevor du fortfährst.</div>
+          </div>
+
           <div id="dropZone" class="drop-zone mb">
             <div class="drop-zone-icon">📂</div>
             <div>JSON-Datei hier ablegen oder <strong>klicken zum Auswählen</strong></div>
@@ -294,6 +328,10 @@ let currentStep=1;
 let relatedTopicsEditors={};
 // Cache aller Kirchenthemen für Autocomplete
 let allChurchTopics=[];
+
+// Category state
+let churchCategories=[]; // [{id, name}]
+let selectedImportCategory=null; // {id, name} | null
 
 const VALID_LANGUAGES=["de"];
 const VALID_LENGTHS=["short","long"];
@@ -497,6 +535,7 @@ function renderPreview(topics){
     return `<div class="preview-topic">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
         <span class="badge badge-cat">🕍 kirche</span>
+        ${selectedImportCategory?`<span class="badge badge-subcat">📂 ${esc(selectedImportCategory.name)}</span>`:''}
         <strong>${esc(t.topicTitle?.de||t.topicId)}</strong>
         <span class="muted small">${esc(t.topicId)}</span>
       </div>
@@ -743,6 +782,7 @@ async function importData(){
         relatedTopics,
         sourceIds:[],
         mainCategory:'kirche',
+        subCategory:selectedImportCategory||null,
         topicType:'other',
         status:'active',
         contentStatus:{
@@ -774,6 +814,7 @@ async function importData(){
           hook:card.hook||'',
           body:card.body||'',
           mainCategory:'kirche',
+          subCategory:selectedImportCategory||null,
           topicTitle:topicData.topicTitle||{de:topicId},
           tags:Array.isArray(topicData.tags)?topicData.tags:[],
           relatedTopics,
@@ -849,6 +890,7 @@ async function loadChurchTopics(){
       const cs=t.contentStatus||{};
       const count=cardCounts[t.id]||0;
       const related=Array.isArray(t.relatedTopics)?t.relatedTopics:[];
+      const subCatName=t.subCategory?.name||(typeof t.subCategory==='string'?t.subCategory:null);
       const safeId=t.id.replace(/[^a-z0-9_]/g,'_');
       const relatedJson=esc(JSON.stringify(related));
       return `<div class="topic-row">
@@ -856,6 +898,7 @@ async function loadChurchTopics(){
           <div class="topic-row-title" title="${esc(t.id)}">${esc(t.title?.de||t.id)}</div>
           <div class="topic-row-meta">${esc(t.id)}</div>
           <div class="topic-row-badges">
+            ${subCatName?`<span class="badge badge-subcat">📂 ${esc(subCatName)}</span>`:''}
             <span class="badge ${cs.hasShortCard?'badge-has':'badge-miss'}">${cs.hasShortCard?'✓':'✗'} kurz</span>
             <span class="badge ${cs.hasLongCard?'badge-has':'badge-miss'}">${cs.hasLongCard?'✓':'✗'} lang</span>
             <span class="badge badge-related">🔗 ${related.length} Verknüpfungen</span>
@@ -868,6 +911,8 @@ async function loadChurchTopics(){
       </div>`;
     }).join('');
   }catch(e){listEl.innerHTML=`<span class="muted small">Fehler: ${esc(e.message)}</span>`;}
+  // Refresh category dropdown with any newly found categories
+  loadChurchCategories();
 }
 
 /* ─── File drop/upload ────────────────────────── */
@@ -876,6 +921,71 @@ function handleFile(file){
   const reader=new FileReader();
   reader.onload=e=>{el("jsonInput").value=e.target.result;showStatus("Datei geladen: "+file.name);};
   reader.readAsText(file);
+}
+
+/* ─── Category helpers ────────────────────────── */
+function slugify(str){
+  return str.trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
+    .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+}
+
+async function loadChurchCategories(){
+  if(!db)return;
+  try{
+    const snap=await getDocs(query(collection(db,'topics'),where('mainCategory','==','kirche')));
+    const catMap=new Map();
+    snap.docs.forEach(d=>{
+      const sc=d.data().subCategory;
+      if(sc&&typeof sc==='object'&&sc.id&&sc.name){
+        catMap.set(sc.id,sc);
+      }else if(sc&&typeof sc==='string'&&sc.trim()){
+        const id=slugify(sc);
+        if(id)catMap.set(id,{id,name:sc});
+      }
+    });
+    churchCategories=Array.from(catMap.values()).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+    updateCategoryDropdown();
+  }catch(e){
+    console.error('Kategorien konnten nicht geladen werden:',e);
+  }
+}
+
+function updateCategoryDropdown(){
+  const sel=el('categorySelect');
+  if(!sel)return;
+  const prev=sel.value;
+  sel.innerHTML='<option value="">– Kategorie wählen –</option>';
+  churchCategories.forEach(cat=>{
+    const opt=document.createElement('option');
+    opt.value=cat.id;
+    opt.textContent=cat.name;
+    sel.appendChild(opt);
+  });
+  if(prev)sel.value=prev;
+}
+
+function setSelectedCategory(cat){
+  selectedImportCategory=cat;
+  const badge=el('selectedCategoryBadge');
+  const hint=el('categoryRequiredHint');
+  const sel=el('categorySelect');
+  if(!badge)return;
+  if(cat){
+    badge.textContent=`✓ Gewählte Kategorie: "${cat.name}"`;
+    badge.classList.remove('hidden');
+    if(hint)hint.classList.add('hidden');
+    // Ensure the category appears in dropdown
+    if(sel&&!churchCategories.some(c=>c.id===cat.id)){
+      churchCategories.push(cat);
+      churchCategories.sort((a,b)=>a.name.localeCompare(b.name,'de'));
+      updateCategoryDropdown();
+    }
+    if(sel)sel.value=cat.id;
+  }else{
+    badge.classList.add('hidden');
+  }
 }
 
 /* ─── Init ────────────────────────────────────── */
@@ -893,7 +1003,7 @@ function init(){
     user=u;
     el("loginBox").classList.toggle("hidden",!!u);
     el("appRoot").classList.toggle("hidden",!u);
-    if(u){el("userEmail").textContent=u.email||'';loadChurchTopics();}
+    if(u){el("userEmail").textContent=u.email||'';loadChurchTopics();loadChurchCategories();}
   });
 
   el("loginBtn").onclick=async()=>{
@@ -929,7 +1039,16 @@ function init(){
   el("toStep2Btn").onclick=()=>goToStep(2);
   el("backTo1Btn").onclick=()=>goToStep(1);
   el("backTo2Btn").onclick=()=>goToStep(2);
-  el("validateBtn").onclick=()=>validateAndPreview();
+  el("validateBtn").onclick=()=>{
+    if(!selectedImportCategory){
+      const hint=el('categoryRequiredHint');
+      if(hint)hint.classList.remove('hidden');
+      showStatus('Bitte zuerst eine Kategorie auswählen oder erstellen.','error');
+      el('categorySelect').focus();
+      return;
+    }
+    validateAndPreview();
+  };
   el("importBtn").onclick=()=>importData();
   el("importAnotherBtn").onclick=()=>{
     el("jsonInput").value='';
@@ -940,9 +1059,34 @@ function init(){
     el("jsonOutputSection").classList.add('hidden');
     parsedImportData=null;
     relatedTopicsEditors={};
+    // Reset category selection so a fresh one can be chosen
+    selectedImportCategory=null;
+    const badge=el('selectedCategoryBadge');
+    if(badge)badge.classList.add('hidden');
+    const sel=el('categorySelect');
+    if(sel)sel.value='';
     goToStep(1);
   };
   el("reloadTopicsBtn").onclick=loadChurchTopics;
+
+  // Category events
+  el('categorySelect').onchange=e=>{
+    const id=e.target.value;
+    if(!id){setSelectedCategory(null);return;}
+    const cat=churchCategories.find(c=>c.id===id);
+    if(cat)setSelectedCategory(cat);
+  };
+  el('createCategoryBtn').onclick=()=>{
+    const input=el('newCategoryInput');
+    const name=input.value.trim();
+    if(!name){showStatus('Bitte einen Kategorienamen eingeben.','error');return;}
+    const id=slugify(name);
+    if(!id){showStatus('Ungültiger Kategoriename – bitte andere Buchstaben verwenden.','error');return;}
+    setSelectedCategory({id,name});
+    input.value='';
+    showStatus(`Neue Kategorie erstellt: "${name}"`,'ok');
+  };
+  el('newCategoryInput').onkeydown=e=>{if(e.key==='Enter')el('createCategoryBtn').click();};
 
   document.querySelectorAll('.step').forEach(s=>{
     s.onclick=()=>{
