@@ -209,6 +209,9 @@ Regeln:
 - Erstelle exakt 6 Cards: de-short, de-medium, de-long, en-short, en-medium, en-long.
 - Jede Card MUSS body verwenden (niemals text).
 - Jede Card MUSS sourceBasis und sourceIds enthalten.
+- WICHTIG: difficulty MUSS exakt "beginner", "intermediate" oder "advanced" sein.
+- language MUSS exakt "de" oder "en" sein.
+- length MUSS exakt "short", "medium" oder "long" sein.
 - Wenn Quellenmaterial nicht reicht: body nicht aufblasen, needsMoreSourceMaterial=true.
 - Sprache: de auf Deutsch, en auf Englisch.
 SOURCE PACK:
@@ -250,6 +253,65 @@ function unwrapAIOutput(parsed) {
   }
   return parsed;
 }
+function normalizeDifficulty(value) {
+  const key = safeString(value).trim().toLowerCase();
+  const mapping = new Map([
+    ["beginner", "beginner"], ["easy", "beginner"], ["basic", "beginner"], ["simple", "beginner"], ["leicht", "beginner"], ["einfach", "beginner"], ["anfänger", "beginner"], ["anfaenger", "beginner"], ["einsteiger", "beginner"],
+    ["intermediate", "intermediate"], ["medium", "intermediate"], ["mittel", "intermediate"], ["normal", "intermediate"], ["fortgeschritten", "intermediate"],
+    ["advanced", "advanced"], ["hard", "advanced"], ["difficult", "advanced"], ["schwer", "advanced"], ["anspruchsvoll", "advanced"], ["experte", "advanced"], ["expert", "advanced"],
+  ]);
+  return mapping.get(key) || null;
+}
+function normalizeLanguage(value) {
+  const key = safeString(value).trim().toLowerCase();
+  if (["de", "deutsch", "german"].includes(key)) return "de";
+  if (["en", "english", "englisch"].includes(key)) return "en";
+  return safeString(value).trim();
+}
+function normalizeLength(value) {
+  const key = safeString(value).trim().toLowerCase();
+  if (["short", "kurz"].includes(key)) return "short";
+  if (["medium", "mittel"].includes(key)) return "medium";
+  if (["long", "lang"].includes(key)) return "long";
+  return safeString(value).trim();
+}
+function normalizeAIOutput(output, warnings = [], sourceAvailability = {}, topicId = "", wikidataId = "") {
+  if (!output || typeof output !== "object" || !Array.isArray(output.cards)) return output;
+  const availableSourceBasis = ["wikidata"];
+  if (sourceAvailability?.wikipediaDeSummary || sourceAvailability?.wikipediaDeFull) availableSourceBasis.push("wikipedia_de");
+  if (sourceAvailability?.wikipediaEnSummary || sourceAvailability?.wikipediaEnFull) availableSourceBasis.push("wikipedia_en");
+  const sourceKey = safeString(wikidataId || topicId).trim();
+  const derivedSourceIds = availableSourceBasis.map((source) => `${source}_${sourceKey}`);
+  output.cards = output.cards.map((card) => {
+    const next = { ...(card || {}) };
+    next.language = normalizeLanguage(next.language);
+    next.length = normalizeLength(next.length);
+    const cardKey = `${next.language || "unknown"}_${next.length || "unknown"}`;
+    if (!safeString(next.body).trim() && safeString(next.text).trim()) {
+      next.body = safeString(next.text);
+      warnings.push(`text wurde in ${cardKey} zu body normalisiert`);
+    }
+    const normalizedDifficulty = normalizeDifficulty(next.difficulty);
+    if (!normalizedDifficulty) {
+      next.difficulty = "beginner";
+      warnings.push(`difficulty fehlte/war ungültig in ${cardKey} und wurde auf beginner gesetzt`);
+    } else {
+      next.difficulty = normalizedDifficulty;
+    }
+    if (typeof next.sourceBasis === "string") next.sourceBasis = [next.sourceBasis];
+    if (!Array.isArray(next.sourceBasis) || !next.sourceBasis.length) {
+      next.sourceBasis = [...availableSourceBasis];
+      warnings.push(`sourceBasis fehlte in ${cardKey} und wurde aus verfügbaren Quellen ergänzt`);
+    }
+    if (typeof next.sourceIds === "string") next.sourceIds = [next.sourceIds];
+    if (!Array.isArray(next.sourceIds) || !next.sourceIds.length) {
+      next.sourceIds = [...derivedSourceIds];
+      warnings.push(`sourceIds fehlte in ${cardKey} und wurde aus topicId/wikidataId ergänzt`);
+    }
+    return next;
+  });
+  return output;
+}
 function validateAIOutput(output, warnings = []) {
   if (!output || typeof output !== "object") throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: Kein Objekt.");
   if (!output.topicMeta || typeof output.topicMeta !== "object") throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: topicMeta fehlt.");
@@ -264,7 +326,7 @@ function validateAIOutput(output, warnings = []) {
 
   const seen = new Set();
   for (const card of output.cards) {
-    const key = `${safeString(card?.language).trim()}_${safeString(card?.length).trim()}`;
+    const key = `${card?.language || "unknown"}_${card?.length || "unknown"}`;
     if (!REQUIRED_CARD_KEYS.includes(key)) {
       throw new HttpsError("failed-precondition", `Ungültige Karten-Kombination: ${key}`);
     }
@@ -274,12 +336,7 @@ function validateAIOutput(output, warnings = []) {
     seen.add(key);
     if (!safeString(card?.title).trim()) throw new HttpsError("failed-precondition", `Leerer title in ${key}.`);
     if (!safeString(card?.hook).trim()) throw new HttpsError("failed-precondition", `Leerer hook in ${key}.`);
-    if (!safeString(card?.body).trim() && safeString(card?.text).trim()) {
-      card.body = safeString(card.text);
-      warnings.push(`Card ${key}: text statt body erhalten, automatisch nach body übernommen.`);
-    }
     if (!safeString(card?.body).trim()) throw new HttpsError("failed-precondition", `Card hat kein body: ${key}.`);
-    if (safeString(card?.text).trim()) warnings.push(`Card ${key}: Feld text ignoriert.`);
     if (!Array.isArray(card?.sourceBasis) || !card.sourceBasis.length) throw new HttpsError("failed-precondition", `sourceBasis fehlt in ${key}.`);
     if (!Array.isArray(card?.sourceIds)) throw new HttpsError("failed-precondition", `sourceIds fehlt oder falscher Typ in ${key}.`);
     if (!ALLOWED_DIFFICULTIES.includes(safeString(card?.difficulty))) throw new HttpsError("failed-precondition", `difficulty ungültig in ${key}.`);
@@ -355,7 +412,7 @@ Return only valid JSON. No Markdown.`
         input: [
           {
             role: "system",
-            content: "Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp. Verwende ausschliesslich Informationen aus dem SOURCE PACK. Erfinde keine Fakten. Gib ausschliesslich gültiges JSON gemäss Schema zurück.",
+            content: "Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp. Verwende ausschliesslich Informationen aus dem SOURCE PACK. Erfinde keine Fakten. Gib ausschliesslich gültiges JSON gemäss Schema zurück. WICHTIG: difficulty MUSS exakt einer dieser Strings sein: \"beginner\", \"intermediate\", \"advanced\". Keine anderen Werte wie easy, medium, leicht, basic, anfaenger verwenden. language MUSS exakt \"de\" oder \"en\" sein. length MUSS exakt \"short\", \"medium\" oder \"long\" sein. Der Haupttext MUSS im Feld \"body\" stehen, niemals in \"text\".",
           },
           {
             role: "user",
@@ -417,10 +474,12 @@ Return only valid JSON. No Markdown.`
       });
     }
     output = unwrapAIOutput(parsed.value);
+    output = normalizeAIOutput(output, warnings, sourceAvailability, topicId, wikidataId);
     debugDetails = {
       ...responseDebug,
       outputKeys: Object.keys(output || {}),
       outputPreview: preview(JSON.stringify(output)),
+      rawOpenAITextPreview: preview(rawOpenAIText),
     };
     if (!output?.topicMeta || !output?.cards) {
       throw createFailedPrecondition("schema_missing_topicMeta_cards", "Ungültige KI-Antwort: topicMeta/cards fehlen.", debugDetails);
@@ -430,7 +489,7 @@ Return only valid JSON. No Markdown.`
     } catch (e) {
       const msg = safeString(e?.message);
       const errorType = msg.includes("Fehlende Karten-Kombination") || msg.includes("Leerer") || msg.includes("Card hat kein body") ? "cards_incomplete" : "schema_validation_failed";
-      throw createFailedPrecondition(errorType, msg || "Schema-Validierung fehlgeschlagen.", debugDetails);
+      throw createFailedPrecondition(errorType, msg || "Schema-Validierung fehlgeschlagen.", { ...debugDetails, validationError: msg, warnings });
     }
 
     const sourcePackHash = crypto.createHash("sha256").update(JSON.stringify(sourcePack)).digest("hex");
