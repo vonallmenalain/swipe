@@ -40,7 +40,7 @@
     .source-table td:first-child{color:var(--muted)}
     .source-table td:last-child{text-align:right}
     .source-table tr:last-child td{border-bottom:none}
-    @media(min-width:980px){.split{display:grid;grid-template-columns:1.05fr 1fr;gap:14px}.stat-grid{grid-template-columns:repeat(4,1fr)}}
+    @media(min-width:980px){.split{display:grid;grid-template-columns:1.05fr 1fr;gap:14px}.stat-grid{grid-template-columns:repeat(5,1fr)}}
     .mb{margin-bottom:14px}
     /* Filter bar */
     .filter-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
@@ -69,6 +69,15 @@
     .term-badge-hascards{background:rgba(61,209,159,.2);border-color:rgba(61,209,159,.35);color:var(--accent)}
     .term-badge-stub{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.3);color:var(--warn)}
     .term-badge-missing{background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.25);color:var(--danger)}
+    /* Wikidata search results */
+    .wd-result{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#102420;border:1px solid var(--line);margin-bottom:6px;flex-wrap:wrap}
+    .wd-result-body{flex:1;min-width:120px}
+    .wd-result-title{font-size:.9rem;font-weight:600}
+    .wd-result-desc{font-size:.78rem;color:var(--muted)}
+    .wd-result-actions{flex-shrink:0;display:flex;gap:6px;align-items:center}
+    .wd-result .badge{font-size:.7rem}
+    .term-clickable{cursor:pointer;transition:background .15s,border-color .15s}
+    .term-clickable:hover{background:#1a3830;border-color:rgba(61,209,159,.35)}
     /* Button click ripple */
     button{position:relative;overflow:hidden}
     @keyframes btnRipple{0%{transform:scale(0);opacity:.5}100%{transform:scale(2.5);opacity:0}}
@@ -137,29 +146,24 @@
           <h2>Vorhandene Cards</h2>
           <div id="existingCards"><span class="muted">Kein Topic gewählt</span></div>
         </section>
-        <!-- Related Terms Section -->
+        <!-- Related Terms Section (from cards + AI suggestions) -->
         <section id="relatedTermsSection" class="panel section mb hidden">
           <h2>Verwandte Themen (Kernbegriffe)</h2>
-          <p class="small muted" style="margin-bottom:10px">Vom KI-Modell vorgeschlagene verwandte Begriffe. Grün = Topic vorhanden und hat Karten. Gelb = Topic vorhanden, noch keine Karten. Rot = Kein Topic vorhanden.</p>
+          <p class="small muted" style="margin-bottom:10px">Begriffe aus den generierten Karten und vom KI-Modell vorgeschlagene verwandte Themen. Klicke auf einen Begriff, um ihn auf Wikidata zu suchen und als neues Topic anzulegen.</p>
           <div id="relatedTermsList"></div>
         </section>
-        <!-- New Topic Creation Section -->
-        <section class="panel section mb">
-          <h2>Neues Stub-Topic anlegen</h2>
-          <p class="small muted" style="margin-bottom:10px">Legt ein neues Stub-Topic an – z.B. für Begriffe aus generierten Karten. Das Topic kann danach direkt für die KI-Generierung ausgewählt werden.</p>
+        <!-- Wikidata Search & Import Section -->
+        <section id="wikidataSearchSection" class="panel section mb hidden">
+          <h2>Wikidata-Suche & Import</h2>
+          <p class="small muted" style="margin-bottom:10px">Suche auf Wikidata nach einem Begriff und importiere ihn direkt als neues Topic.</p>
           <div class="field">
-            <label class="small">Titel (Deutsch) <span style="color:var(--danger)">*</span></label>
-            <input id="newTopicTitleDe" type="text" placeholder="z.B. Quantenmechanik" />
+            <div class="row">
+              <input id="wikidataSearchInput" type="text" placeholder="Wikidata suchen (z.B. Albert Einstein)" style="flex:1" />
+              <button id="wikidataSearchBtn" class="btn-primary btn-small">Suchen</button>
+            </div>
           </div>
-          <div class="field">
-            <label class="small">Titel (Englisch, optional)</label>
-            <input id="newTopicTitleEn" type="text" placeholder="Leer = gleich wie Deutsch" />
-          </div>
-          <div class="small muted" id="newTopicCategoryHint" style="margin-bottom:8px"></div>
-          <div class="row" style="gap:10px;align-items:center">
-            <button id="createNewTopicBtn" class="btn-primary btn-small">Topic anlegen</button>
-            <span id="newTopicStatus" class="small muted"></span>
-          </div>
+          <div id="wikidataSearchStatus" class="small muted" style="margin-bottom:8px"></div>
+          <div id="wikidataSearchResults"></div>
         </section>
         <section class="panel section">
           <h2>KI Auto-Generator</h2>
@@ -193,7 +197,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import { getFirestore,collection,getDocs,doc,setDoc,updateDoc,query,where } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getFirestore,collection,getDocs,doc,setDoc,getDoc,updateDoc,addDoc,query,where,serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { getFunctions,httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-functions.js";
 
 const firebaseConfig={apiKey:"AIzaSyBOjkDk1Mmr79wY7bpKHQ5jidqwuHDo_kg",authDomain:"swipe-82eeb.firebaseapp.com",projectId:"swipe-82eeb",storageBucket:"swipe-82eeb.firebasestorage.app",messagingSenderId:"649929298401",appId:"1:649929298401:web:d94f1a5ebf1407ac6502a0"};
@@ -203,12 +207,21 @@ let batchSelected=new Set();
 let filterNoCards=false;
 let batchQueue=[];
 let batchRunning=false;
+let topicCardCounts={};
 
 const el=id=>document.getElementById(id);
 const safe=v=>v==null?"":String(v);
 const topicLabel=t=>safe(t?.title?.de||t?.title?.en||t?.wikidataId||"Unbenannt");
-const hasCards=t=>(t?.contentStatus?.hasShortCard||t?.contentStatus?.hasMediumCard||t?.contentStatus?.hasLongCard);
-const hasPublishedCards=t=>((t?.contentStatus?.cardsPublished||0)>0);
+const hasCards=t=>{
+  const id=safe(t?.wikidataId||t?.id);
+  if(topicCardCounts[id]&&topicCardCounts[id].total>0)return true;
+  return !!(t?.contentStatus?.hasShortCard||t?.contentStatus?.hasMediumCard||t?.contentStatus?.hasLongCard);
+};
+const hasPublishedCards=t=>{
+  const id=safe(t?.wikidataId||t?.id);
+  if(topicCardCounts[id]&&topicCardCounts[id].published>0)return true;
+  return((t?.contentStatus?.cardsPublished||0)>0);
+};
 
 function showStatus(m,t=""){const b=el("statusBar");b.className=`status ${t}`;b.textContent=m;}
 
@@ -246,8 +259,22 @@ async function loadSourcesWithProgress(){
 }
 
 async function loadTopics(){
-  const snap=await getDocs(collection(db,"topics"));
-  topics=snap.docs.map(d=>({id:d.id,...d.data(),wikidataId:safe(d.data().wikidataId||d.id),contentStatus:d.data().contentStatus||{}}));
+  const [topicSnap,cardSnap]=await Promise.all([
+    getDocs(collection(db,"topics")),
+    getDocs(collection(db,"swipeCards"))
+  ]);
+  topics=topicSnap.docs.map(d=>({id:d.id,...d.data(),wikidataId:safe(d.data().wikidataId||d.id),contentStatus:d.data().contentStatus||{}}));
+  topicCardCounts={};
+  cardSnap.docs.forEach(d=>{
+    const data=d.data()||{};
+    if(data.status==="archived")return;
+    const tid=safe(data.topicId);
+    if(!tid)return;
+    if(!topicCardCounts[tid])topicCardCounts[tid]={total:0,published:0,draft:0};
+    topicCardCounts[tid].total++;
+    if(data.status==="published")topicCardCounts[tid].published++;
+    if(data.status==="draft")topicCardCounts[tid].draft++;
+  });
   renderTopicList();
   renderStats();
 }
@@ -336,14 +363,10 @@ async function selectTopic(id){
   ["srcWikidata","srcDeSummary","srcDeFull","srcEnSummary","srcEnFull"].forEach(sid=>setBadge(sid,"–",""));
   el("aiAutoStatus").textContent="Noch keine automatische Generierung gestartet.";
   el("aiAutoResult").innerHTML="";
+  el("wikidataSearchInput").value="";
+  el("wikidataSearchResults").innerHTML="";
+  el("wikidataSearchStatus").textContent="";
   renderRelatedTerms();
-  // Update category hint for new topic form
-  const hint=el("newTopicCategoryHint");
-  if(selectedTopic&&(selectedTopic.mainCategory||selectedTopic.topicType)){
-    hint.textContent=`Kategorie/Typ wird vom gewählten Topic übernommen: ${[safe(selectedTopic.mainCategory),safe(selectedTopic.topicType)].filter(Boolean).join(" / ")}`;
-  }else{
-    hint.textContent=selectedTopic?"Kein Kategorie/Typ im gewählten Topic hinterlegt.":"Kein Topic gewählt – Kategorie/Typ bleibt leer.";
-  }
 }
 
 function renderSelectedTopic(){
@@ -368,17 +391,19 @@ async function loadExistingCards(topicId){
 
 function renderStats(){
   const noCardsCount=topics.filter(t=>!hasCards(t)).length;
+  const withCardsCount=topics.filter(t=>hasCards(t)).length;
   const publishedCount=topics.filter(t=>hasPublishedCards(t)).length;
   el("stats").innerHTML=`
     <div class='panel section'><div class='small'>Topics gesamt</div><b>${topics.length}</b></div>
     <div class='panel section'><div class='small'>Ohne Karten</div><b style='color:var(--warn)'>${noCardsCount}</b></div>
-    <div class='panel section'><div class='small'>Mit Karten</div><b style='color:var(--ok)'>${publishedCount}</b></div>
+    <div class='panel section'><div class='small'>Mit Karten</div><b style='color:var(--ok)'>${withCardsCount}</b></div>
+    <div class='panel section'><div class='small'>Veröffentlicht</div><b style='color:var(--accent)'>${publishedCount}</b></div>
     <div class='panel section'><div class='small'>Cards (Topic)</div><b>${existingCards.length}</b></div>`;
 }
 
 /* ─── Related Terms ─────────────────────────────── */
 function findTopicForTerm(term){
-  const titleLower=safe(term.title).toLowerCase().trim();
+  const titleLower=safe(typeof term==="string"?term:term.title).toLowerCase().trim();
   if(term.wikidataId){
     const byId=topics.find(t=>t.wikidataId===term.wikidataId||t.id===term.wikidataId);
     if(byId)return byId;
@@ -389,11 +414,33 @@ function findTopicForTerm(term){
   )||null;
 }
 
+function collectAllRelatedTerms(){
+  if(!selectedTopic)return[];
+  const termSet=new Map();
+  const aiTerms=Array.isArray(selectedTopic.relatedTerms)?selectedTopic.relatedTerms:[];
+  aiTerms.forEach(t=>{
+    const title=safe(t.title).trim();
+    if(title&&!termSet.has(title.toLowerCase()))termSet.set(title.toLowerCase(),{title,source:"ai",wikidataId:t.wikidataId||null});
+  });
+  existingCards.forEach(card=>{
+    const cardTerms=Array.isArray(card.relatedTerms)?card.relatedTerms:[];
+    cardTerms.forEach(t=>{
+      const title=safe(t).trim();
+      if(title&&!termSet.has(title.toLowerCase()))termSet.set(title.toLowerCase(),{title,source:"card",wikidataId:null});
+    });
+  });
+  return[...termSet.values()];
+}
+
 function renderRelatedTerms(){
   const section=el("relatedTermsSection");
   const list=el("relatedTermsList");
-  if(!selectedTopic){section.classList.add("hidden");return;}
-  const terms=Array.isArray(selectedTopic.relatedTerms)?selectedTopic.relatedTerms:[];
+  const wdSection=el("wikidataSearchSection");
+  if(!selectedTopic){section.classList.add("hidden");wdSection.classList.add("hidden");return;}
+
+  wdSection.classList.remove("hidden");
+
+  const terms=collectAllRelatedTerms();
   if(!terms.length){section.classList.add("hidden");return;}
   section.classList.remove("hidden");
 
@@ -409,13 +456,15 @@ function renderRelatedTerms(){
         actions=`<button class='btn-small' data-open-topic='${matchedTopic.wikidataId}'>Öffnen</button>`;
       }else{
         statusBadge=`<span class='badge term-badge-linked'>Topic vorhanden</span>`;
-        actions=`<button class='btn-small' data-open-topic='${matchedTopic.wikidataId}'>Öffnen &amp; generieren</button>`;
+        actions=`<button class='btn-small' data-open-topic='${matchedTopic.wikidataId}'>Öffnen</button>`;
       }
     }else{
       statusBadge=`<span class='badge term-badge-missing'>Kein Topic</span>`;
-      actions=`<button class='btn-small btn-primary' data-create-stub='${idx}' data-term-title='${safe(term.title).replace(/'/g,"&#39;")}'>Als Topic anlegen</button>`;
+      actions=`<button class='btn-small btn-primary' data-wd-search-term='${safe(term.title).replace(/'/g,"&#39;")}'>Auf Wikidata suchen</button>`;
     }
-    return `<div class='related-term-item'>
+    const sourceIcon=term.source==="card"?"📄":"🤖";
+    return `<div class='related-term-item term-clickable' data-term-click='${safe(term.title).replace(/'/g,"&#39;")}'>
+      <span style='font-size:.7rem;opacity:.6' title='${term.source==="card"?"Aus Card-Inhalt":"KI-Vorschlag"}'>${sourceIcon}</span>
       <div class='related-term-title'>${safe(term.title)}</div>
       ${statusBadge}
       <div class='related-term-actions'>${actions}</div>
@@ -423,10 +472,25 @@ function renderRelatedTerms(){
   }).join("")||"<span class='muted'>Keine verwandten Themen hinterlegt.</span>";
 
   list.querySelectorAll("[data-open-topic]").forEach(b=>{
-    b.onclick=()=>selectTopic(b.dataset.openTopic);
+    b.onclick=e=>{e.stopPropagation();selectTopic(b.dataset.openTopic);};
   });
-  list.querySelectorAll("[data-create-stub]").forEach(b=>{
-    b.onclick=()=>createStubTopic(b.dataset.termTitle,parseInt(b.dataset.createStub));
+  list.querySelectorAll("[data-wd-search-term]").forEach(b=>{
+    b.onclick=e=>{
+      e.stopPropagation();
+      const term=b.dataset.wdSearchTerm;
+      el("wikidataSearchInput").value=term;
+      runWikidataSearch(term);
+      el("wikidataSearchSection").scrollIntoView({behavior:"smooth",block:"start"});
+    };
+  });
+  list.querySelectorAll("[data-term-click]").forEach(row=>{
+    row.onclick=e=>{
+      if(e.target.closest("button"))return;
+      const term=row.dataset.termClick;
+      el("wikidataSearchInput").value=term;
+      runWikidataSearch(term);
+      el("wikidataSearchSection").scrollIntoView({behavior:"smooth",block:"start"});
+    };
   });
 }
 
@@ -450,7 +514,6 @@ async function createStubTopic(termTitle,termIndex){
       createdAt:new Date(),
       updatedAt:new Date(),
     });
-    // Update the parent topic's relatedTerms to link the new wikidataId
     const updatedTerms=[...(selectedTopic.relatedTerms||[])];
     updatedTerms[termIndex]={...updatedTerms[termIndex],wikidataId:newId};
     await updateDoc(doc(db,"topics",selectedTopic.wikidataId),{relatedTerms:updatedTerms});
@@ -463,42 +526,139 @@ async function createStubTopic(termTitle,termIndex){
   }
 }
 
-/* ─── Manual Topic Creation ─────────────────────── */
-async function createNewTopic(){
-  const titleDe=el("newTopicTitleDe").value.trim();
-  const titleEn=el("newTopicTitleEn").value.trim()||titleDe;
-  if(!titleDe){el("newTopicStatus").textContent="Bitte einen Titel eingeben.";return;}
-  if(!confirm(`Neues Stub-Topic "${titleDe}" anlegen?`))return;
-  const btn=el("createNewTopicBtn");
-  btn.disabled=true;
-  el("newTopicStatus").textContent="Wird angelegt…";
+/* ─── Wikidata Search & Import ─────────────────── */
+const WIKIDATA_API="https://www.wikidata.org/w/api.php";
+const MAX_CLAIM_PROPERTIES=50;
+
+async function wikidataFetch(params){
+  const usp=new URLSearchParams({...params,format:"json",origin:"*"});
+  const url=`${WIKIDATA_API}?${usp.toString()}`;
+  const headers={"Api-User-Agent":"SwipeKnowledgePrototype/0.1 (admin-local)"};
+  try{const r=await fetch(url,{headers});if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json();}
+  catch(e){const r=await fetch(url);if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json();}
+}
+
+async function searchWikidata(q){
+  return wikidataFetch({action:"wbsearchentities",search:q,language:"de",uselang:"de",type:"item",limit:"10"});
+}
+
+async function loadWikidataEntity(qid){
+  if(!/^Q\d+$/i.test(qid))throw new Error("Ungültige Q-ID");
+  const data=await wikidataFetch({action:"wbgetentities",ids:qid.toUpperCase(),languages:"de|en",props:"labels|descriptions|aliases|claims|sitelinks"});
+  const entity=data?.entities?.[qid.toUpperCase()];
+  if(!entity||entity.missing!==undefined)throw new Error("Entity nicht gefunden");
+  return entity;
+}
+
+function getWdLabel(entity,lang){return entity?.labels?.[lang]?.value||"";}
+function getWdDescription(entity,lang){return entity?.descriptions?.[lang]?.value||"";}
+function getWdAliases(entity,lang){return(entity?.aliases?.[lang]||[]).map(a=>a.value).filter(Boolean);}
+function getWdSitelink(entity,siteKey){const title=entity?.sitelinks?.[siteKey]?.title;if(!title)return "";const base=siteKey==="dewiki"?"https://de.wikipedia.org/wiki/":"https://en.wikipedia.org/wiki/";return `${base}${encodeURIComponent(title.replace(/ /g,"_"))}`;}
+
+function limitClaimsRaw(claims){
+  const keys=Object.keys(claims||{});const total=keys.length;const limited=keys.slice(0,MAX_CLAIM_PROPERTIES);
+  return{claimsRaw:Object.fromEntries(limited.map(k=>[k,claims[k]])),claimsMeta:{totalPropertyCount:total,storedPropertyCount:limited.length,truncated:total>limited.length}};
+}
+
+async function importWikidataEntity(entity){
+  const qid=entity.id;
+  const {claimsRaw,claimsMeta}=limitClaimsRaw(entity.claims||{});
+  const normalized={
+    wikidataId:qid,entityType:"wikidata_item",
+    title:{de:getWdLabel(entity,"de"),en:getWdLabel(entity,"en")},
+    description:{de:getWdDescription(entity,"de"),en:getWdDescription(entity,"en")},
+    aliases:{de:getWdAliases(entity,"de"),en:getWdAliases(entity,"en")},
+    sitelinks:{dewiki:getWdSitelink(entity,"dewiki"),enwiki:getWdSitelink(entity,"enwiki")},
+    claimsRaw,claimsMeta,
+    sourceIds:[`wikidata_${qid}`],
+    import:{source:"wikidata",importedAt:serverTimestamp(),lastFetchedAt:serverTimestamp()},
+    createdAt:serverTimestamp(),updatedAt:serverTimestamp()
+  };
+  const topicRef=doc(db,"topics",qid);
+  const existingSnap=await getDoc(topicRef);
+  const existing=existingSnap.exists()?existingSnap.data():null;
+  const payload={
+    wikidataId:normalized.wikidataId,entityType:normalized.entityType,
+    title:normalized.title,description:normalized.description,
+    aliases:normalized.aliases,sitelinks:normalized.sitelinks,
+    claimsRaw:normalized.claimsRaw,claimsMeta:normalized.claimsMeta,
+    sourceIds:Array.from(new Set([...(existing?.sourceIds||[]),`wikidata_${qid}`])),
+    import:{source:"wikidata",importedAt:existing?.import?.importedAt||serverTimestamp(),lastFetchedAt:serverTimestamp()},
+    createdAt:existing?.createdAt||serverTimestamp(),updatedAt:serverTimestamp()
+  };
+  if(!existing){
+    payload.mainCategory=selectedTopic?safe(selectedTopic.mainCategory):"unknown";
+    payload.topicType=selectedTopic?safe(selectedTopic.topicType):"unknown";
+    payload.tags=[];payload.status="imported";payload.relatedTerms=[];
+    payload.contentStatus={hasShortCard:false,hasMediumCard:false,hasLongCard:false,reviewStatus:"raw_import"};
+  }
+  await setDoc(topicRef,payload,{merge:true});
+  await setDoc(doc(db,"sourceDocs",`wikidata_${qid}`),{sourceType:"wikidata",wikidataId:qid,title:normalized.title.de||normalized.title.en||qid,url:`https://www.wikidata.org/wiki/${qid}`,license:"CC0",publisher:"Wikidata",fetchedAt:serverTimestamp(),language:"de",trustLevel:"high"},{merge:true});
+  await addDoc(collection(db,"importRuns"),{type:"wikidata_single_import",wikidataId:qid,title:normalized.title.de||normalized.title.en||qid,status:"success",createdAt:serverTimestamp()});
+  return{ok:true,qid,title:normalized.title};
+}
+
+async function runWikidataSearch(query){
+  const statusEl=el("wikidataSearchStatus");
+  const resultsEl=el("wikidataSearchResults");
+  if(!query||!query.trim()){statusEl.textContent="Bitte einen Suchbegriff eingeben.";return;}
+  statusEl.textContent="Suche läuft…";
+  resultsEl.innerHTML="";
   try{
-    const newDocRef=doc(collection(db,"topics"));
-    const newId=newDocRef.id;
-    await setDoc(newDocRef,{
-      wikidataId:newId,
-      title:{de:titleDe,en:titleEn},
-      description:{de:"",en:""},
-      status:"stub",
-      contentStatus:{hasShortCard:false,hasMediumCard:false,hasLongCard:false,cardsPublished:0},
-      tags:[],
-      mainCategory:selectedTopic?safe(selectedTopic.mainCategory):"",
-      topicType:selectedTopic?safe(selectedTopic.topicType):"",
-      relatedTerms:[],
-      import:{source:"admin_manual",importedAt:new Date().toISOString()},
-      createdAt:new Date(),
-      updatedAt:new Date(),
+    const data=await searchWikidata(query.trim());
+    const results=data?.search||[];
+    if(!results.length){statusEl.textContent="Keine Ergebnisse gefunden.";return;}
+    statusEl.textContent=`${results.length} Ergebnis(se) gefunden.`;
+    resultsEl.innerHTML=results.map(item=>{
+      const existingTopic=topics.find(t=>t.wikidataId===item.id);
+      let statusBadge="",actionBtn="";
+      if(existingTopic){
+        if(hasPublishedCards(existingTopic)){
+          statusBadge=`<span class='badge ok'>✓ Bereits importiert, hat Karten</span>`;
+          actionBtn=`<button class='btn-small' data-wd-open='${existingTopic.wikidataId}'>Öffnen</button>`;
+        }else if(hasCards(existingTopic)){
+          statusBadge=`<span class='badge miss'>Bereits importiert, Draft</span>`;
+          actionBtn=`<button class='btn-small' data-wd-open='${existingTopic.wikidataId}'>Öffnen</button>`;
+        }else{
+          statusBadge=`<span class='badge' style='background:rgba(61,209,159,.15);border-color:rgba(61,209,159,.3);color:var(--accent)'>Bereits importiert</span>`;
+          actionBtn=`<button class='btn-small' data-wd-open='${existingTopic.wikidataId}'>Öffnen</button>`;
+        }
+      }else{
+        statusBadge=`<span class='badge term-badge-missing'>Noch nicht importiert</span>`;
+        actionBtn=`<button class='btn-small btn-primary' data-wd-import='${item.id}'>Importieren</button>`;
+      }
+      return `<div class='wd-result'>
+        <div class='wd-result-body'>
+          <div class='wd-result-title'>${safe(item.label||"Ohne Label")}</div>
+          <div class='wd-result-desc'>${safe(item.id)} · ${safe(item.description||"Keine Beschreibung")}</div>
+        </div>
+        ${statusBadge}
+        <div class='wd-result-actions'>${actionBtn}</div>
+      </div>`;
+    }).join("");
+    resultsEl.querySelectorAll("[data-wd-import]").forEach(b=>{
+      b.onclick=async()=>{
+        const qid=b.dataset.wdImport;
+        b.disabled=true;b.textContent="Importiere…";
+        try{
+          const entity=await loadWikidataEntity(qid);
+          await importWikidataEntity(entity);
+          b.textContent="✓ Importiert";
+          b.classList.remove("btn-primary");
+          showStatus(`${qid} erfolgreich importiert.`);
+          await loadTopics();
+          renderRelatedTerms();
+        }catch(e){
+          b.textContent="Fehler";
+          showStatus(`Import fehlgeschlagen: ${e.message}`,"error");
+        }
+      };
     });
-    el("newTopicStatus").textContent=`✓ Angelegt (ID: ${newId})`;
-    el("newTopicTitleDe").value="";
-    el("newTopicTitleEn").value="";
-    showStatus(`Neues Topic "${titleDe}" angelegt.`,"");
-    await loadTopics();
+    resultsEl.querySelectorAll("[data-wd-open]").forEach(b=>{
+      b.onclick=()=>selectTopic(b.dataset.wdOpen);
+    });
   }catch(e){
-    el("newTopicStatus").textContent=`Fehler: ${e.message}`;
-    showStatus(`Fehler beim Anlegen: ${e.message}`,"error");
-  }finally{
-    btn.disabled=false;
+    statusEl.textContent=`Suchfehler: ${e.message}`;
   }
 }
 
@@ -726,8 +886,10 @@ function init(){
     renderTopicList();
   };
 
+  // Wikidata search
+  el("wikidataSearchBtn").onclick=()=>runWikidataSearch(el("wikidataSearchInput").value);
+  el("wikidataSearchInput").onkeydown=e=>{if(e.key==="Enter")runWikidataSearch(el("wikidataSearchInput").value);};
   // Batch generate
-  el("createNewTopicBtn").onclick=createNewTopic;
   el("batchGenerateBtn").onclick=startBatchGeneration;
   el("batchPublishAllBtn").onclick=publishAllBatch;
   el("closeBatchBtn").onclick=()=>{
