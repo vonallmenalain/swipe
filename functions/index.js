@@ -275,7 +275,10 @@ function normalizeLength(value) {
   if (["long", "lang"].includes(key)) return "long";
   return safeString(value).trim();
 }
-function normalizeAIOutput(output, warnings = [], sourceAvailability = {}, topicId = "", wikidataId = "") {
+function normalizeAIOutput(output, warnings = [], context = {}) {
+  const sourceAvailability = context?.sourceAvailability || {};
+  const topicId = safeString(context?.topicId).trim();
+  const wikidataId = safeString(context?.wikidataId).trim();
   if (!output || typeof output !== "object" || !Array.isArray(output.cards)) return output;
   const availableSourceBasis = ["wikidata"];
   if (sourceAvailability?.wikipediaDeSummary || sourceAvailability?.wikipediaDeFull) availableSourceBasis.push("wikipedia_de");
@@ -474,11 +477,11 @@ Return only valid JSON. No Markdown.`
       });
     }
     output = unwrapAIOutput(parsed.value);
-    output = normalizeAIOutput(output, warnings, sourceAvailability, topicId, wikidataId);
+    output = normalizeAIOutput(output, warnings, { sourceAvailability, topicId, wikidataId });
     debugDetails = {
       ...responseDebug,
       outputKeys: Object.keys(output || {}),
-      outputPreview: preview(JSON.stringify(output)),
+      outputPreview: JSON.stringify(output || {}).slice(0, PREVIEW_MAX_CHARS),
       rawOpenAITextPreview: preview(rawOpenAIText),
     };
     if (!output?.topicMeta || !output?.cards) {
@@ -489,7 +492,12 @@ Return only valid JSON. No Markdown.`
     } catch (e) {
       const msg = safeString(e?.message);
       const errorType = msg.includes("Fehlende Karten-Kombination") || msg.includes("Leerer") || msg.includes("Card hat kein body") ? "cards_incomplete" : "schema_validation_failed";
-      throw createFailedPrecondition(errorType, msg || "Schema-Validierung fehlgeschlagen.", { ...debugDetails, validationError: msg, warnings });
+      throw createFailedPrecondition(errorType, msg || "Schema-Validierung fehlgeschlagen.", {
+        ...debugDetails,
+        validationError: msg,
+        outputPreview: JSON.stringify(output || {}).slice(0, PREVIEW_MAX_CHARS),
+        warnings,
+      });
     }
 
     const sourcePackHash = crypto.createHash("sha256").update(JSON.stringify(sourcePack)).digest("hex");
