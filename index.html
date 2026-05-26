@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SwipeCards – Start</title>
+  <style>
+    :root {
+      --bg: #0a1512;
+      --panel: #11231e;
+      --panel-soft: #17332b;
+      --text: #ecf9f4;
+      --muted: #a6c8bc;
+      --accent: #3ad29a;
+      --accent-2: #27a878;
+      --border: #2d5b4c;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at top right, #123127, var(--bg) 55%);
+      min-height: 100vh;
+    }
+
+    .container {
+      width: min(980px, 100% - 24px);
+      margin: 20px auto 40px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+
+    h1, h2 { margin: 0 0 8px; }
+    p { margin: 0; color: var(--muted); }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .card-btn, .nav-link {
+      display: block;
+      width: 100%;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 12px;
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+    }
+
+    .card-btn:hover, .nav-link:hover {
+      background: var(--panel-soft);
+      border-color: #3f7c67;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--accent);
+      color: #04261b;
+    }
+
+    .btn.secondary {
+      background: #285f4d;
+      color: var(--text);
+    }
+
+    iframe {
+      width: 100%;
+      min-height: 65vh;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: white;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="panel">
+      <h1>SwipeCards Übersicht</h1>
+      <p>Wähle eine Ansicht aus und öffne sie direkt hier im Vorschaufenster.</p>
+
+      <div class="cards">
+        <button class="card-btn" data-src="adm-topic-overview.html"><strong>Topic Übersicht</strong><br><small>Topics ansehen & prüfen</small></button>
+        <button class="card-btn" data-src="adm-swipe-card-generator.html"><strong>Swipe Card Generator</strong><br><small>Cards erstellen/bearbeiten</small></button>
+        <button class="card-btn" data-src="adm-wikidata-import.html"><strong>Wikidata Import</strong><br><small>Neue Themen importieren</small></button>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="toggleDevBtn">Dev-Version einblenden</button>
+        <button class="btn secondary" id="clearPreviewBtn">Vorschau leeren</button>
+      </div>
+    </section>
+
+    <section class="panel hidden" id="devPanel">
+      <h2>Dev Quick Links</h2>
+      <p>Direkter Sprung in die gewünschten Dateien (neuer Tab).</p>
+      <div class="cards">
+        <a class="nav-link" href="adm-swipe-card-generator.html" target="_blank" rel="noopener">adm-swipe-card-generator.html</a>
+        <a class="nav-link" href="adm-topic-overview.html" target="_blank" rel="noopener">adm-topic-overview.html</a>
+        <a class="nav-link" href="adm-wikidata-import.html" target="_blank" rel="noopener">adm-wikidata-import.html</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Vorschau</h2>
+      <iframe id="previewFrame" title="SwipeCards Vorschau" src="about:blank"></iframe>
+    </section>
+  </main>
+
+  <script>
+    const previewFrame = document.getElementById('previewFrame');
+    const devPanel = document.getElementById('devPanel');
+    const toggleDevBtn = document.getElementById('toggleDevBtn');
+
+    document.querySelectorAll('.card-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        previewFrame.src = btn.dataset.src;
+      });
+    });
+
+    document.getElementById('clearPreviewBtn').addEventListener('click', () => {
+      previewFrame.src = 'about:blank';
+    });
+
+    toggleDevBtn.addEventListener('click', () => {
+      const open = devPanel.classList.toggle('hidden');
+      toggleDevBtn.textContent = open ? 'Dev-Version einblenden' : 'Dev-Version ausblenden';
+    });
+  </script>
+</body>
+</html>
