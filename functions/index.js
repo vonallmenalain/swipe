@@ -217,15 +217,30 @@ function preview(value) { return safeString(value).slice(0, PREVIEW_MAX_CHARS); 
 function stripJsonFences(text) { return safeString(text).trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim(); }
 function safeJsonParse(text) { try { return { ok: true, value: JSON.parse(text), error: null }; } catch (error) { return { ok: false, value: null, error: error.message }; } }
 function extractOpenAIText(response) {
-  if (safeString(response?.output_text).trim()) return response.output_text;
-  const chunks = [];
-  for (const item of Array.isArray(response?.output) ? response.output : []) {
-    for (const content of Array.isArray(item?.content) ? item.content : []) {
-      const t = safeString(content?.text || content?.output_text || content?.value);
-      if (t.trim()) chunks.push(t);
+  const parts = [];
+
+  if (typeof response?.output_text === "string" && response.output_text.trim()) {
+    parts.push(response.output_text.trim());
+  }
+
+  for (const item of response?.output || []) {
+    for (const content of item?.content || []) {
+      if (typeof content?.text === "string" && content.text.trim()) {
+        parts.push(content.text.trim());
+      }
+      if (typeof content?.json === "object" && content.json) {
+        parts.push(JSON.stringify(content.json));
+      }
+      if (typeof content?.parsed === "object" && content.parsed) {
+        parts.push(JSON.stringify(content.parsed));
+      }
+      if (typeof content?.refusal === "string" && content.refusal.trim()) {
+        parts.push(JSON.stringify({ refusal: content.refusal.trim() }));
+      }
     }
   }
-  return chunks.join("\n").trim();
+
+  return parts.join("\n").trim();
 }
 function unwrapAIOutput(parsed) {
   if (parsed && typeof parsed === "object" && parsed.topicMeta && parsed.cards) return parsed;
@@ -275,6 +290,26 @@ function validateAIOutput(output, warnings = []) {
     if (!seen.has(requiredKey)) throw new HttpsError("failed-precondition", `Fehlende Karten-Kombination: ${requiredKey}`);
   }
 }
+function buildResponseDebugSummary(response, rawOpenAIText = "") {
+  const output = Array.isArray(response?.output) ? response.output : [];
+  return removeUndefinedDeep({
+    responseStatus: response?.status || null,
+    responseError: response?.error || null,
+    incompleteDetails: response?.incomplete_details || null,
+    responseModel: response?.model || null,
+    usage: response?.usage || null,
+    outputTypes: output.map((item) => item?.type || null).filter(Boolean),
+    outputItemPreview: preview(JSON.stringify(output)),
+    outputTextLength: safeString(response?.output_text).length,
+    rawOpenAITextPreview: preview(rawOpenAIText),
+    responseKeys: Object.keys(response || {}),
+  });
+}
+
+function createFailedPrecondition(type, message, details = {}) {
+  return new HttpsError("failed-precondition", message, removeUndefinedDeep({ errorType: type, ...details }));
+}
+
 function calculateReadingStats(text) { const wordCount = safeString(text).trim().split(/\s+/).filter(Boolean).length; return { wordCount, readingTimeSec: Math.max(5, Math.ceil((wordCount / 200) * 60)) }; }
 function buildAvailableSourceIds(sp) { const ids = [sp.sources.wikidata.id]; if (sp.sources.wikipediaDe.available) ids.push(sp.sources.wikipediaDe.id); if (sp.sources.wikipediaEn.available) ids.push(sp.sources.wikipediaEn.id); return ids; }
 function buildAvailableSources(sp) { const out = [{ type: "wikidata", title: safeString(sp.topic?.title?.de || sp.topic?.title?.en), url: sp.sources.wikidata.url, license: "CC0", publisher: "Wikidata" }]; if (sp.sources.wikipediaDe.available) out.push({ type: "wikipedia", language: "de", title: sp.sources.wikipediaDe.summaryTitle || safeString(sp.topic?.title?.de), url: sp.sources.wikipediaDe.url, license: "CC BY-SA 4.0", publisher: "Wikipedia" }); if (sp.sources.wikipediaEn.available) out.push({ type: "wikipedia", language: "en", title: sp.sources.wikipediaEn.summaryTitle || safeString(sp.topic?.title?.en), url: sp.sources.wikipediaEn.url, license: "CC BY-SA 4.0", publisher: "Wikipedia" }); return out; }
@@ -306,9 +341,17 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
     const client = new OpenAI({ apiKey: OPENAI_API_KEY.value() });
     let output;
     let response;
-    try {
-      response = await client.responses.create({
+    let rawOpenAIText = "";
+    let responseDebug = {};
+    const callOpenAI = async (useFallback = false) => {
+      const userPrompt = useFallback
+        ? `${buildOpenAIPrompt(sourcePack)}
+
+Return only valid JSON. No Markdown.`
+        : buildOpenAIPrompt(sourcePack);
+      return client.responses.create({
         model: OPENAI_MODEL,
+        max_output_tokens: 8000,
         input: [
           {
             role: "system",
@@ -316,42 +359,79 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
           },
           {
             role: "user",
-            content: buildOpenAIPrompt(sourcePack),
+            content: userPrompt,
           },
         ],
-        text: {
-          format: {
-            type: "json_schema",
-            name: "swipe_cards_generation",
-            schema: swipeCardsSchema,
-            strict: true,
+        text: useFallback
+          ? { format: { type: "json_object" } }
+          : {
+            format: {
+              type: "json_schema",
+              name: "swipe_cards_generation",
+              schema: swipeCardsSchema,
+              strict: true,
+            },
           },
-        },
       });
+    };
+
+    try {
+      response = await callOpenAI(false);
+      rawOpenAIText = extractOpenAIText(response);
+      responseDebug = buildResponseDebugSummary(response, rawOpenAIText);
+      const shouldFallback = !rawOpenAIText || response?.status === "incomplete";
+      if (shouldFallback) {
+        response = await callOpenAI(true);
+        rawOpenAIText = extractOpenAIText(response);
+        responseDebug = {
+          ...buildResponseDebugSummary(response, rawOpenAIText),
+          fallbackUsed: true,
+        };
+      }
     } catch (e) {
-      throw new HttpsError("failed-precondition", `OpenAI-Aufruf fehlgeschlagen: ${e.message}`, { model: OPENAI_MODEL, sourceAvailability });
+      throw new HttpsError("failed-precondition", `OpenAI-Aufruf fehlgeschlagen: ${e.message}`, removeUndefinedDeep({ errorType: "openai_call_failed", model: OPENAI_MODEL, sourceAvailability }));
     }
 
-    const rawOpenAIText = extractOpenAIText(response);
+    debugDetails = { ...responseDebug };
+    const outputTextLength = safeString(response?.output_text).length;
+    const outputTypes = responseDebug.outputTypes || [];
+    if (!rawOpenAIText) {
+      throw createFailedPrecondition("openai_empty_response", "OpenAI hat keine sichtbare Text-/JSON-Antwort geliefert.", {
+        responseStatus: responseDebug.responseStatus || null,
+        incompleteDetails: responseDebug.incompleteDetails || null,
+        outputTypes,
+        outputTextLength,
+        usage: responseDebug.usage || null,
+        outputItemPreview: responseDebug.outputItemPreview || "",
+        model: responseDebug.responseModel || OPENAI_MODEL,
+      });
+    }
+
     const cleanedText = stripJsonFences(rawOpenAIText);
     const parsed = safeJsonParse(cleanedText);
     if (!parsed.ok) {
-      throw new HttpsError("failed-precondition", "OpenAI hat keine gültige JSON-Antwort geliefert.", {
-        originalError: parsed.error, rawOpenAITextPreview: preview(rawOpenAIText), responseKeys: Object.keys(response || {}),
+      throw createFailedPrecondition("openai_invalid_json", "OpenAI hat Text geliefert, aber kein gültiges JSON.", {
+        originalError: parsed.error,
+        rawOpenAITextPreview: preview(rawOpenAIText),
+        ...responseDebug,
       });
     }
     output = unwrapAIOutput(parsed.value);
     debugDetails = {
+      ...responseDebug,
       outputKeys: Object.keys(output || {}),
       outputPreview: preview(JSON.stringify(output)),
-      rawOpenAITextPreview: preview(rawOpenAIText),
-      responseKeys: Object.keys(response || {}),
     };
     if (!output?.topicMeta || !output?.cards) {
-      throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: topicMeta/cards fehlen.", debugDetails);
+      throw createFailedPrecondition("schema_missing_topicMeta_cards", "Ungültige KI-Antwort: topicMeta/cards fehlen.", debugDetails);
     }
-
-    validateAIOutput(output, warnings);
+    try {
+      validateAIOutput(output, warnings);
+    } catch (e) {
+      const msg = safeString(e?.message);
+      const errorType = msg.includes("Fehlende Karten-Kombination") || msg.includes("Leerer") || msg.includes("Card hat kein body") ? "cards_incomplete" : "schema_validation_failed";
+      throw createFailedPrecondition(errorType, msg || "Schema-Validierung fehlgeschlagen.", debugDetails);
+    }
 
     const sourcePackHash = crypto.createHash("sha256").update(JSON.stringify(sourcePack)).digest("hex");
     const sourceIds = buildAvailableSourceIds(sourcePack); const sources = buildAvailableSources(sourcePack);
@@ -391,7 +471,7 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
   } catch (error) {
     const message = error instanceof HttpsError ? error.message : safeString(error?.message || "Unbekannter Fehler");
     const details = removeUndefinedDeep(error?.details || {});
-    try { await db.collection("generationRuns").add({ type: "openai_swipe_cards_generation", topicId, wikidataId, status: "error", cardsCreated: cardIds.length || 0, cardIds, model: OPENAI_MODEL, sourceAvailability, warnings, errorMessage: message, errorCode: error?.code || null, errorDetails: details, outputKeys: debugDetails.outputKeys || details.outputKeys || null, outputPreview: preview(debugDetails.outputPreview || details.outputPreview || ""), rawOpenAITextPreview: preview(debugDetails.rawOpenAITextPreview || details.rawOpenAITextPreview || ""), responseKeys: debugDetails.responseKeys || details.responseKeys || null, createdAt: admin.firestore.FieldValue.serverTimestamp() }); } catch (_) {}
+    try { await db.collection("generationRuns").add({ type: "openai_swipe_cards_generation", topicId, wikidataId, status: "error", cardsCreated: cardIds.length || 0, cardIds, model: OPENAI_MODEL, sourceAvailability, warnings, errorMessage: message, errorCode: error?.code || null, errorDetails: details, outputKeys: debugDetails.outputKeys || details.outputKeys || null, outputPreview: preview(debugDetails.outputPreview || details.outputPreview || ""), rawOpenAITextPreview: preview(debugDetails.rawOpenAITextPreview || details.rawOpenAITextPreview || ""), responseKeys: debugDetails.responseKeys || details.responseKeys || null, responseStatus: debugDetails.responseStatus || details.responseStatus || null, incompleteDetails: debugDetails.incompleteDetails || details.incompleteDetails || null, outputTypes: debugDetails.outputTypes || details.outputTypes || [], outputTextLength: Number(debugDetails.outputTextLength || details.outputTextLength || 0), usage: debugDetails.usage || details.usage || null, outputItemPreview: preview(debugDetails.outputItemPreview || details.outputItemPreview || ""), createdAt: admin.firestore.FieldValue.serverTimestamp() }); } catch (_) {}
     if (error instanceof HttpsError) throw error;
     throw new HttpsError("internal", message, { topicId, wikidataId, sourceAvailability, warnings });
   }
