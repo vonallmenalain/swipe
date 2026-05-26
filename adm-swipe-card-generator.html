@@ -69,6 +69,10 @@
     .term-badge-hascards{background:rgba(61,209,159,.2);border-color:rgba(61,209,159,.35);color:var(--accent)}
     .term-badge-stub{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.3);color:var(--warn)}
     .term-badge-missing{background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.25);color:var(--danger)}
+    /* Button click ripple */
+    button{position:relative;overflow:hidden}
+    @keyframes btnRipple{0%{transform:scale(0);opacity:.5}100%{transform:scale(2.5);opacity:0}}
+    .btn-ripple-dot{position:absolute;border-radius:50%;background:rgba(255,255,255,.35);width:60px;height:60px;margin-top:-30px;margin-left:-30px;animation:btnRipple .4s ease-out forwards;pointer-events:none}
   </style>
 </head>
 <body><div class="container">
@@ -85,6 +89,19 @@
       <div class="row"><span id="userEmail" class="badge"></span><button id="reloadTopicsBtn">Topics neu laden</button><button id="logoutBtn">Logout</button></div>
     </header>
     <div id="stats" class="stat-grid"></div>
+    <!-- BATCH PROGRESS SECTION (full width, shown during/after batch run) -->
+    <section id="batchProgressSection" class="panel section batch-section hidden" style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h2 style="margin:0">Batch-Generierung</h2>
+        <div class="row">
+          <span id="batchProgressLabel" class="small muted"></span>
+          <button id="batchPublishAllBtn" class="btn-small hidden">Alle generierten veröffentlichen</button>
+          <button id="closeBatchBtn" class="btn-small">Schließen</button>
+        </div>
+      </div>
+      <div class="batch-progress-bar"><div id="batchProgressFill" class="batch-progress-fill" style="width:0%"></div></div>
+      <div id="batchProgressList"></div>
+    </section>
     <div class="split">
       <!-- LEFT COLUMN -->
       <div>
@@ -109,16 +126,16 @@
           </div>
           <div id="topicList"></div>
         </section>
-        <section class="panel section">
-          <h2>Vorhandene Cards</h2>
-          <div id="existingCards"><span class="muted">Kein Topic gewählt</span></div>
-        </section>
       </div>
       <!-- RIGHT COLUMN -->
       <div>
         <section class="panel section mb">
           <h2>Ausgewähltes Topic</h2>
           <div id="selectedTopic"><span class="muted">Kein Topic gewählt</span></div>
+        </section>
+        <section class="panel section mb">
+          <h2>Vorhandene Cards</h2>
+          <div id="existingCards"><span class="muted">Kein Topic gewählt</span></div>
         </section>
         <!-- Related Terms Section -->
         <section id="relatedTermsSection" class="panel section mb hidden">
@@ -131,7 +148,7 @@
           <p class="small">Erstellt automatisch 6 Draft-Cards (Short, Medium, Long) auf Deutsch und Englisch aus Wikidata und Wikipedia.</p>
           <p class="small" style="color:var(--muted);margin-top:4px">
             <b>Ablauf:</b> Der Server lädt Wikipedia-Quellen automatisch und übergibt den vollständigen Text an die KI.
-            Die Quellen-Anzeige unten ist nur eine Vorschau. Long-Cards werden in einem <b>separaten KI-Aufruf</b> mit dediziertem Token-Budget generiert.
+            Die Quellen-Anzeige unten ist nur eine Vorschau. Short/Medium und Long-Cards werden <b>parallel in zwei KI-Aufrufen</b> generiert.
           </p>
           <div style="margin:14px 0">
             <div class="small" style="font-weight:600;margin-bottom:8px">Quellen (Server lädt diese automatisch bei der Generierung):</div>
@@ -153,19 +170,6 @@
         </section>
       </div>
     </div>
-    <!-- BATCH PROGRESS SECTION (full width, shown during batch run) -->
-    <section id="batchProgressSection" class="panel section batch-section hidden" style="margin-top:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <h2 style="margin:0">Batch-Generierung</h2>
-        <div class="row">
-          <span id="batchProgressLabel" class="small muted"></span>
-          <button id="batchPublishAllBtn" class="btn-small hidden">Alle generierten veröffentlichen</button>
-          <button id="closeBatchBtn" class="btn-small">Schließen</button>
-        </div>
-      </div>
-      <div class="batch-progress-bar"><div id="batchProgressFill" class="batch-progress-fill" style="width:0%"></div></div>
-      <div id="batchProgressList"></div>
-    </section>
   </section>
 </div>
 <script type="module">
@@ -483,8 +487,8 @@ async function generateAICards(){
   try{
     renderAIStatus("Quellen werden geladen…");
     await loadSourcesWithProgress();
-    renderAIStatus("Schritt 1/2: Short & Medium Cards werden generiert…");
-    const call=httpsCallable(functions,"generateSwipeCardsForTopic");
+    renderAIStatus("Short & Medium + Long Cards werden parallel generiert…");
+    const call=httpsCallable(functions,"generateSwipeCardsForTopic",{timeout:540000});
     const resp=await call({topicId:selectedTopic.wikidataId||selectedTopic.id});
     renderAIResult(resp.data||{});
     renderAIStatus("Fertig.");
@@ -514,7 +518,7 @@ async function publishCards(){
   if(!confirm("Alle 6 Draft-Cards dieses Topics veröffentlichen?"))return;
   setGenerationLoading(true);
   try{
-    const call=httpsCallable(functions,"publishCardsForTopic");
+    const call=httpsCallable(functions,"publishCardsForTopic",{timeout:60000});
     const resp=await call({topicId:selectedTopic.wikidataId||selectedTopic.id});
     renderAIStatus(`Veröffentlicht: ${resp.data?.updatedCards||0} Cards`);
     showStatus("Cards veröffentlicht.","success");
@@ -548,7 +552,7 @@ function startBatchGeneration(){
 async function runBatch(){
   batchRunning=true;
   renderBatchProgress();
-  const call=httpsCallable(functions,"generateSwipeCardsForTopic");
+  const call=httpsCallable(functions,"generateSwipeCardsForTopic",{timeout:540000});
   for(let i=0;i<batchQueue.length;i++){
     if(batchQueue[i].status==="done")continue;
     batchQueue[i].status="running";
@@ -559,6 +563,7 @@ async function runBatch(){
     }catch(e){
       batchQueue[i].status="error";
       batchQueue[i].error=safe(e?.message||"Unbekannter Fehler");
+      batchQueue[i].errorCode=safe(e?.code||"");
     }
     renderBatchProgress();
   }
@@ -582,10 +587,13 @@ function renderBatchProgress(){
   el("batchProgressList").innerHTML=batchQueue.map(item=>{
     const statusMap={pending:"⏳ Wartend",running:"⚡ Generiert…",done:"✅ Fertig",error:"❌ Fehler"};
     const cls={pending:"status-pending",running:"status-running",done:"status-done",error:"status-error"};
-    return `<div class='batch-item'>
+    const errCode=item.errorCode?`<span class='badge' style='background:rgba(255,107,107,.15);border-color:rgba(255,107,107,.3);color:var(--danger);font-size:.7rem'>${safe(item.errorCode)}</span>`:"";
+    const errMsg=item.error&&item.error!==item.errorCode?`<div class='small' style='color:var(--muted);font-size:.72rem;margin-top:2px' title='${safe(item.error)}'>${safe(item.error).slice(0,80)}</div>`:"";
+    return `<div class='batch-item' style='flex-wrap:wrap'>
       <div class='batch-item-label' title='${item.topicId}'>${item.label}</div>
       <div class='batch-item-status ${cls[item.status]}'>${statusMap[item.status]||item.status}</div>
-      ${item.error?`<div class='small' style='color:var(--danger);font-size:.75rem' title='${safe(item.error)}'>${safe(item.error).slice(0,60)}</div>`:""}
+      ${errCode}
+      ${errMsg}
     </div>`;
   }).join("");
 }
@@ -594,7 +602,7 @@ async function publishAllBatch(){
   const doneIds=batchQueue.filter(x=>x.status==="done").map(x=>x.topicId);
   if(!doneIds.length)return;
   if(!confirm(`Alle ${doneIds.length} generierten Topics veröffentlichen?`))return;
-  const call=httpsCallable(functions,"publishCardsForTopic");
+  const call=httpsCallable(functions,"publishCardsForTopic",{timeout:60000});
   let ok=0,err=0;
   for(const topicId of doneIds){
     const item=batchQueue.find(x=>x.topicId===topicId);
@@ -660,5 +668,18 @@ function init(){
     el("batchProgressSection").classList.add("hidden");
   };
 }
+/* ─── Button ripple feedback ────────────────────── */
+document.addEventListener("pointerdown",e=>{
+  const btn=e.target.closest("button");
+  if(!btn||btn.disabled)return;
+  const rect=btn.getBoundingClientRect();
+  const dot=document.createElement("span");
+  dot.className="btn-ripple-dot";
+  dot.style.top=`${e.clientY-rect.top}px`;
+  dot.style.left=`${e.clientX-rect.left}px`;
+  btn.appendChild(dot);
+  dot.addEventListener("animationend",()=>dot.remove());
+});
+
 init();
 </script></body></html>
