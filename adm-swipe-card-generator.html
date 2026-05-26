@@ -203,13 +203,13 @@ async function saveAllAICards(){if(!validatedAIResult) throw new Error("Erst JSO
 function setAIGenerationLoading(isLoading){aiGenerationLoading=!!isLoading;const btn=el("generateAICardsBtn");if(btn){btn.disabled=aiGenerationLoading||!user||!selectedTopic;}renderAIGenerationStatus(aiGenerationLoading?"Generierung läuft. Das kann 1–2 Minuten dauern.":"Bereit für automatische Generierung.");}
 function renderAIGenerationStatus(message){el("aiAutoStatus").textContent=message;}
 function renderAIGenerationResult(result){const sa=result?.sourceAvailability||{};el("aiAutoResult").innerHTML=`<div class='status'>✅ 6 Cards erstellt.<br>Run: ${safe(result.generationRunId)}<br>Card IDs: ${(result.cardIds||[]).join("<br>")}<br>Sources: DE Summary ${sa.wikipediaDeSummary?"ja":"nein"}, DE Full ${sa.wikipediaDeFull?"ja":"nein"}, EN Summary ${sa.wikipediaEnSummary?"ja":"nein"}, EN Full ${sa.wikipediaEnFull?"ja":"nein"}</div>`;}
-function renderAIGenerationError(error){const code=safe(error?.code||"");const message=safe(error?.message||String(error));const details=error?.details?JSON.stringify(error.details,null,2):"";const debugDump=JSON.stringify(error,null,2);el("aiAutoResult").innerHTML=`
+function renderAIGenerationError(error){const code=safe(error?.code||"");const message=safe(error?.message||String(error));const details=error?.details||{};const debugCore={outputKeys:details?.outputKeys||null,outputPreview:details?.outputPreview||"",rawOpenAITextPreview:details?.rawOpenAITextPreview||"",responseKeys:details?.responseKeys||null};const detailsJson=JSON.stringify(details,null,2);el("aiAutoResult").innerHTML=`
   <div class="status error">
     ❌ Generierung fehlgeschlagen<br>
     <b>Code:</b> ${safe(code)||"-"}<br>
     <b>Meldung:</b> ${safe(message)}<br>
-    ${details?`<details><summary>Details anzeigen</summary><pre>${safe(details)}</pre></details>`:""}
-    <details><summary>Debug anzeigen</summary><pre>${safe(debugDump)}</pre></details>
+    <details><summary>Admin-Debug anzeigen</summary><pre>${safe(JSON.stringify(debugCore,null,2))}</pre></details>
+    ${detailsJson?`<details><summary>Alle Details</summary><pre>${safe(detailsJson)}</pre></details>`:""}
     <div class="small">Prüfe zusätzlich Firestore → generationRuns → neuestes Dokument.</div>
   </div>
 `;}
