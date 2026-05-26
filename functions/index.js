@@ -692,7 +692,7 @@ async function generateCardsForTopicInternal(topicId) {
         sourceIds: resolvedSourceIds, sources, sourceBasis: resolvedSourceBasis, sourceLimitations: Array.isArray(card.sourceLimitations) ? card.sourceLimitations : [], needsMoreSourceMaterial: !!card.needsMoreSourceMaterial,
         tags: Array.isArray(output?.topicMeta?.tags) ? output.topicMeta.tags : [], mainCategory: output.topicMeta.mainCategory, topicType: output.topicMeta.topicType,
         generation: { method: "openai_cloud_function_split", aiGenerated: true, sourceRestricted: true, noNewFactsInstruction: true, sourcePackHash, model: card.length === "long" ? OPENAI_MODEL_LONG : OPENAI_MODEL, generatedAt: admin.firestore.FieldValue.serverTimestamp() },
-        status: "draft", reviewStatus: "needs_review", qualityScore: 0, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        status: "published", reviewStatus: "approved", qualityScore: 0, publishedAt: admin.firestore.FieldValue.serverTimestamp(), createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }));
     }
 
@@ -703,7 +703,7 @@ async function generateCardsForTopicInternal(topicId) {
     const relatedTerms = Array.isArray(output.topicMeta?.suggestedRelatedTopics)
       ? output.topicMeta.suggestedRelatedTopics.map(t => ({ title: safeString(t.title) })).filter(t => t.title)
       : [];
-    batch.set(topicRef, { mainCategory: output.topicMeta.mainCategory, topicType: output.topicMeta.topicType, tags: output.topicMeta.tags || [], relatedTerms, activeGenerationRunId: generationRunId, activeCardGroupId: cardGroupId, "contentStatus.hasShortCard": true, "contentStatus.hasMediumCard": true, "contentStatus.hasLongCard": true, "contentStatus.reviewStatus": "cards_generated", status: "ready", updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    batch.set(topicRef, { mainCategory: output.topicMeta.mainCategory, topicType: output.topicMeta.topicType, tags: output.topicMeta.tags || [], relatedTerms, activeGenerationRunId: generationRunId, activeCardGroupId: cardGroupId, "contentStatus.hasShortCard": true, "contentStatus.hasMediumCard": true, "contentStatus.hasLongCard": true, "contentStatus.reviewStatus": "approved", "contentStatus.cardsPublished": 6, status: "ready", updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
     batch.set(runRef, { type: "openai_swipe_cards_generation_split", topicId, wikidataId, generationRunId, cardGroupId, status: "success", cardsCreated: 6, cardIds, modelShortMedium: OPENAI_MODEL, modelLong: OPENAI_MODEL_LONG, sourceAvailability, warnings, errorMessage: null, sourcePackHash, createdAt: admin.firestore.FieldValue.serverTimestamp() });
     await batch.commit();
     return { success: true, topicId, cardsCreated: 6, cardIds, topicMeta: output.topicMeta, warnings, sourceAvailability, generationRunId };

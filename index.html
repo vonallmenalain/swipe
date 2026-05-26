@@ -357,8 +357,8 @@
       transition: transform .22s cubic-bezier(.4, 0, .2, 1), opacity .22s ease;
     }
 
-    .card-viewport.slide-up   { transform: translateY(-55px); opacity: 0; }
-    .card-viewport.slide-down { transform: translateY( 55px); opacity: 0; }
+    .card-viewport.slide-up   { transform: translateX(-55px); opacity: 0; }
+    .card-viewport.slide-down { transform: translateX( 55px); opacity: 0; }
 
     /* ── In-reader length bar ── */
     .reader-len-bar {
@@ -768,7 +768,8 @@
 
     .swipe-hint {
       position: absolute;
-      right: 14px;
+      left: 50%;
+      transform: translateX(-50%);
       bottom: 80px;
       background: rgba(47, 206, 140, .12);
       border: 1px solid rgba(47, 206, 140, .2);
@@ -847,7 +848,7 @@
       <div class="topbar-logo">WissensSwipe</div>
       <div class="topbar-chip" id="topbarChip">…</div>
       <div class="spacer"></div>
-      <button class="change-topic-btn" id="changeTopicBtn">Thema wechseln</button>
+      <button class="change-topic-btn" id="changeTopicBtn">← Zurück</button>
       <div class="dev-wrap">
         <button class="dev-btn" id="devBtn" title="Dev-Menü">DEV</button>
         <div class="dev-menu" id="devMenu">
@@ -887,15 +888,15 @@
         </div>
       </div>
 
-      <!-- Swipe-left hint (appears briefly on first card) -->
-      <div class="swipe-hint" id="swipeHint">← Wische links für verwandte Themen</div>
+      <!-- Swipe hint (appears briefly on first card) -->
+      <div class="swipe-hint" id="swipeHint">← Neue Karte &nbsp;|&nbsp; Verwandte Themen →</div>
     </div>
 
     <div class="reader-nav">
-      <button class="nav-btn" id="prevBtn" aria-label="Vorherige Karte">↑</button>
+      <button class="nav-btn" id="prevBtn" aria-label="Vorherige Karte">←</button>
       <div class="progress-dots" id="progressDots"></div>
       <div class="card-counter" id="cardCounter">1 / 1</div>
-      <button class="nav-btn" id="nextBtn" aria-label="Nächste Karte">↓</button>
+      <button class="nav-btn" id="nextBtn" aria-label="Nächste Karte">→</button>
     </div>
 
   </div><!-- /readerScreen -->
@@ -909,7 +910,7 @@
     <div class="reader-topbar">
       <div class="topbar-logo">WissensSwipe</div>
       <div class="spacer"></div>
-      <button class="change-topic-btn" id="changeTopicBtn2">Thema wechseln</button>
+      <button class="change-topic-btn" id="changeTopicBtn2">← Zurück</button>
     </div>
 
     <div class="state-box">
@@ -989,9 +990,25 @@
     .replace(/&/g, "&amp;").replace(/</g, "&lt;")
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  function showScreen(id) {
+  let screenHistory = ["setupScreen"];
+
+  function showScreen(id, addToHistory = true) {
     ["setupScreen","loadingScreen","readerScreen","noCardsScreen"]
       .forEach(s => $(s).classList.toggle("hidden", s !== id));
+    if (addToHistory && screenHistory[screenHistory.length - 1] !== id) {
+      screenHistory.push(id);
+    }
+  }
+
+  function goBack() {
+    closeRelatedPanel();
+    if (screenHistory.length > 1) {
+      screenHistory.pop();
+      const prev = screenHistory[screenHistory.length - 1];
+      showScreen(prev, false);
+    } else {
+      showScreen("setupScreen", false);
+    }
   }
 
   function shuffle(arr) {
@@ -1211,12 +1228,12 @@
       const snap = await getDocs(buildCardQuery());
       const all  = snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
 
-      // Filter in-memory (avoids composite index)
+      // Filter in-memory (avoids composite index) - only show published cards
       cards = shuffle(
         all.filter(c =>
           c.language === selectedLang &&
           c.length   === selectedLen  &&
-          c.status   !== "archived"
+          c.status   === "published"
         )
       );
 
@@ -1245,9 +1262,12 @@
   async function changeLength(newLen) {
     if (newLen === selectedLen) return;
     closeRelatedPanel();
+
+    const currentCard = cards[idx];
+    const currentTopicId = currentCard?.topicId ?? null;
+
     selectedLen = newLen;
     syncReaderLenBar();
-    // Sync setup screen pills too
     $("lengthGroup").querySelectorAll(".pill-btn").forEach(b => {
       b.classList.toggle("active", b.dataset.value === newLen);
     });
@@ -1261,7 +1281,7 @@
         all.filter(c =>
           c.language === selectedLang &&
           c.length   === selectedLen  &&
-          c.status   !== "archived"
+          c.status   === "published"
         )
       );
       vp.style.opacity = "";
@@ -1269,7 +1289,15 @@
         showScreen("noCardsScreen");
         return;
       }
-      idx = 0;
+
+      // Keep same topic when switching length
+      let newIdx = 0;
+      if (currentTopicId) {
+        const sameTopicIdx = cards.findIndex(c => c.topicId === currentTopicId);
+        if (sameTopicIdx >= 0) newIdx = sameTopicIdx;
+      }
+
+      idx = newIdx;
       renderCard(idx);
       renderNav();
     } catch (err) {
@@ -1402,34 +1430,21 @@
       // Horizontal swipe (primarily horizontal gesture, min 45px)
       if (absDx > absDy * 1.4 && absDx > 45) {
         if (dx < 0) {
-          // Left swipe → open related topics panel
-          openRelatedPanel();
-        } else {
-          // Right swipe → close panel if open
+          // Left swipe → next card
           closeRelatedPanel();
+          goTo(idx + 1, "next");
+        } else {
+          // Right swipe → open related topics panel (or close if already open)
+          if (relatedPanelOpen) closeRelatedPanel();
+          else openRelatedPanel();
         }
         return;
       }
 
-      // Require primarily vertical gesture
-      if (absDy <= absDx * 1.4 || absDy < 55) return;
-
-      const cardFitsViewport = vp.scrollHeight <= vp.clientHeight + 4;
-      const atTop    = touchStartScrollY < 8;
-      const atBottom = touchStartScrollY + vp.clientHeight >= vp.scrollHeight - 8;
-
-      if (dy < 0 && (cardFitsViewport || atBottom)) {
-        // Swipe up → next card (like Instagram Reels)
-        closeRelatedPanel();
-        goTo(idx + 1, "next");
-      } else if (dy > 0 && (cardFitsViewport || atTop)) {
-        // Swipe down → previous card
-        closeRelatedPanel();
-        goTo(idx - 1, "prev");
-      }
+      // Vertical gestures: up = scroll (natural), no card navigation on vertical
     }, { passive: true });
 
-    // Also handle swipe on the related panel (right swipe closes it)
+    // Handle swipe on the related panel (left swipe closes it)
     const panel = $("relatedPanel");
     let panelTouchStartX = 0;
     panel.addEventListener("touchstart", e => {
@@ -1437,7 +1452,7 @@
     }, { passive: true });
     panel.addEventListener("touchend", e => {
       const dx = e.changedTouches[0].clientX - panelTouchStartX;
-      if (dx > 60) closeRelatedPanel();
+      if (dx < -60) closeRelatedPanel();
     }, { passive: true });
   }
 
@@ -1544,14 +1559,14 @@
       ));
       const newCards = snap.docs
         .map(d => ({ _docId: d.id, ...d.data() }))
-        .filter(c => c.language === selectedLang && c.length === selectedLen && c.status !== "archived");
+        .filter(c => c.language === selectedLang && c.length === selectedLen && c.status === "published");
 
       vp.style.opacity = "";
       if (!newCards.length) {
         // Try other lengths if this length has no card
         const anyCard = snap.docs
           .map(d => ({ _docId: d.id, ...d.data() }))
-          .filter(c => c.language === selectedLang && c.status !== "archived")[0];
+          .filter(c => c.language === selectedLang && c.status === "published")[0];
         if (anyCard) {
           cards = [...cards.slice(0, idx + 1), anyCard, ...cards.slice(idx + 1)];
           goTo(idx + 1, "next");
@@ -1583,11 +1598,9 @@
     document.addEventListener("keydown", e => {
       const active = document.querySelector(".screen:not(.hidden)");
       if (active?.id !== "readerScreen") return;
-      if (e.key === "ArrowDown")  { closeRelatedPanel(); goTo(idx + 1, "next"); }
-      if (e.key === "ArrowUp")    { closeRelatedPanel(); goTo(idx - 1, "prev"); }
-      if (e.key === "ArrowLeft")  { if (relatedPanelOpen) closeRelatedPanel(); else openRelatedPanel(); }
-      if (e.key === "ArrowRight") { if (relatedPanelOpen) closeRelatedPanel(); }
-      if (e.key === "Escape")     { if (relatedPanelOpen) closeRelatedPanel(); else showScreen("setupScreen"); }
+      if (e.key === "ArrowLeft")  { closeRelatedPanel(); goTo(idx + 1, "next"); }
+      if (e.key === "ArrowRight") { if (relatedPanelOpen) closeRelatedPanel(); else openRelatedPanel(); }
+      if (e.key === "Escape")     { if (relatedPanelOpen) closeRelatedPanel(); else goBack(); }
     });
   }
 
@@ -1635,12 +1648,29 @@
     $("prevBtn").addEventListener("click", () => { closeRelatedPanel(); goTo(idx - 1, "prev"); });
     $("nextBtn").addEventListener("click", () => { closeRelatedPanel(); goTo(idx + 1, "next"); });
 
-    $("changeTopicBtn").addEventListener("click",  () => { closeRelatedPanel(); showScreen("setupScreen"); });
-    $("changeTopicBtn2").addEventListener("click", () => showScreen("setupScreen"));
-    $("retryBtn").addEventListener("click",        () => showScreen("setupScreen"));
+    $("changeTopicBtn").addEventListener("click",  () => goBack());
+    $("changeTopicBtn2").addEventListener("click", () => goBack());
+    $("retryBtn").addEventListener("click",        () => goBack());
 
     $("closePanelBtn").addEventListener("click", closeRelatedPanel);
   }
+
+  /* ── Browser back button handling ───────────────────── */
+  function setupBackButton() {
+    history.replaceState({ screen: "setupScreen" }, "");
+    window.addEventListener("popstate", (e) => {
+      const state = e.state;
+      if (state?.screen) {
+        showScreen(state.screen, false);
+        screenHistory = [state.screen];
+      } else {
+        goBack();
+      }
+    });
+  }
+
+  // Override showScreen to push history states for key screens
+  const _originalShowScreen = showScreen;
 
   /* ── Bootstrap ──────────────────────────────────────── */
   function init() {
@@ -1651,6 +1681,7 @@
     setupTouch();
     setupKeyboard();
     setupEvents();
+    setupBackButton();
     loadTopics();
   }
 
