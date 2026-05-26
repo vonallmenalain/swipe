@@ -345,7 +345,7 @@ Analysiere den folgenden Text und erstelle SwipeCards auf DEUTSCH. Gib das Ergeb
       "cardType": "intro",
       "title": "Kurztitel der Karte (max. 70 Zeichen)",
       "hook": "Ein Satz, der sofort Interesse weckt (max. 130 Zeichen)",
-      "body": "Die Kernbotschaft in 3-5 klaren Sätzen. Prägnant, inspirierend, direkt aus dem Original. Ca. 50-100 Wörter."
+      "body": "Die Kernbotschaft in 5-8 klaren Sätzen. Prägnant, inspirierend, direkt aus dem Original. Ca. 100-200 Wörter."
     },
     {
       "language": "de",
@@ -361,9 +361,9 @@ Analysiere den folgenden Text und erstelle SwipeCards auf DEUTSCH. Gib das Ergeb
 === REGELN ===
 - topicId: Nur Kleinbuchstaben a-z, Ziffern und _, beginnt immer mit lds_
   Beispiele: lds_nelson_glaube_2024, lds_bom_nephi_1ne3, lds_wp_familienverklaerung
-- Sprache: NUR Deutsch (language: "de"). Erstelle KEINE englischen Karten.
+- Sprache: NUR Deutsch (language: "de").
 - Kartenlängen (length):
-    "short" → body: 3-5 Sätze, ca. 50-100 Wörter, KEIN ##-Markdown
+    "short" → body: 5-8 Sätze, ca. 100-200 Wörter, KEIN ##-Markdown
     "long"  → body: mind. 15 Sätze mit ##-Abschnitten, ca. 300-500 Wörter
 - Für "long"-Karten MUSS der body ## Überschriften enthalten
 - cardType passend zum Inhalt wählen:
@@ -374,7 +374,7 @@ Analysiere den folgenden Text und erstelle SwipeCards auf DEUTSCH. Gib das Ergeb
     comparison  → Vergleich zweier Konzepte
     timeline    → Chronologische Abfolge
 - PRO TOPIC genau 2 Karten erstellen: 1× short + 1× long
-- Verwandte Themen (relatedTopics): Schlage 3-5 thematisch verwandte Themen vor.
+- Verwandte Themen (relatedTopics): Schlage 5-10 thematisch verwandte Themen vor.
   Die topicId kannst du leer lassen (""), wenn du sie nicht kennst. Wichtig sind die Titel.
   Beispiele für verwandte Themen: andere Ansprachen derselben Konferenz, verwandte Schriftstellen,
   ähnliche Lehrpunkte (Glaube, Buße, Taufe, Heiliger Geist, Buch Mormon etc.)
@@ -397,7 +397,7 @@ const JSON_TEMPLATE={
     {title:"Die Kraft der Buße",topicId:""}
   ],
   cards:[
-    {language:"de",length:"short",cardType:"intro",title:"Kurzversion: Kernbotschaft",hook:"Ein Satz, der sofort Interesse weckt.",body:"Die Kernbotschaft der Ansprache in 3-5 klaren Sätzen. Prägnant und inspirierend."},
+    {language:"de",length:"short",cardType:"intro",title:"Kurzversion: Kernbotschaft",hook:"Ein Satz, der sofort Interesse weckt.",body:"Die Kernbotschaft der Ansprache in 5-8 klaren Sätzen. Prägnant und inspirierend. Ca. 100-200 Wörter."},
     {language:"de",length:"long",cardType:"deep_dive",title:"Langversion: Tiefe Analyse",hook:"Hook-Satz für die lange Karte.",body:"## Einleitung\nAusführliche Einleitung...\n\n## Hauptlehre\nDetaillierte Erklärung der Kernbotschaft...\n\n## Schriftstellen\nRelevante Verse und Zitate...\n\n## Anwendung\nPraktische Schlussfolgerungen..."}
   ]
 };
