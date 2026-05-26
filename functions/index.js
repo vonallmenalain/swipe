@@ -202,18 +202,44 @@ function buildSourcePack(topic, wikiDe, wikiEn) {
 function buildOpenAIPrompt(sourcePack) { return `Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp.
 Gib AUSSCHLIESSLICH ein JSON-Objekt in dieser Top-Level-Struktur zurück:
 {"topicMeta": {...}, "cards": [...]}
-Kein Markdown, keine Backticks, keine Erklärungen.
-Regeln:
-- Nutze nur Informationen aus dem SOURCE PACK.
-- Erfinde keine Fakten, keine externen Quellen.
+Kein Markdown, keine Backticks, keine Erklärungen außerhalb des JSON.
+
+ALLGEMEINE REGELN:
+- Nutze ausschliesslich Informationen aus dem SOURCE PACK. Erfinde keine Fakten, keine externen Quellen.
 - Erstelle exakt 6 Cards: de-short, de-medium, de-long, en-short, en-medium, en-long.
-- Jede Card MUSS body verwenden (niemals text).
+- Jede Card MUSS das Feld body verwenden (niemals text).
 - Jede Card MUSS sourceBasis und sourceIds enthalten.
-- WICHTIG: difficulty MUSS exakt "beginner", "intermediate" oder "advanced" sein.
+- difficulty MUSS exakt "beginner", "intermediate" oder "advanced" sein.
 - language MUSS exakt "de" oder "en" sein.
 - length MUSS exakt "short", "medium" oder "long" sein.
-- Wenn Quellenmaterial nicht reicht: body nicht aufblasen, needsMoreSourceMaterial=true.
-- Sprache: de auf Deutsch, en auf Englisch.
+- Sprache: de-Cards auf Deutsch, en-Cards auf Englisch.
+- Wenn Quellenmaterial nicht ausreicht: needsMoreSourceMaterial=true, body trotzdem so gut wie möglich aus verfügbarem Material.
+
+INHALTLICHE VORGABEN PRO KARTENTYP:
+
+SHORT (50–100 Wörter):
+- Genau 1–2 prägnante, dichte Sätze, die den absoluten Kerninhalt des Themas auf den Punkt bringen.
+- Teasercharakter: Der Leser erhält sofort die wichtigsten Informationen und wird neugierig auf mehr – ohne dass explizit auf weitere Versionen oder mehr Details hingewiesen wird.
+- Kein "Lies mehr", kein "In der langen Version", keine Aufforderung zum Weiterlesen.
+- Trotz Kürze eine stichhaltige, faktisch korrekte Zusammenfassung – kein Blabla, kein Fülltext.
+- Der hook darf eine direkte Frage oder eine überraschende Aussage sein, die das Interesse weckt.
+
+MEDIUM (400–900 Wörter):
+- Deutlich ausführlicher als Short: mehrere gut strukturierte Absätze.
+- Enthält Kontext, Hintergrund, historische oder wissenschaftliche Bedeutung sowie die wichtigsten Details und Zusammenhänge.
+- Nutze primär den Wikipedia-Volltext aus dem SOURCE PACK; gehe über die Kurzbeschreibung hinaus.
+- Keine Kapitelüberschriften nötig, aber klare Absatztrennung und logischer Aufbau.
+- Sachlich, informativ und verständlich für ein breites Publikum ohne Vorkenntnisse.
+
+LONG (1800–3000 Wörter):
+- Vollständiger, tiefgreifender Bericht mit mehreren Unterkapiteln.
+- Verwende ## für Kapitelüberschriften im body-Text (z.B. ## Geschichte, ## Bedeutung, ## Hintergrund, ## Wirkung, ## Rezeption).
+- Mindestens 3, idealerweise 4–5 Unterkapitel je nach Quellenmaterial.
+- Nutze den Wikipedia-Volltext aus dem SOURCE PACK ausführlich: zusammenfassen, strukturieren, didaktisch aufbereiten.
+- Niemals Satz für Satz kopieren – neu formulieren und verständlich erklären, aber alle Fakten aus dem SOURCE PACK.
+- Ziel: Der Leser soll sich wirklich in das Thema vertiefen können, wie in einem hochwertigen Enzyklopädie-Artikel.
+- Wenn Quellenmaterial begrenzt: needsMoreSourceMaterial=true, aber vorhandenes Material maximal ausschöpfen.
+
 SOURCE PACK:
 ${JSON.stringify(sourcePack)}`; }
 function preview(value) { return safeString(value).slice(0, PREVIEW_MAX_CHARS); }
@@ -440,11 +466,11 @@ Return only valid JSON. No Markdown.`
         : buildOpenAIPrompt(sourcePack);
       return client.responses.create({
         model: OPENAI_MODEL,
-        max_output_tokens: 8000,
+        max_output_tokens: 16000,
         input: [
           {
             role: "system",
-            content: "Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp. Verwende ausschliesslich Informationen aus dem SOURCE PACK. Erfinde keine Fakten. Gib ausschliesslich gültiges JSON gemäss Schema zurück. WICHTIG: difficulty MUSS exakt einer dieser Strings sein: \"beginner\", \"intermediate\", \"advanced\". Keine anderen Werte wie easy, medium, leicht, basic, anfaenger verwenden. language MUSS exakt \"de\" oder \"en\" sein. length MUSS exakt \"short\", \"medium\" oder \"long\" sein. Der Haupttext MUSS im Feld \"body\" stehen, niemals in \"text\".",
+            content: "Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp. Verwende ausschliesslich Informationen aus dem SOURCE PACK. Erfinde keine Fakten. Gib ausschliesslich gültiges JSON gemäss Schema zurück. WICHTIG: difficulty MUSS exakt \"beginner\", \"intermediate\" oder \"advanced\" sein. language MUSS exakt \"de\" oder \"en\" sein. length MUSS exakt \"short\", \"medium\" oder \"long\" sein. Der Haupttext MUSS im Feld \"body\" stehen, niemals in \"text\". SHORT-Cards: 1–2 prägnante Kernsätze, Teasercharakter, kein Hinweis auf weitere Versionen. MEDIUM-Cards: 400–900 Wörter, mehrere Absätze, ausführlich. LONG-Cards: 1800–3000 Wörter, Unterkapitel mit ## Überschriften, tiefgreifend.",
           },
           {
             role: "user",
