@@ -27,13 +27,12 @@ const swipeCardsSchema = {
     topicMeta: {
       type: "object",
       additionalProperties: false,
-      required: ["wikidataId", "mainCategory", "topicType", "tags", "difficulty", "suggestedRelatedTopics", "factualLimitations", "qualityNotes"],
+      required: ["wikidataId", "mainCategory", "topicType", "tags", "suggestedRelatedTopics", "factualLimitations", "qualityNotes"],
       properties: {
         wikidataId: { type: "string" },
         mainCategory: { type: "string", enum: ALLOWED_MAIN_CATEGORIES },
         topicType: { type: "string", enum: ALLOWED_TOPIC_TYPES },
         tags: { type: "array", items: { type: "string" } },
-        difficulty: { type: "string", enum: ALLOWED_DIFFICULTIES },
         suggestedRelatedTopics: {
           type: "array",
           items: {
@@ -209,7 +208,6 @@ ALLGEMEINE REGELN:
 - Erstelle exakt 6 Cards: de-short, de-medium, de-long, en-short, en-medium, en-long.
 - Jede Card MUSS das Feld body verwenden (niemals text).
 - Jede Card MUSS sourceBasis und sourceIds enthalten.
-- difficulty MUSS exakt "beginner", "intermediate" oder "advanced" sein.
 - language MUSS exakt "de" oder "en" sein.
 - length MUSS exakt "short", "medium" oder "long" sein.
 - Sprache: de-Cards auf Deutsch, en-Cards auf Englisch.
@@ -217,8 +215,8 @@ ALLGEMEINE REGELN:
 
 INHALTLICHE VORGABEN PRO KARTENTYP:
 
-SHORT (50–100 Wörter):
-- Genau 1–2 prägnante, dichte Sätze, die den absoluten Kerninhalt des Themas auf den Punkt bringen.
+SHORT (80–150 Wörter):
+- Genau 2–4 prägnante, dichte Sätze, die den absoluten Kerninhalt des Themas auf den Punkt bringen.
 - Teasercharakter: Der Leser erhält sofort die wichtigsten Informationen und wird neugierig auf mehr – ohne dass explizit auf weitere Versionen oder mehr Details hingewiesen wird.
 - Kein "Lies mehr", kein "In der langen Version", keine Aufforderung zum Weiterlesen.
 - Trotz Kürze eine stichhaltige, faktisch korrekte Zusammenfassung – kein Blabla, kein Fülltext.
@@ -349,13 +347,6 @@ function normalizeAIOutput(output, warnings = [], context = {}) {
       next.body = safeString(next.text);
       warnings.push(`text wurde in ${cardKey} zu body normalisiert`);
     }
-    const normalizedDifficulty = normalizeDifficulty(next.difficulty);
-    if (!normalizedDifficulty) {
-      next.difficulty = "beginner";
-      warnings.push(`difficulty fehlte/war ungültig in ${cardKey} und wurde auf beginner gesetzt`);
-    } else {
-      next.difficulty = normalizedDifficulty;
-    }
     if (typeof next.sourceBasis === "string") next.sourceBasis = [next.sourceBasis];
     if (!Array.isArray(next.sourceBasis) || !next.sourceBasis.length) {
       next.sourceBasis = [...availableSourceBasis];
@@ -379,7 +370,6 @@ function validateAIOutput(output, warnings = []) {
 
   if (!ALLOWED_MAIN_CATEGORIES.includes(output.topicMeta.mainCategory)) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: mainCategory ungültig.");
   if (!ALLOWED_TOPIC_TYPES.includes(output.topicMeta.topicType)) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: topicType ungültig.");
-  if (!ALLOWED_DIFFICULTIES.includes(output.topicMeta.difficulty)) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: difficulty ungültig.");
   if (!Array.isArray(output.topicMeta.tags)) throw new HttpsError("failed-precondition", "Ungültige KI-Antwort: tags muss ein Array sein.");
 
   const seen = new Set();
@@ -397,7 +387,6 @@ function validateAIOutput(output, warnings = []) {
     if (!safeString(card?.body).trim()) throw new HttpsError("failed-precondition", `Card hat kein body: ${key}.`);
     if (!Array.isArray(card?.sourceBasis) || !card.sourceBasis.length) throw new HttpsError("failed-precondition", `sourceBasis fehlt in ${key}.`);
     if (!Array.isArray(card?.sourceIds)) throw new HttpsError("failed-precondition", `sourceIds fehlt oder falscher Typ in ${key}.`);
-    if (!ALLOWED_DIFFICULTIES.includes(safeString(card?.difficulty))) throw new HttpsError("failed-precondition", `difficulty ungültig in ${key}.`);
     if (!["de", "en"].includes(safeString(card?.language))) throw new HttpsError("failed-precondition", `language ungültig in ${key}.`);
     if (!["short", "medium", "long"].includes(safeString(card?.length))) throw new HttpsError("failed-precondition", `length ungültig in ${key}.`);
   }
@@ -470,7 +459,7 @@ Return only valid JSON. No Markdown.`
         input: [
           {
             role: "system",
-            content: "Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp. Verwende ausschliesslich Informationen aus dem SOURCE PACK. Erfinde keine Fakten. Gib ausschliesslich gültiges JSON gemäss Schema zurück. WICHTIG: difficulty MUSS exakt \"beginner\", \"intermediate\" oder \"advanced\" sein. language MUSS exakt \"de\" oder \"en\" sein. length MUSS exakt \"short\", \"medium\" oder \"long\" sein. Der Haupttext MUSS im Feld \"body\" stehen, niemals in \"text\". SHORT-Cards: 1–2 prägnante Kernsätze, Teasercharakter, kein Hinweis auf weitere Versionen. MEDIUM-Cards: 400–900 Wörter, mehrere Absätze, ausführlich. LONG-Cards: 1800–3000 Wörter, Unterkapitel mit ## Überschriften, tiefgreifend.",
+            content: "Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp. Verwende ausschliesslich Informationen aus dem SOURCE PACK. Erfinde keine Fakten. Gib ausschliesslich gültiges JSON gemäss Schema zurück. WICHTIG: language MUSS exakt \"de\" oder \"en\" sein. length MUSS exakt \"short\", \"medium\" oder \"long\" sein. Der Haupttext MUSS im Feld \"body\" stehen, niemals in \"text\". SHORT-Cards: 2–4 prägnante Sätze, Teasercharakter, kein Hinweis auf weitere Versionen. MEDIUM-Cards: 400–900 Wörter, mehrere Absätze, ausführlich. LONG-Cards: 1800–3000 Wörter, Unterkapitel mit ## Überschriften, tiefgreifend.",
           },
           {
             role: "user",
@@ -589,7 +578,7 @@ Return only valid JSON. No Markdown.`
         cardType, title: safeString(card.title), hook: safeString(card.hook), body: safeString(card.body),
         topicTitle: { de: safeString(topic?.title?.de), en: safeString(topic?.title?.en) },
         sourceIds: resolvedSourceIds, sources, sourceBasis: resolvedSourceBasis, sourceLimitations: Array.isArray(card.sourceLimitations) ? card.sourceLimitations : [], needsMoreSourceMaterial: !!card.needsMoreSourceMaterial,
-        tags: Array.isArray(output?.topicMeta?.tags) ? output.topicMeta.tags : [], mainCategory: output.topicMeta.mainCategory, topicType: output.topicMeta.topicType, difficulty: output.topicMeta.difficulty,
+        tags: Array.isArray(output?.topicMeta?.tags) ? output.topicMeta.tags : [], mainCategory: output.topicMeta.mainCategory, topicType: output.topicMeta.topicType,
         generation: { method: "openai_cloud_function", aiGenerated: true, sourceRestricted: true, noNewFactsInstruction: true, sourcePackHash, model: OPENAI_MODEL, generatedAt: admin.firestore.FieldValue.serverTimestamp() },
         status: "draft", reviewStatus: "needs_review", qualityScore: 0, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }));

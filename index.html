@@ -435,12 +435,6 @@
       color: var(--text2);
     }
 
-    .badge-diff {
-      background: rgba(255,255,255,.04);
-      border: 1px solid rgba(255,255,255,.06);
-      color: rgba(168,207,192,.6);
-    }
-
     /* Card content */
     .card-topic-label {
       font-size: .72rem;
@@ -808,7 +802,6 @@
   };
 
   const LENGTH_LABELS = { short: "Kurz", medium: "Mittel", long: "Lang" };
-  const DIFF_LABELS   = { beginner: "Einsteiger", intermediate: "Fortgeschritten", advanced: "Experte" };
 
   /* ── State ──────────────────────────────────────────── */
   let db;
@@ -1132,7 +1125,6 @@
     const vp    = $("cardViewport");
     const meta  = CAT_META[card.mainCategory] ?? { label: card.mainCategory ?? "Thema", emoji: "📌" };
     const lenLbl  = LENGTH_LABELS[card.length]  ?? card.length  ?? "";
-    const diffLbl = DIFF_LABELS[card.difficulty] ?? "";
 
     const topicTitle = selectedLang === "de"
       ? String(card.topicTitle?.de ?? card.title ?? "")
@@ -1157,17 +1149,12 @@
       ? `<div class="card-topic-label">${esc(topicTitle)}</div>`
       : "";
 
-    const diffBadge = diffLbl
-      ? `<span class="badge badge-diff">${esc(diffLbl)}</span>`
-      : "";
-
     const html = `
       <div class="swipe-card">
         <div class="card-header">
           <div class="card-badges">
             <span class="badge badge-cat">${meta.emoji} ${esc(meta.label)}</span>
             <span class="badge badge-len">${esc(lenLbl)}</span>
-            ${diffBadge}
           </div>
         </div>
         ${topicLabelHtml}
