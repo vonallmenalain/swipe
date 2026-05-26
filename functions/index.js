@@ -49,7 +49,7 @@ const topicMetaSchema = {
 const cardItemSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["language", "length", "cardType", "title", "hook", "body", "needsMoreSourceMaterial", "sourceBasis", "sourceIds", "sourceLimitations"],
+  required: ["language", "length", "cardType", "title", "hook", "body", "relatedTerms", "needsMoreSourceMaterial", "sourceBasis", "sourceIds", "sourceLimitations"],
   properties: {
     language: { type: "string", enum: ["de", "en"] },
     length: { type: "string", enum: ["short", "medium", "long"] },
@@ -57,6 +57,7 @@ const cardItemSchema = {
     title: { type: "string" },
     hook: { type: "string" },
     body: { type: "string" },
+    relatedTerms: { type: "array", items: { type: "string" } },
     needsMoreSourceMaterial: { type: "boolean" },
     sourceBasis: { type: "array", items: { type: "string", enum: ["wikidata", "wikipedia_de", "wikipedia_en"] } },
     sourceIds: { type: "array", items: { type: "string" } },
@@ -236,6 +237,14 @@ ALLGEMEINE REGELN:
 - Sprache: de-Cards auf Deutsch, en-Cards auf Englisch.
 - Wenn Quellenmaterial nicht ausreicht: needsMoreSourceMaterial=true, body trotzdem so gut wie möglich aus verfügbarem Material.
 
+VERWANDTE BEGRIFFE (relatedTerms) – PFLICHT für jede Card:
+- Jede Card MUSS ein Array "relatedTerms" mit 10–20 verwandten Begriffen enthalten.
+- Das sind Konzepte, Personen, Orte, Ereignisse oder Fachbegriffe, die im Inhalt der Card eine Rolle spielen oder eng damit zusammenhängen.
+- Ziel: Diese Begriffe werden als Vorschläge für neue Topics verwendet.
+- Beispiel für "Schweiz": ["Bern", "Alpen", "Neutralität", "Eidgenossenschaft", "Genf", "Zürich", "Bundesrat", "Gotthardtunnel", "Rotes Kreuz", "Bankgeheimnis", "Matterhorn", "Wilhelm Tell"]
+- Begriffe sollen in der Sprache der Card sein (de-Cards: deutsche Begriffe, en-Cards: englische Begriffe).
+- Keine generischen Begriffe wie "Geschichte" oder "Land", sondern spezifische, eigenständige Themen.
+
 SHORT (80–150 Wörter):
 - Genau 2–4 prägnante, dichte Sätze, die den absoluten Kerninhalt des Themas auf den Punkt bringen.
 - Teasercharakter: Der Leser erhält sofort die wichtigsten Informationen und wird neugierig auf mehr.
@@ -268,6 +277,12 @@ Erstelle GENAU 2 Long-Deep-Dive-Cards: de-long (auf Deutsch) und en-long (auf En
 - Jede Card MUSS das Feld body verwenden (niemals text).
 - Jede Card MUSS sourceBasis und sourceIds enthalten.
 - Nutze ausschliesslich Informationen aus dem SOURCE PACK. Erfinde keine Fakten.
+
+VERWANDTE BEGRIFFE (relatedTerms) – PFLICHT:
+- Jede Card MUSS ein Array "relatedTerms" mit 15–20 verwandten Begriffen enthalten.
+- Das sind Konzepte, Personen, Orte, Ereignisse oder Fachbegriffe, die im Inhalt der Card vorkommen oder eng damit zusammenhängen.
+- Begriffe in der jeweiligen Card-Sprache (de-long: deutsch, en-long: englisch).
+- Spezifische, eigenständige Themen – keine generischen Begriffe.
 
 LONG DEEP DIVE – PFLICHTANFORDERUNGEN (KRITISCH):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -545,7 +560,7 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
         input: [
           {
             role: "system",
-            content: "Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp. Verwende ausschliesslich Informationen aus dem SOURCE PACK. Gib ausschliesslich gültiges JSON zurück. language MUSS exakt \"de\" oder \"en\" sein. length MUSS exakt \"short\" oder \"medium\" sein. Der Haupttext MUSS im Feld \"body\" stehen, niemals in \"text\". SHORT: 2–4 prägnante Sätze. MEDIUM: 400–900 Wörter, mehrere Absätze.",
+            content: "Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp. Verwende ausschliesslich Informationen aus dem SOURCE PACK. Gib ausschliesslich gültiges JSON zurück. language MUSS exakt \"de\" oder \"en\" sein. length MUSS exakt \"short\" oder \"medium\" sein. Der Haupttext MUSS im Feld \"body\" stehen, niemals in \"text\". SHORT: 2–4 prägnante Sätze. MEDIUM: 400–900 Wörter, mehrere Absätze. JEDE Card MUSS ein Array \"relatedTerms\" mit 10–20 verwandten Begriffen (Personen, Orte, Konzepte, Ereignisse) enthalten, die im Inhalt vorkommen oder eng damit zusammenhängen.",
           },
           { role: "user", content: userPrompt },
         ],
@@ -566,7 +581,7 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
         input: [
           {
             role: "system",
-            content: "Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp. Verwende ausschliesslich Informationen aus dem SOURCE PACK. Gib ausschliesslich gültiges JSON zurück. KRITISCH: Erstelle GENAU 2 Long-Cards (de-long und en-long). length MUSS exakt \"long\" sein. Der body MUSS MINDESTENS 1800 Wörter enthalten – das ist eine harte Anforderung. Verwende ## Kapitelüberschriften. Mindestens 4 Unterkapitel à mindestens 300 Wörter. Nutze den gesamten Wikipedia-Volltext aus dem SOURCE PACK.",
+            content: "Du bist ein redaktioneller Wissensassistent für eine Swipe-Lernapp. Verwende ausschliesslich Informationen aus dem SOURCE PACK. Gib ausschliesslich gültiges JSON zurück. KRITISCH: Erstelle GENAU 2 Long-Cards (de-long und en-long). length MUSS exakt \"long\" sein. Der body MUSS MINDESTENS 1800 Wörter enthalten – das ist eine harte Anforderung. Verwende ## Kapitelüberschriften. Mindestens 4 Unterkapitel à mindestens 300 Wörter. Nutze den gesamten Wikipedia-Volltext aus dem SOURCE PACK. JEDE Card MUSS ein Array \"relatedTerms\" mit 15–20 verwandten Begriffen (Personen, Orte, Konzepte, Ereignisse) enthalten.",
           },
           { role: "user", content: userPrompt },
         ],
@@ -669,9 +684,11 @@ exports.generateSwipeCardsForTopic = onCall({ region: "europe-west1", timeoutSec
       const cardId = `${topicId}_${card.language}_${card.length}_${cardType}_${generationRunId}`; cardIds.push(cardId);
       const resolvedSourceBasis = Array.isArray(card.sourceBasis) ? card.sourceBasis : ["wikidata"];
       const resolvedSourceIds = Array.isArray(card.sourceIds) && card.sourceIds.length ? card.sourceIds.filter((id) => sourceIds.includes(id)) : sourceIds;
+      const cardRelatedTerms = Array.isArray(card.relatedTerms) ? card.relatedTerms.filter(t => typeof t === "string" && t.trim()).map(t => t.trim()) : [];
       batch.set(db.collection("swipeCards").doc(cardId), removeUndefinedDeep({
         cardId, topicId, wikidataId, cardGroupId, generationRunId, language: card.language, length: card.length, readingTimeSec: stats.readingTimeSec, wordCount: stats.wordCount,
         cardType, title: safeString(card.title), hook: safeString(card.hook), body: safeString(card.body),
+        relatedTerms: cardRelatedTerms,
         topicTitle: { de: safeString(topic?.title?.de), en: safeString(topic?.title?.en) },
         sourceIds: resolvedSourceIds, sources, sourceBasis: resolvedSourceBasis, sourceLimitations: Array.isArray(card.sourceLimitations) ? card.sourceLimitations : [], needsMoreSourceMaterial: !!card.needsMoreSourceMaterial,
         tags: Array.isArray(output?.topicMeta?.tags) ? output.topicMeta.tags : [], mainCategory: output.topicMeta.mainCategory, topicType: output.topicMeta.topicType,
