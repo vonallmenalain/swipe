@@ -143,6 +143,24 @@
           <p class="small muted" style="margin-bottom:10px">Vom KI-Modell vorgeschlagene verwandte Begriffe. Grün = Topic vorhanden und hat Karten. Gelb = Topic vorhanden, noch keine Karten. Rot = Kein Topic vorhanden.</p>
           <div id="relatedTermsList"></div>
         </section>
+        <!-- New Topic Creation Section -->
+        <section class="panel section mb">
+          <h2>Neues Stub-Topic anlegen</h2>
+          <p class="small muted" style="margin-bottom:10px">Legt ein neues Stub-Topic an – z.B. für Begriffe aus generierten Karten. Das Topic kann danach direkt für die KI-Generierung ausgewählt werden.</p>
+          <div class="field">
+            <label class="small">Titel (Deutsch) <span style="color:var(--danger)">*</span></label>
+            <input id="newTopicTitleDe" type="text" placeholder="z.B. Quantenmechanik" />
+          </div>
+          <div class="field">
+            <label class="small">Titel (Englisch, optional)</label>
+            <input id="newTopicTitleEn" type="text" placeholder="Leer = gleich wie Deutsch" />
+          </div>
+          <div class="small muted" id="newTopicCategoryHint" style="margin-bottom:8px"></div>
+          <div class="row" style="gap:10px;align-items:center">
+            <button id="createNewTopicBtn" class="btn-primary btn-small">Topic anlegen</button>
+            <span id="newTopicStatus" class="small muted"></span>
+          </div>
+        </section>
         <section class="panel section">
           <h2>KI Auto-Generator</h2>
           <p class="small">Erstellt automatisch 6 Draft-Cards (Short, Medium, Long) auf Deutsch und Englisch aus Wikidata und Wikipedia.</p>
@@ -319,6 +337,13 @@ async function selectTopic(id){
   el("aiAutoStatus").textContent="Noch keine automatische Generierung gestartet.";
   el("aiAutoResult").innerHTML="";
   renderRelatedTerms();
+  // Update category hint for new topic form
+  const hint=el("newTopicCategoryHint");
+  if(selectedTopic&&(selectedTopic.mainCategory||selectedTopic.topicType)){
+    hint.textContent=`Kategorie/Typ wird vom gewählten Topic übernommen: ${[safe(selectedTopic.mainCategory),safe(selectedTopic.topicType)].filter(Boolean).join(" / ")}`;
+  }else{
+    hint.textContent=selectedTopic?"Kein Kategorie/Typ im gewählten Topic hinterlegt.":"Kein Topic gewählt – Kategorie/Typ bleibt leer.";
+  }
 }
 
 function renderSelectedTopic(){
@@ -435,6 +460,45 @@ async function createStubTopic(termTitle,termIndex){
     renderRelatedTerms();
   }catch(e){
     showStatus(`Fehler beim Anlegen: ${e.message}`,"error");
+  }
+}
+
+/* ─── Manual Topic Creation ─────────────────────── */
+async function createNewTopic(){
+  const titleDe=el("newTopicTitleDe").value.trim();
+  const titleEn=el("newTopicTitleEn").value.trim()||titleDe;
+  if(!titleDe){el("newTopicStatus").textContent="Bitte einen Titel eingeben.";return;}
+  if(!confirm(`Neues Stub-Topic "${titleDe}" anlegen?`))return;
+  const btn=el("createNewTopicBtn");
+  btn.disabled=true;
+  el("newTopicStatus").textContent="Wird angelegt…";
+  try{
+    const newDocRef=doc(collection(db,"topics"));
+    const newId=newDocRef.id;
+    await setDoc(newDocRef,{
+      wikidataId:newId,
+      title:{de:titleDe,en:titleEn},
+      description:{de:"",en:""},
+      status:"stub",
+      contentStatus:{hasShortCard:false,hasMediumCard:false,hasLongCard:false,cardsPublished:0},
+      tags:[],
+      mainCategory:selectedTopic?safe(selectedTopic.mainCategory):"",
+      topicType:selectedTopic?safe(selectedTopic.topicType):"",
+      relatedTerms:[],
+      import:{source:"admin_manual",importedAt:new Date().toISOString()},
+      createdAt:new Date(),
+      updatedAt:new Date(),
+    });
+    el("newTopicStatus").textContent=`✓ Angelegt (ID: ${newId})`;
+    el("newTopicTitleDe").value="";
+    el("newTopicTitleEn").value="";
+    showStatus(`Neues Topic "${titleDe}" angelegt.`,"");
+    await loadTopics();
+  }catch(e){
+    el("newTopicStatus").textContent=`Fehler: ${e.message}`;
+    showStatus(`Fehler beim Anlegen: ${e.message}`,"error");
+  }finally{
+    btn.disabled=false;
   }
 }
 
@@ -640,8 +704,10 @@ function init(){
   el("generateAICardsBtn").onclick=()=>generateAICards().catch(renderAIError);
   el("publishTopicCardsBtn").onclick=()=>publishCards().catch(renderAIError);
 
-  // Filter chip
-  el("filterNoCardsChip").onclick=()=>{
+  // Filter chip – e.preventDefault() stops the browser from firing a second synthetic
+  // click on the hidden checkbox (which would bubble back to the label and toggle twice)
+  el("filterNoCardsChip").onclick=e=>{
+    e.preventDefault();
     filterNoCards=!filterNoCards;
     el("filterNoCards").checked=filterNoCards;
     el("filterNoCardsChip").classList.toggle("active",filterNoCards);
@@ -661,6 +727,7 @@ function init(){
   };
 
   // Batch generate
+  el("createNewTopicBtn").onclick=createNewTopic;
   el("batchGenerateBtn").onclick=startBatchGeneration;
   el("batchPublishAllBtn").onclick=publishAllBatch;
   el("closeBatchBtn").onclick=()=>{
