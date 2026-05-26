@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kirche – Inhalte importieren</title>
+  <style>
+    :root{--bg:#0a0f1a;--bg-soft:#0e1626;--card:#121e36;--text:#e5eeff;--muted:#7a94c4;--accent:#5b9cf6;--accent2:#7eb3ff;--line:rgba(100,150,255,.1);--warn:#ffd166;--ok:#52d8a2;--danger:#ff6b6b;--radius:14px;--shadow:0 8px 30px rgba(0,0,0,.32);}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);background:radial-gradient(circle at top right,#0d1a3a 0%,var(--bg) 50%);min-height:100vh}
+    .container{max-width:1300px;margin:0 auto;padding:16px}
+    .panel{background:linear-gradient(180deg,var(--card),var(--bg-soft));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .section{padding:16px}
+    .header{padding:14px 18px;display:flex;justify-content:space-between;flex-wrap:wrap;align-items:center;gap:10px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .field{display:grid;gap:6px;margin-bottom:10px}
+    label{color:var(--muted);font-size:.85rem}
+    button,select,input,textarea{border:1px solid var(--line);background:#0c1830;color:var(--text);border-radius:10px;padding:9px 13px;font:inherit;outline:none;transition:border-color .15s}
+    button:hover:not(:disabled){border-color:var(--accent);cursor:pointer}
+    textarea{resize:vertical;width:100%;font-size:.82rem;line-height:1.5;font-family:monospace}
+    .btn-primary{background:linear-gradient(180deg,#3a7eef,#2a64cc);border:none;color:#fff;font-weight:700;padding:10px 18px}
+    .btn-warn{background:linear-gradient(180deg,#f4a63a,#d4882a);border:none;color:#1a0a00;font-weight:700}
+    .btn-ok{background:linear-gradient(180deg,#2bb989,#1f9f74);border:none;color:#072018;font-weight:700}
+    .btn-small{padding:6px 11px;font-size:.82rem;border-radius:8px}
+    .btn-ghost{background:transparent;border-color:var(--line)}
+    button:disabled{opacity:.4;cursor:not-allowed}
+    .status{margin:10px 0;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:rgba(91,156,246,.07);font-size:.88rem}
+    .status.error{background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.3);color:#ff9e9e}
+    .status.ok{background:rgba(82,216,162,.08);border-color:rgba(82,216,162,.25);color:var(--ok)}
+    .status.warn{background:rgba(255,209,102,.08);border-color:rgba(255,209,102,.25);color:var(--warn)}
+    .badge{display:inline-block;padding:3px 9px;border-radius:999px;border:1px solid var(--line);font-size:.72rem;white-space:nowrap}
+    .badge-lang{background:rgba(91,156,246,.15);border-color:rgba(91,156,246,.3);color:var(--accent2)}
+    .badge-len{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.25);color:var(--warn)}
+    .badge-type{background:rgba(82,216,162,.1);border-color:rgba(82,216,162,.2);color:var(--ok)}
+    .badge-cat{background:rgba(91,156,246,.2);border-color:rgba(91,156,246,.4);color:var(--accent2)}
+    .small,.muted{color:var(--muted);font-size:.88rem}
+    .hidden{display:none!important}
+    h1{margin:0 0 4px;font-size:1.3rem}
+    h2{margin:0 0 12px;font-size:1.05rem;font-weight:600}
+    h3{margin:0 0 8px;font-size:.9rem;font-weight:600;color:var(--muted)}
+    .mb{margin-bottom:14px}
+    .mt{margin-top:14px}
+    hr{border:none;border-top:1px solid var(--line);margin:14px 0}
+
+    /* Step indicator */
+    .steps{display:flex;gap:0;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+    .step{flex:1;padding:10px 8px;text-align:center;font-size:.78rem;background:#0c1830;color:var(--muted);border-right:1px solid var(--line);cursor:pointer;transition:background .15s,color .15s}
+    .step:last-child{border-right:none}
+    .step.active{background:linear-gradient(180deg,#1a3060,#122348);color:var(--text);font-weight:600}
+    .step.done{color:var(--ok)}
+    .step-num{display:block;font-size:1.1rem;margin-bottom:2px}
+
+    /* Step panels */
+    .step-panel{display:none}
+    .step-panel.active{display:block}
+
+    /* Prompt box */
+    .prompt-box{position:relative}
+    .prompt-box textarea{min-height:280px;background:#080e1e;border-color:rgba(91,156,246,.2)}
+    .copy-btn{position:absolute;top:8px;right:8px}
+
+    /* JSON drop zone */
+    .drop-zone{border:2px dashed var(--line);border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:#080e1e}
+    .drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:rgba(91,156,246,.06)}
+    .drop-zone-icon{font-size:2.2rem;margin-bottom:8px}
+
+    /* Preview cards */
+    .preview-topic{background:#0c1830;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px}
+    .preview-card{background:#0a1526;border:1px solid var(--line);border-radius:8px;padding:10px;margin:6px 0;font-size:.85rem}
+    .preview-card-header{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+    .preview-card-title{font-weight:600;margin-bottom:4px}
+    .preview-card-hook{color:var(--muted);font-style:italic;margin-bottom:6px;font-size:.82rem}
+    .preview-card-body{color:var(--text);line-height:1.5;white-space:pre-wrap;font-size:.82rem}
+
+    /* Topics list */
+    .topic-row{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:#0c1830}
+    .topic-row-body{flex:1;min-width:0}
+    .topic-row-title{font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .topic-row-meta{color:var(--muted);font-size:.78rem;margin-top:2px}
+    .topic-row-badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+    .badge-has{background:rgba(82,216,162,.1);border-color:rgba(82,216,162,.2);color:var(--ok)}
+    .badge-miss{background:rgba(255,209,102,.08);border-color:rgba(255,209,102,.2);color:var(--warn)}
+
+    /* Import result */
+    .import-result-item{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;margin-bottom:4px;font-size:.85rem}
+    .import-result-item.ok{background:rgba(82,216,162,.08)}
+    .import-result-item.error{background:rgba(255,107,107,.08)}
+    .import-result-item.skip{background:rgba(255,209,102,.06)}
+
+    @media(min-width:920px){.split{display:grid;grid-template-columns:1.1fr 0.9fr;gap:16px}}
+
+    /* Button ripple */
+    button{position:relative;overflow:hidden}
+    @keyframes btnRipple{0%{transform:scale(0);opacity:.5}100%{transform:scale(2.5);opacity:0}}
+    .btn-ripple-dot{position:absolute;border-radius:50%;background:rgba(255,255,255,.3);width:60px;height:60px;margin-top:-30px;margin-left:-30px;animation:btnRipple .4s ease-out forwards;pointer-events:none}
+
+    /* Validation errors */
+    .val-error{background:rgba(255,107,107,.07);border:1px solid rgba(255,107,107,.25);border-radius:8px;padding:10px;margin-bottom:8px;font-size:.83rem;color:#ff9e9e}
+    .val-ok{background:rgba(82,216,162,.07);border:1px solid rgba(82,216,162,.2);border-radius:8px;padding:10px;margin-bottom:8px;font-size:.83rem;color:var(--ok)}
+
+    /* Nav links */
+    .nav-links{display:flex;gap:8px;flex-wrap:wrap}
+    .nav-links a{color:var(--muted);font-size:.8rem;text-decoration:none;padding:5px 10px;border-radius:8px;border:1px solid var(--line)}
+    .nav-links a:hover{color:var(--text);border-color:var(--accent)}
+
+    /* Template download badge */
+    .template-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid rgba(91,156,246,.3);background:rgba(91,156,246,.08);color:var(--accent2);font-size:.82rem;cursor:pointer;text-decoration:none}
+    .template-badge:hover{background:rgba(91,156,246,.15)}
+  </style>
+</head>
+<body><div class="container">
+  <div id="statusBar" class="status">Bereit.</div>
+
+  <!-- LOGIN -->
+  <section id="loginBox" class="panel section mb">
+    <h1>🕍 Kirche – Inhalte importieren</h1>
+    <p class="muted">Admin-Zugang erforderlich</p>
+    <div class="field"><label>E-Mail</label><input id="emailInput" type="email" /></div>
+    <div class="field"><label>Passwort</label><input id="passwordInput" type="password" /></div>
+    <button id="loginBtn" class="btn-primary">Login</button>
+  </section>
+
+  <!-- APP -->
+  <div id="appRoot" class="hidden">
+    <header class="panel header mb">
+      <div>
+        <h1>🕍 Kirche JCHNdLT – Inhalte importieren</h1>
+        <div class="small muted">Ansprachen, Schriftstellen und Lehrmaterial als SwipeCards importieren</div>
+      </div>
+      <div class="row">
+        <span id="userEmail" class="badge"></span>
+        <div class="nav-links">
+          <a href="adm-topic-overview.html">📋 Themen</a>
+          <a href="adm-swipe-card-generator.html">✨ Generator</a>
+          <a href="adm-wikidata-import.html">📥 Wikidata</a>
+          <a href="index.html">🔭 App</a>
+        </div>
+        <button id="logoutBtn" class="btn-ghost btn-small">Logout</button>
+      </div>
+    </header>
+
+    <div class="split">
+      <!-- LEFT COLUMN: Import Workflow -->
+      <div>
+        <div class="steps mb" id="stepTabs">
+          <div class="step active" data-step="1"><span class="step-num">1️⃣</span>Prompt</div>
+          <div class="step" data-step="2"><span class="step-num">2️⃣</span>JSON eingeben</div>
+          <div class="step" data-step="3"><span class="step-num">3️⃣</span>Prüfen</div>
+          <div class="step" data-step="4"><span class="step-num">4️⃣</span>Importieren</div>
+        </div>
+
+        <!-- STEP 1: ChatGPT Prompt -->
+        <section id="step1" class="panel section mb step-panel active">
+          <h2>Schritt 1 – ChatGPT-Prompt</h2>
+          <p class="muted small">Kopiere diesen Prompt, öffne ChatGPT und füge <strong>danach deinen Text / deine PDF-Inhalte</strong> hinzu. ChatGPT generiert das fertige JSON automatisch.</p>
+          <div class="prompt-box mb">
+            <textarea id="promptText" rows="16" readonly></textarea>
+            <button id="copyPromptBtn" class="btn-primary btn-small copy-btn">📋 Kopieren</button>
+          </div>
+          <div class="row">
+            <a id="downloadTemplateBtn" class="template-badge" href="#" download="kirche_import_vorlage.json">⬇️ JSON-Vorlage herunterladen</a>
+            <button id="toStep2Btn" class="btn-primary">Weiter zu Schritt 2 →</button>
+          </div>
+        </section>
+
+        <!-- STEP 2: JSON Input -->
+        <section id="step2" class="panel section mb step-panel">
+          <h2>Schritt 2 – JSON einfügen oder hochladen</h2>
+          <p class="muted small">Füge das von ChatGPT generierte JSON hier ein oder lade eine JSON-Datei hoch. Einzelnes Topic oder Array mit mehreren Topics.</p>
+          <div id="dropZone" class="drop-zone mb">
+            <div class="drop-zone-icon">📂</div>
+            <div>JSON-Datei hier ablegen oder <strong>klicken zum Auswählen</strong></div>
+            <div class="muted small mt">Unterstützt: .json</div>
+            <input type="file" id="fileInput" accept=".json" style="display:none" />
+          </div>
+          <div class="field">
+            <label>Oder direkt einfügen (Strg+V):</label>
+            <textarea id="jsonInput" rows="14" placeholder='{"topicId":"lds_...", "cards":[...]}'></textarea>
+          </div>
+          <div class="row">
+            <button id="backTo1Btn" class="btn-ghost btn-small">← Zurück</button>
+            <button id="validateBtn" class="btn-primary">✓ Prüfen & Vorschau →</button>
+          </div>
+        </section>
+
+        <!-- STEP 3: Validate & Preview -->
+        <section id="step3" class="panel section mb step-panel">
+          <h2>Schritt 3 – Prüfen & Vorschau</h2>
+          <div id="validationResult"></div>
+          <div id="previewArea"></div>
+          <div class="row mt">
+            <button id="backTo2Btn" class="btn-ghost btn-small">← Zurück</button>
+            <button id="importBtn" class="btn-ok hidden">✅ Jetzt importieren →</button>
+          </div>
+        </section>
+
+        <!-- STEP 4: Import Result -->
+        <section id="step4" class="panel section mb step-panel">
+          <h2>Schritt 4 – Import abgeschlossen</h2>
+          <div id="importResult"></div>
+          <div class="row mt">
+            <button id="importAnotherBtn" class="btn-primary">+ Weiteres Dokument importieren</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- RIGHT COLUMN: Existing Church Topics -->
+      <div>
+        <section class="panel section mb">
+          <div class="row mb" style="justify-content:space-between">
+            <h2 style="margin:0">Bereits importierte Kircheninhalte</h2>
+            <button id="reloadTopicsBtn" class="btn-ghost btn-small">🔄</button>
+          </div>
+          <div id="churchTopicsList"><span class="muted small">Wird geladen…</span></div>
+        </section>
+
+        <section class="panel section mb">
+          <h2>JSON-Format Referenz</h2>
+          <div class="small muted" style="line-height:1.6">
+            <p>Pflichtfelder pro Topic:</p>
+            <ul style="padding-left:18px;margin:4px 0">
+              <li><code>topicId</code> – z.B. <code>lds_nelson_apr2024</code></li>
+              <li><code>topicTitle.de</code> + <code>topicTitle.en</code></li>
+              <li><code>cards</code> – Array mit mindestens 1 Karte</li>
+            </ul>
+            <p>Pflichtfelder pro Karte:</p>
+            <ul style="padding-left:18px;margin:4px 0">
+              <li><code>language</code>: <code>"de"</code> oder <code>"en"</code></li>
+              <li><code>length</code>: <code>"short"</code> / <code>"medium"</code> / <code>"long"</code></li>
+              <li><code>cardType</code>: <code>"intro"</code>, <code>"fact"</code>, <code>"deep_dive"</code>, <code>"myth_buster"</code>, <code>"comparison"</code>, <code>"timeline"</code></li>
+              <li><code>title</code>, <code>hook</code>, <code>body</code></li>
+            </ul>
+            <p>Empfehlung: 3 DE-Karten (short/medium/long). Array-Import für mehrere Topics möglich.</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getFirestore,collection,getDocs,doc,setDoc,getDoc,query,where,serverTimestamp,writeBatch } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+const firebaseConfig={apiKey:"AIzaSyBOjkDk1Mmr79wY7bpKHQ5jidqwuHDo_kg",authDomain:"swipe-82eeb.firebaseapp.com",projectId:"swipe-82eeb",storageBucket:"swipe-82eeb.firebasestorage.app",messagingSenderId:"649929298401",appId:"1:649929298401:web:d94f1a5ebf1407ac6502a0"};
+
+let app,auth,db,user=null;
+let parsedImportData=null; // validated import data (array of topics)
+let currentStep=1;
+
+const VALID_LANGUAGES=["de","en"];
+const VALID_LENGTHS=["short","medium","long"];
+const VALID_TYPES=["intro","fact","timeline","deep_dive","comparison","myth_buster"];
+
+/* ─── Helpers ─────────────────────────────────── */
+const el=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function showStatus(msg,type=''){
+  const bar=el("statusBar");
+  bar.textContent=msg;
+  bar.className='status'+(type?` ${type}`:'');
+}
+
+/* ─── ChatGPT Prompt template ─────────────────── */
+const CHATGPT_PROMPT=`Du bist ein Assistent, der Inhalte der Kirche Jesu Christi der Heiligen der Letzten Tage in strukturierte Lernkarten (SwipeCards) für eine Lern-App umwandelt.
+
+Analysiere den folgenden Text und erstelle SwipeCards. Gib das Ergebnis AUSSCHLIESSLICH als gültiges JSON zurück (kein Text davor oder danach).
+
+=== FORMAT ===
+{
+  "topicId": "lds_[kurzer_bezeichner_lowercase_unterstriche]",
+  "topicTitle": {
+    "de": "Titel auf Deutsch (präzise, max. 80 Zeichen)",
+    "en": "Title in English (concise, max. 80 chars)"
+  },
+  "description": {
+    "de": "Kurze Beschreibung auf Deutsch (1-2 Sätze, worum geht es?)",
+    "en": "Short description in English (1-2 sentences)"
+  },
+  "tags": ["tag1", "tag2", "tag3", "tag4"],
+  "source": {
+    "title": "Quellenangabe, z.B. Generalkonferenz April 2024 – Russell M. Nelson",
+    "url": "https://www.churchofjesuschrist.org/..."
+  },
+  "cards": [
+    {
+      "language": "de",
+      "length": "short",
+      "cardType": "intro",
+      "title": "Titel der Karte (max. 70 Zeichen)",
+      "hook": "Ein Satz, der sofort Interesse weckt (max. 130 Zeichen)",
+      "body": "Die Kernbotschaft in 3-5 klaren Sätzen. Prägnant, inspirierend, direkt aus dem Original."
+    },
+    {
+      "language": "de",
+      "length": "medium",
+      "cardType": "fact",
+      "title": "Titel",
+      "hook": "Hook-Satz",
+      "body": "Ausführlichere Darstellung in 6-10 Sätzen. Wichtige Lehrpunkte, Schriftstellen und Beispiele aus dem Text."
+    },
+    {
+      "language": "de",
+      "length": "long",
+      "cardType": "deep_dive",
+      "title": "Titel",
+      "hook": "Hook-Satz",
+      "body": "## Einleitung\\nAusführliche Einleitung...\\n\\n## Hauptlehre\\nDetaillierte Erklärung der Kernbotschaft...\\n\\n## Schriftstellen und Belege\\nRelevante Verse und Zitate...\\n\\n## Anwendung im Alltag\\nPraktische Schlussfolgerungen..."
+    }
+  ]
+}
+
+=== REGELN ===
+- topicId: Nur Kleinbuchstaben a-z, Ziffern und _, beginnt immer mit lds_
+  Beispiele: lds_nelson_glaube_2024, lds_bom_nephi_1ne3, lds_wp_familienverklaerung
+- language: "de" (Deutsch) oder "en" (Englisch) – du kannst beide Sprachen erstellen
+- length-Regeln:
+    "short"  → body: 3-5 Sätze, ca. 50-100 Wörter
+    "medium" → body: 6-10 Sätze, ca. 100-200 Wörter
+    "long"   → body: mind. 15 Sätze mit ##-Abschnitten, ca. 300-500 Wörter
+- cardType-Optionen: "intro", "fact", "deep_dive", "myth_buster", "comparison", "timeline"
+  Wähle passend zum Inhalt:
+    intro      → Einführung in ein Thema
+    fact       → Wichtige Lehre / Kernaussage
+    deep_dive  → Tiefgehende Analyse
+    myth_buster → Missverständnis aufklären
+    comparison  → Vergleich zweier Konzepte
+    timeline    → Chronologische Abfolge
+- Für "long"-Karten MUSS der body ## Überschriften enthalten
+- Bleibe NÖRTET am Originaltext. Erfinde keine Fakten oder Lehren.
+- Erstelle mindestens 3 deutsche Karten (short + medium + long)
+- Optionale englische Karten sind willkommen
+- Falls mehrere Themen im Text: erstelle ein Array von Topic-Objekten: [{...},{...}]
+
+=== DEIN TEXT / ANSPRACHE ===
+[FÜGE HIER DEINEN TEXT EIN – z.B. die ganze Ansprache, Schriftstelle oder Buchkapitel]`;
+
+/* ─── JSON Template ───────────────────────────── */
+const JSON_TEMPLATE={
+  topicId:"lds_beispiel_ansprache_2024",
+  topicTitle:{de:"Beispiel: Titel der Ansprache auf Deutsch",en:"Example: Title of the Talk in English"},
+  description:{de:"Kurze Beschreibung worum es in dieser Ansprache geht.",en:"Short description of what this talk is about."},
+  tags:["glaube","hoffnung","generalkonferenz"],
+  source:{title:"Generalkonferenz Oktober 2024 – Vorname Nachname",url:"https://www.churchofjesuschrist.org/study/general-conference/2024/10?lang=deu"},
+  cards:[
+    {language:"de",length:"short",cardType:"intro",title:"Kurzversion: Kernbotschaft",hook:"Ein Satz, der sofort Interesse weckt.",body:"Die Kernbotschaft der Ansprache in 3-5 klaren Sätzen. Prägnant und inspirierend."},
+    {language:"de",length:"medium",cardType:"fact",title:"Mittelversion: Wichtigste Punkte",hook:"Hook-Satz für die mittlere Karte.",body:"Ausführlichere Darstellung der wichtigsten Lehrpunkte in 6-10 Sätzen. Belege und Beispiele aus dem Originaltext."},
+    {language:"de",length:"long",cardType:"deep_dive",title:"Langversion: Tiefe Analyse",hook:"Hook-Satz für die lange Karte.",body:"## Einleitung\nAusführliche Einleitung...\n\n## Hauptlehre\nDetaillierte Erklärung der Kernbotschaft...\n\n## Schriftstellen\nRelevante Verse und Zitate...\n\n## Anwendung\nPraktische Schlussfolgerungen..."}
+  ]
+};
+
+/* ─── Navigation ──────────────────────────────── */
+function goToStep(n){
+  currentStep=n;
+  document.querySelectorAll('.step').forEach(s=>{
+    const sn=Number(s.dataset.step);
+    s.classList.toggle('active',sn===n);
+    s.classList.toggle('done',sn<n);
+  });
+  document.querySelectorAll('.step-panel').forEach(p=>p.classList.remove('active'));
+  el(`step${n}`)?.classList.add('active');
+}
+
+/* ─── Validation ──────────────────────────────── */
+function validateTopicObj(obj,idx){
+  const errs=[];
+  const prefix=idx!==undefined?`Topic[${idx}]: `:'';
+  if(!obj.topicId||typeof obj.topicId!=='string') errs.push(`${prefix}topicId fehlt oder ungültig`);
+  else if(!/^[a-z0-9_]+$/.test(obj.topicId)) errs.push(`${prefix}topicId darf nur a-z, 0-9 und _ enthalten`);
+  if(!obj.topicTitle?.de) errs.push(`${prefix}topicTitle.de fehlt`);
+  if(!Array.isArray(obj.cards)||obj.cards.length===0) errs.push(`${prefix}cards-Array fehlt oder leer`);
+  else{
+    obj.cards.forEach((c,ci)=>{
+      const cp=`${prefix}cards[${ci}]: `;
+      if(!VALID_LANGUAGES.includes(c.language)) errs.push(`${cp}language ungültig: ${c.language}`);
+      if(!VALID_LENGTHS.includes(c.length)) errs.push(`${cp}length ungültig: ${c.length}`);
+      if(!VALID_TYPES.includes(c.cardType)) errs.push(`${cp}cardType ungültig: ${c.cardType}`);
+      if(!c.title?.trim()) errs.push(`${cp}title fehlt`);
+      if(!c.hook?.trim()) errs.push(`${cp}hook fehlt`);
+      if(!c.body?.trim()) errs.push(`${cp}body fehlt`);
+    });
+  }
+  return errs;
+}
+
+function validateAndPreview(){
+  const raw=el("jsonInput").value.trim();
+  if(!raw){showStatus("Bitte JSON einfügen oder Datei hochladen.","error");return;}
+  let parsed;
+  try{parsed=JSON.parse(raw);}catch(e){
+    el("validationResult").innerHTML=`<div class="val-error">❌ Ungültiges JSON: ${esc(e.message)}</div>`;
+    el("previewArea").innerHTML='';
+    el("importBtn").classList.add('hidden');
+    goToStep(3);return;
+  }
+  const topics=Array.isArray(parsed)?parsed:[parsed];
+  let allErrors=[];
+  topics.forEach((t,i)=>{
+    const errs=validateTopicObj(t,topics.length>1?i:undefined);
+    allErrors=allErrors.concat(errs);
+  });
+  if(allErrors.length>0){
+    el("validationResult").innerHTML=`<div class="val-error">❌ <strong>${allErrors.length} Fehler gefunden:</strong><ul style="margin:6px 0 0;padding-left:18px">${allErrors.map(e=>`<li>${esc(e)}</li>`).join('')}</ul></div>`;
+    el("previewArea").innerHTML='';
+    el("importBtn").classList.add('hidden');
+    parsedImportData=null;
+  }else{
+    el("validationResult").innerHTML=`<div class="val-ok">✅ <strong>${topics.length} Topic${topics.length!==1?'s':''}</strong> mit <strong>${topics.reduce((s,t)=>s+t.cards.length,0)} Karten</strong> – bereit zum Importieren</div>`;
+    renderPreview(topics);
+    el("importBtn").classList.remove('hidden');
+    parsedImportData=topics;
+  }
+  goToStep(3);
+}
+
+function renderPreview(topics){
+  const html=topics.map(t=>{
+    const cardsHtml=t.cards.map(c=>`
+      <div class="preview-card">
+        <div class="preview-card-header">
+          <span class="badge badge-lang">${esc(c.language)}</span>
+          <span class="badge badge-len">${esc(c.length)}</span>
+          <span class="badge badge-type">${esc(c.cardType)}</span>
+        </div>
+        <div class="preview-card-title">${esc(c.title)}</div>
+        <div class="preview-card-hook">${esc(c.hook)}</div>
+        <div class="preview-card-body">${esc(c.body.slice(0,300))}${c.body.length>300?'…':''}</div>
+      </div>`).join('');
+    return `<div class="preview-topic">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <span class="badge badge-cat">🕍 kirche</span>
+        <strong>${esc(t.topicTitle?.de||t.topicId)}</strong>
+        <span class="muted small">${esc(t.topicId)}</span>
+      </div>
+      ${t.description?.de?`<div class="muted small" style="margin-bottom:8px">${esc(t.description.de)}</div>`:''}
+      ${t.source?.title?`<div class="small" style="margin-bottom:8px">📖 ${esc(t.source.title)}${t.source.url?` – <a href="${esc(t.source.url)}" target="_blank" style="color:var(--accent)">Link</a>`:''}</div>`:''}
+      <details>
+        <summary class="small muted" style="cursor:pointer">${t.cards.length} Karte${t.cards.length!==1?'n':''} anzeigen</summary>
+        ${cardsHtml}
+      </details>
+    </div>`;
+  }).join('');
+  el("previewArea").innerHTML=html;
+}
+
+/* ─── Import ──────────────────────────────────── */
+async function importData(){
+  if(!user){showStatus("Bitte einloggen.","error");return;}
+  if(!parsedImportData||parsedImportData.length===0){showStatus("Keine validierten Daten.","error");return;}
+  el("importBtn").disabled=true;
+  el("importBtn").textContent="⏳ Importiere…";
+  showStatus("Import läuft…");
+
+  const results=[];
+  const now=serverTimestamp();
+  const nowDate=new Date();
+
+  for(const topicData of parsedImportData){
+    try{
+      const topicId=topicData.topicId;
+      const cardsForTopic=topicData.cards;
+
+      // Build contentStatus
+      const langs=[...new Set(cardsForTopic.map(c=>c.language))];
+      const hasShortDE=cardsForTopic.some(c=>c.language==='de'&&c.length==='short');
+      const hasMediumDE=cardsForTopic.some(c=>c.language==='de'&&c.length==='medium');
+      const hasLongDE=cardsForTopic.some(c=>c.language==='de'&&c.length==='long');
+
+      // Write topic
+      const topicRef=doc(db,'topics',topicId);
+      const existingSnap=await getDoc(topicRef);
+      const topicPayload={
+        wikidataId:topicId,
+        title:topicData.topicTitle||{de:topicId,en:topicId},
+        description:topicData.description||{de:'',en:''},
+        aliases:{de:[],en:[]},
+        sitelinks:{},
+        tags:Array.isArray(topicData.tags)?topicData.tags:[],
+        sourceIds:[],
+        mainCategory:'kirche',
+        topicType:'other',
+        status:'active',
+        contentStatus:{
+          hasShortCard:hasShortDE,
+          hasMediumCard:hasMediumDE,
+          hasLongCard:hasLongDE,
+          reviewStatus:'approved',
+        },
+        import:{source:'manual_import',importedAt:existingSnap.exists()?existingSnap.data()?.import?.importedAt||now:now,lastFetchedAt:now},
+        createdAt:existingSnap.exists()?existingSnap.data()?.createdAt||now:now,
+        updatedAt:now,
+      };
+      await setDoc(topicRef,topicPayload,{merge:true});
+
+      // Write cards in batches of 500
+      const BATCH_SIZE=400;
+      let batchObj=writeBatch(db);
+      let batchCount=0;
+
+      for(const card of cardsForTopic){
+        const ts=nowDate.getTime();
+        const cardId=`${topicId}_${card.language}_${card.length}_${card.cardType}_manual_${ts}`;
+        const cardRef=doc(db,'swipeCards',cardId);
+        const source=topicData.source?[{title:topicData.source.title||'',url:topicData.source.url||'',type:'manual'}]:[];
+        batchObj.set(cardRef,{
+          cardId,topicId,
+          language:card.language,
+          length:card.length,
+          cardType:card.cardType,
+          title:card.title||'',
+          hook:card.hook||'',
+          body:card.body||'',
+          mainCategory:'kirche',
+          topicTitle:topicData.topicTitle||{de:topicId,en:topicId},
+          tags:Array.isArray(topicData.tags)?topicData.tags:[],
+          relatedTerms:[],
+          sources:source,
+          sourceIds:[],
+          sourceBasis:'manual',
+          sourceLimitations:[],
+          generation:{method:'manual_import',aiGenerated:false,importedAt:now},
+          status:'published',
+          reviewStatus:'approved',
+          qualityScore:0,
+          publishedAt:now,
+          createdAt:now,
+          updatedAt:now,
+        });
+        batchCount++;
+        if(batchCount>=BATCH_SIZE){await batchObj.commit();batchObj=writeBatch(db);batchCount=0;}
+      }
+      if(batchCount>0) await batchObj.commit();
+
+      results.push({topicId,title:topicData.topicTitle?.de||topicId,cards:cardsForTopic.length,status:'ok'});
+    }catch(e){
+      results.push({topicId:topicData.topicId,title:topicData.topicTitle?.de||topicData.topicId,cards:0,status:'error',error:e.message});
+    }
+  }
+
+  // Render result
+  const okCount=results.filter(r=>r.status==='ok').length;
+  const errCount=results.filter(r=>r.status==='error').length;
+  const html=`
+    <div class="${errCount===0?'status ok':'status warn'}" style="margin-bottom:12px">
+      ${errCount===0?'✅':'⚠️'} <strong>${okCount} Topic${okCount!==1?'s':''} importiert</strong>
+      ${errCount>0?`, ${errCount} Fehler`:''}
+    </div>
+    ${results.map(r=>`<div class="import-result-item ${r.status}">
+      ${r.status==='ok'?'✅':'❌'} <strong>${esc(r.title)}</strong>
+      <span class="muted small">${esc(r.topicId)}</span>
+      ${r.status==='ok'?`<span class="muted small">${r.cards} Karten</span>`:`<span style="color:var(--danger)">${esc(r.error)}</span>`}
+    </div>`).join('')}`;
+  el("importResult").innerHTML=html;
+  showStatus(`Import abgeschlossen: ${okCount} OK${errCount>0?`, ${errCount} Fehler`:''}`, errCount===0?'ok':'warn');
+  goToStep(4);
+  loadChurchTopics();
+  el("importBtn").disabled=false;
+  el("importBtn").textContent='✅ Jetzt importieren →';
+}
+
+/* ─── Load existing church topics ────────────── */
+async function loadChurchTopics(){
+  const listEl=el("churchTopicsList");
+  listEl.innerHTML='<span class="muted small">Lädt…</span>';
+  try{
+    const snap=await getDocs(query(collection(db,'topics'),where('mainCategory','==','kirche')));
+    const topics=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(topics.length===0){listEl.innerHTML='<span class="muted small">Noch keine Kircheninhalte importiert.</span>';return;}
+    topics.sort((a,b)=>(a.title?.de||'').localeCompare(b.title?.de||''));
+
+    // Load card counts per topic
+    const topicIds=topics.map(t=>t.id);
+    let cardCounts={};
+    // Query in chunks of 10 (Firestore "in" limit)
+    for(let i=0;i<topicIds.length;i+=10){
+      const chunk=topicIds.slice(i,i+10);
+      const cSnap=await getDocs(query(collection(db,'swipeCards'),where('topicId','in',chunk)));
+      cSnap.docs.forEach(d=>{
+        const tid=d.data().topicId;
+        cardCounts[tid]=(cardCounts[tid]||0)+1;
+      });
+    }
+
+    listEl.innerHTML=topics.map(t=>{
+      const cs=t.contentStatus||{};
+      const count=cardCounts[t.id]||0;
+      return `<div class="topic-row">
+        <div class="topic-row-body">
+          <div class="topic-row-title" title="${esc(t.id)}">${esc(t.title?.de||t.id)}</div>
+          <div class="topic-row-meta">${esc(t.id)}</div>
+          <div class="topic-row-badges">
+            <span class="badge ${cs.hasShortCard?'badge-has':'badge-miss'}">${cs.hasShortCard?'✓':'✗'} kurz</span>
+            <span class="badge ${cs.hasMediumCard?'badge-has':'badge-miss'}">${cs.hasMediumCard?'✓':'✗'} mittel</span>
+            <span class="badge ${cs.hasLongCard?'badge-has':'badge-miss'}">${cs.hasLongCard?'✓':'✗'} lang</span>
+            <span class="badge muted">${count} Karten total</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){listEl.innerHTML=`<span class="muted small">Fehler: ${esc(e.message)}</span>`;}
+}
+
+/* ─── File drop/upload ────────────────────────── */
+function handleFile(file){
+  if(!file||!file.name.endsWith('.json')){showStatus("Bitte eine .json-Datei hochladen.","error");return;}
+  const reader=new FileReader();
+  reader.onload=e=>{el("jsonInput").value=e.target.result;showStatus("Datei geladen: "+file.name);};
+  reader.readAsText(file);
+}
+
+/* ─── Init ────────────────────────────────────── */
+function init(){
+  app=initializeApp(firebaseConfig);
+  auth=getAuth(app);
+  db=getFirestore(app);
+
+  el("promptText").value=CHATGPT_PROMPT;
+
+  const templateBlob=new Blob([JSON.stringify(JSON_TEMPLATE,null,2)],{type:'application/json'});
+  el("downloadTemplateBtn").href=URL.createObjectURL(templateBlob);
+
+  onAuthStateChanged(auth,u=>{
+    user=u;
+    el("loginBox").classList.toggle("hidden",!!u);
+    el("appRoot").classList.toggle("hidden",!u);
+    if(u){el("userEmail").textContent=u.email||'';loadChurchTopics();}
+  });
+
+  el("loginBtn").onclick=async()=>{
+    try{await signInWithEmailAndPassword(auth,el("emailInput").value.trim(),el("passwordInput").value);}
+    catch(e){showStatus("Login fehlgeschlagen: "+e.message,"error");}
+  };
+  el("passwordInput").onkeydown=e=>{if(e.key==='Enter')el("loginBtn").click();};
+  el("logoutBtn").onclick=()=>signOut(auth);
+
+  el("copyPromptBtn").onclick=()=>{
+    navigator.clipboard.writeText(CHATGPT_PROMPT).then(()=>{
+      el("copyPromptBtn").textContent="✓ Kopiert!";
+      setTimeout(()=>{el("copyPromptBtn").textContent="📋 Kopieren";},2000);
+    }).catch(()=>{
+      el("promptText").select();document.execCommand('copy');
+      el("copyPromptBtn").textContent="✓ Kopiert!";
+      setTimeout(()=>{el("copyPromptBtn").textContent="📋 Kopieren";},2000);
+    });
+  };
+
+  el("toStep2Btn").onclick=()=>goToStep(2);
+  el("backTo1Btn").onclick=()=>goToStep(1);
+  el("backTo2Btn").onclick=()=>goToStep(2);
+  el("validateBtn").onclick=()=>validateAndPreview();
+  el("importBtn").onclick=()=>importData();
+  el("importAnotherBtn").onclick=()=>{
+    el("jsonInput").value='';
+    el("validationResult").innerHTML='';
+    el("previewArea").innerHTML='';
+    el("importResult").innerHTML='';
+    el("importBtn").classList.add('hidden');
+    parsedImportData=null;
+    goToStep(1);
+  };
+  el("reloadTopicsBtn").onclick=loadChurchTopics;
+
+  // Step tabs click
+  document.querySelectorAll('.step').forEach(s=>{
+    s.onclick=()=>{
+      const n=Number(s.dataset.step);
+      if(n<=currentStep||n===currentStep+1) goToStep(n);
+    };
+  });
+
+  // File drop zone
+  const dz=el("dropZone");
+  dz.onclick=()=>el("fileInput").click();
+  el("fileInput").onchange=e=>handleFile(e.target.files[0]);
+  dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag-over');};
+  dz.ondragleave=()=>dz.classList.remove('drag-over');
+  dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag-over');handleFile(e.dataTransfer.files[0]);};
+
+  // Paste shortcut in JSON textarea
+  el("jsonInput").addEventListener('paste',()=>setTimeout(()=>showStatus("JSON eingefügt. Klicke 'Prüfen & Vorschau'."),100));
+}
+
+/* ─── Button ripple ───────────────────────────── */
+document.addEventListener("pointerdown",e=>{
+  const btn=e.target.closest("button");
+  if(!btn||btn.disabled)return;
+  const rect=btn.getBoundingClientRect();
+  const dot=document.createElement("span");
+  dot.className="btn-ripple-dot";
+  dot.style.top=`${e.clientY-rect.top}px`;
+  dot.style.left=`${e.clientX-rect.left}px`;
+  btn.appendChild(dot);
+  dot.addEventListener("animationend",()=>dot.remove());
+});
+
+init();
+</script></body></html>

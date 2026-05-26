@@ -17,7 +17,7 @@ const API_USER_AGENT = "SwipeKnowledgePrototype/0.1 (admin-local; alain.sc2@gmai
 const FULL_EXTRACT_LIMIT = 60000;
 const LONG_CARD_MIN_WORDS = 1200;
 
-const ALLOWED_MAIN_CATEGORIES = ["geschichte","wissenschaft","geografie","politik","gesellschaft","religion","philosophie","technik","wirtschaft","kultur","sport","biografie","natur","medizin","mythologie","allgemeinwissen"];
+const ALLOWED_MAIN_CATEGORIES = ["geschichte","wissenschaft","geografie","politik","gesellschaft","religion","philosophie","technik","wirtschaft","kultur","sport","biografie","natur","medizin","mythologie","allgemeinwissen","kirche"];
 const ALLOWED_TOPIC_TYPES = ["person","historical_event","historical_period","place","country","organization","concept","scientific_concept","religion","ideology","technology","invention","conflict","treaty","natural_object","cultural_work","sport_event","other"];
 const REQUIRED_CARD_KEYS = ["de_short", "de_medium", "de_long", "en_short", "en_medium", "en_long"];
 const PREVIEW_MAX_CHARS = 3000;
