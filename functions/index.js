@@ -219,12 +219,41 @@ ${JSON.stringify(sourcePack)}`; }
 function preview(value) { return safeString(value).slice(0, PREVIEW_MAX_CHARS); }
 function stripJsonFences(text) { return safeString(text).trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim(); }
 function safeJsonParse(text) { try { return { ok: true, value: JSON.parse(text), error: null }; } catch (error) { return { ok: false, value: null, error: error.message }; } }
-function extractOpenAIText(response) {
-  const parts = [];
-
-  if (typeof response?.output_text === "string" && response.output_text.trim()) {
-    parts.push(response.output_text.trim());
+function extractFirstJsonObject(text) {
+  const input = safeString(text).trim();
+  const start = input.indexOf("{");
+  if (start < 0) return "";
+  let inString = false;
+  let escaped = false;
+  let depth = 0;
+  for (let i = start; i < input.length; i++) {
+    const char = input[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      if (inString) escaped = true;
+      continue;
+    }
+    if (char === "\"") {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (char === "{") depth++;
+    if (char === "}") {
+      depth--;
+      if (depth === 0) return input.slice(start, i + 1);
+    }
   }
+  return "";
+}
+function extractOpenAIText(response) {
+  if (typeof response?.output_text === "string" && response.output_text.trim()) {
+    return response.output_text.trim();
+  }
+  const parts = [];
 
   for (const item of response?.output || []) {
     for (const content of item?.content || []) {
@@ -468,11 +497,24 @@ Return only valid JSON. No Markdown.`
     }
 
     const cleanedText = stripJsonFences(rawOpenAIText);
-    const parsed = safeJsonParse(cleanedText);
+    let parsed = safeJsonParse(cleanedText);
+    if (!parsed.ok) {
+      const firstJsonObject = extractFirstJsonObject(cleanedText);
+      if (firstJsonObject) {
+        const fallbackParsed = safeJsonParse(firstJsonObject);
+        if (fallbackParsed.ok && fallbackParsed.value && typeof fallbackParsed.value === "object" && !Array.isArray(fallbackParsed.value)) {
+          parsed = fallbackParsed;
+          warnings.push("OpenAI-Antwort enthielt zusätzlichen Text nach dem ersten JSON-Objekt; erstes JSON-Objekt wurde verwendet.");
+        }
+      }
+    }
     if (!parsed.ok) {
       throw createFailedPrecondition("openai_invalid_json", "OpenAI hat Text geliefert, aber kein gültiges JSON.", {
         originalError: parsed.error,
         rawOpenAITextPreview: preview(rawOpenAIText),
+        rawOpenAITextLength: safeString(rawOpenAIText).length,
+        rawOpenAITextStart: safeString(rawOpenAIText).slice(0, 1000),
+        rawOpenAITextEnd: safeString(rawOpenAIText).slice(-1000),
         ...responseDebug,
       });
     }
