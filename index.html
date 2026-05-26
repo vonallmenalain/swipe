@@ -353,12 +353,27 @@
       will-change: transform;
     }
 
-    .card-viewport.animating {
-      transition: transform .22s cubic-bezier(.4, 0, .2, 1), opacity .22s ease;
+    @keyframes exitToLeft {
+      from { transform: translateX(0);    opacity: 1; }
+      to   { transform: translateX(-42%); opacity: 0; }
+    }
+    @keyframes exitToRight {
+      from { transform: translateX(0);   opacity: 1; }
+      to   { transform: translateX(42%); opacity: 0; }
+    }
+    @keyframes enterFromRight {
+      from { transform: translateX(42%); opacity: 0; }
+      to   { transform: translateX(0);   opacity: 1; }
+    }
+    @keyframes enterFromLeft {
+      from { transform: translateX(-42%); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
     }
 
-    .card-viewport.slide-up   { transform: translateX(-55px); opacity: 0; }
-    .card-viewport.slide-down { transform: translateX( 55px); opacity: 0; }
+    .card-viewport.exit-left   { animation: exitToLeft     0.2s  cubic-bezier(.4,0,.6,1) forwards; }
+    .card-viewport.exit-right  { animation: exitToRight    0.2s  cubic-bezier(.4,0,.6,1) forwards; }
+    .card-viewport.enter-right { animation: enterFromRight 0.22s cubic-bezier(.2,0,.4,1) forwards; }
+    .card-viewport.enter-left  { animation: enterFromLeft  0.22s cubic-bezier(.2,0,.4,1) forwards; }
 
     /* ── In-reader length bar ── */
     .reader-len-bar {
@@ -655,6 +670,77 @@
     }
 
     .swipe-hint.show { opacity: 1; }
+
+    /* ─── RELATED CATEGORIES BOTTOM SHEET ────────────── */
+    .sheet-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .55);
+      z-index: 490;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .3s ease;
+    }
+
+    .sheet-overlay.show {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .related-sheet {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #0c1e18;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 20px 20px 0 0;
+      padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+      z-index: 500;
+      max-height: 72vh;
+      overflow-y: auto;
+      transform: translateY(100%);
+      transition: transform .35s cubic-bezier(.32, .72, 0, 1);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .related-sheet.open { transform: translateY(0); }
+
+    .sheet-handle {
+      width: 38px; height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 12px auto 16px;
+    }
+
+    .sheet-title {
+      font-size: .78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text2);
+      text-align: center;
+      margin-bottom: 14px;
+    }
+
+    .sheet-close-row {
+      display: flex;
+      justify-content: center;
+      margin-top: 18px;
+    }
+
+    .sheet-close-btn {
+      padding: 9px 24px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      color: var(--text2);
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+
+    .sheet-close-btn:active { background: var(--card2); }
   </style>
 </head>
 <body>
@@ -670,10 +756,10 @@
     </div>
 
     <div class="setup-section">
-      <div class="setup-label">Kartenlänge</div>
+      <div class="setup-label">Kartenlänge <span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:.7;font-size:.68rem">(optional)</span></div>
       <div class="pill-group" id="lengthGroup">
-        <button class="pill-btn active" data-value="short">⚡ Kurz</button>
-        <button class="pill-btn"        data-value="long">📚 Lang</button>
+        <button class="pill-btn" data-value="short">⚡ Kurz</button>
+        <button class="pill-btn" data-value="long">📚 Lang</button>
       </div>
     </div>
 
@@ -734,7 +820,7 @@
       </div>
 
       <!-- Swipe hint (appears briefly on first card) -->
-      <div class="swipe-hint" id="swipeHint">← Nächste Karte &nbsp;|&nbsp; → Vorherige</div>
+      <div class="swipe-hint" id="swipeHint">← Weiter &nbsp;·&nbsp; → Zurück &nbsp;·&nbsp; ↓ Verwandte</div>
     </div>
 
     <div class="reader-nav">
@@ -770,6 +856,21 @@
     </div>
 
   </div><!-- /noCardsScreen -->
+
+
+  <!-- ═══════════════════════════════════════════════════
+       RELATED CATEGORIES BOTTOM SHEET
+  ══════════════════════════════════════════════════════ -->
+  <div class="sheet-overlay" id="sheetOverlay"></div>
+
+  <div class="related-sheet" id="relatedSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Verwandte Kategorien</div>
+    <div class="cat-grid" id="sheetCatGrid"></div>
+    <div class="sheet-close-row">
+      <button class="sheet-close-btn" id="sheetCloseBtn">Schließen</button>
+    </div>
+  </div>
 
 
   <!-- ═══════════════════════════════════════════════════
@@ -821,7 +922,7 @@
   let cards          = [];
   let idx            = 0;
   const selectedLang = "de";
-  let selectedLen    = "short";
+  let selectedLen    = null;
   let selectedCats   = new Set();
 
   /* Touch tracking */
@@ -1049,7 +1150,7 @@
     cards = shuffle(
       allCards.filter(c =>
         catsArray.includes(c.mainCategory) &&
-        c.length === selectedLen
+        (selectedLen === null || c.length === selectedLen)
       )
     );
 
@@ -1069,12 +1170,10 @@
 
   /* ── Change length from within the reader ──────────── */
   function changeLength(newLen) {
-    if (newLen === selectedLen) return;
-
-    selectedLen = newLen;
+    selectedLen = (newLen === selectedLen) ? null : newLen;
     syncReaderLenBar();
     $("lengthGroup").querySelectorAll(".pill-btn").forEach(b => {
-      b.classList.toggle("active", b.dataset.value === newLen);
+      b.classList.toggle("active", b.dataset.value === selectedLen);
     });
 
     const vp = $("cardViewport");
@@ -1084,7 +1183,7 @@
     cards = shuffle(
       allCards.filter(c =>
         catsArray.includes(c.mainCategory) &&
-        c.length === selectedLen
+        (selectedLen === null || c.length === selectedLen)
       )
     );
 
@@ -1150,15 +1249,18 @@
         ${srcHtml ? `<div class="card-footer">${srcHtml}</div>` : ""}
       </div>`;
 
-    // Animate out, swap content, animate in
+    // Animate out (exit), swap content, animate in (enter)
     if (direction) {
-      vp.classList.add("animating", direction === "next" ? "slide-up" : "slide-down");
+      const exitCls  = direction === "next" ? "exit-left"   : "exit-right";
+      const enterCls = direction === "next" ? "enter-right" : "enter-left";
+      vp.classList.add(exitCls);
       setTimeout(() => {
+        vp.classList.remove(exitCls);
         vp.innerHTML = html;
         vp.scrollTop = 0;
-        vp.classList.remove("slide-up", "slide-down");
-        setTimeout(() => vp.classList.remove("animating"), 260);
-      }, 200);
+        vp.classList.add(enterCls);
+        setTimeout(() => vp.classList.remove(enterCls), 250);
+      }, 180);
     } else {
       vp.innerHTML = html;
       vp.scrollTop = 0;
@@ -1217,14 +1319,20 @@
       const absDx = Math.abs(dx);
       const absDy = Math.abs(dy);
 
-      // Horizontal swipe (primarily horizontal gesture, min 45px)
+      // Horizontal swipe → navigate cards
       if (absDx > absDy * 1.4 && absDx > 45) {
-        if (dx < 0) goTo(idx + 1, "next");
-        else        goTo(idx - 1, "prev");
+        if (dx < 0) goTo(idx + 1, "next"); // swipe left  = next card
+        else        goTo(idx - 1, "prev"); // swipe right = prev card
         return;
       }
 
-      // Vertical gestures: scroll naturally, no card navigation
+      // Downward swipe at the top of the card → show related categories
+      if (dy > absDx * 1.4 && dy > 60 && vp.scrollTop < 10) {
+        showRelatedCategories();
+        return;
+      }
+
+      // Upward swipe: native scroll handles it naturally
     }, { passive: true });
   }
 
@@ -1264,9 +1372,14 @@
     $("lengthGroup").addEventListener("click", e => {
       const btn = e.target.closest(".pill-btn");
       if (!btn) return;
-      selectedLen = btn.dataset.value;
-      $("lengthGroup").querySelectorAll(".pill-btn")
-        .forEach(b => b.classList.toggle("active", b === btn));
+      if (btn.classList.contains("active")) {
+        btn.classList.remove("active");
+        selectedLen = null;
+      } else {
+        selectedLen = btn.dataset.value;
+        $("lengthGroup").querySelectorAll(".pill-btn")
+          .forEach(b => b.classList.toggle("active", b === btn));
+      }
     });
   }
 
@@ -1289,6 +1402,9 @@
     $("changeTopicBtn").addEventListener("click",  () => goBack());
     $("changeTopicBtn2").addEventListener("click", () => goBack());
     $("retryBtn").addEventListener("click",        () => goBack());
+
+    $("sheetOverlay").addEventListener("click",  hideRelatedCategories);
+    $("sheetCloseBtn").addEventListener("click", hideRelatedCategories);
   }
 
   /* ── Browser back button handling ───────────────────── */
@@ -1303,6 +1419,71 @@
         goBack();
       }
     });
+  }
+
+  /* ── Related categories ─────────────────────────────── */
+  const RELATED_CATS = {
+    geschichte:      ["biografie", "mythologie", "kultur", "politik", "geografie"],
+    wissenschaft:    ["medizin", "technik", "natur", "philosophie"],
+    geografie:       ["geschichte", "natur", "kultur"],
+    politik:         ["geschichte", "gesellschaft", "wirtschaft"],
+    gesellschaft:    ["politik", "kultur", "philosophie", "religion"],
+    religion:        ["philosophie", "mythologie", "geschichte", "kirche"],
+    philosophie:     ["religion", "wissenschaft", "gesellschaft"],
+    technik:         ["wissenschaft", "wirtschaft"],
+    wirtschaft:      ["politik", "gesellschaft", "technik"],
+    kultur:          ["geschichte", "gesellschaft", "religion", "sport"],
+    sport:           ["kultur", "gesellschaft"],
+    biografie:       ["geschichte", "politik", "wissenschaft"],
+    natur:           ["wissenschaft", "geografie"],
+    medizin:         ["wissenschaft", "natur"],
+    mythologie:      ["religion", "geschichte", "kultur"],
+    allgemeinwissen: ["wissenschaft", "geschichte", "kultur"],
+    kirche:          ["religion", "geschichte", "philosophie"],
+  };
+
+  function showRelatedCategories() {
+    const card = cards[idx];
+    if (!card) return;
+
+    const currentCat = card.mainCategory;
+    const suggested  = RELATED_CATS[currentCat] ?? [];
+
+    const available = Object.keys(categoryCounts).filter(c => c !== currentCat);
+    const sorted = [
+      ...suggested.filter(c => categoryCounts[c]),
+      ...available.filter(c => !suggested.includes(c))
+                  .sort((a, b) => (categoryCounts[b] || 0) - (categoryCounts[a] || 0)),
+    ];
+
+    const grid = $("sheetCatGrid");
+    grid.innerHTML = sorted.slice(0, 8).map(cat => {
+      const meta  = CAT_META[cat] ?? { label: cat, emoji: "📌" };
+      const count = categoryCounts[cat] ?? 0;
+      const label = meta.label.length > 12 ? meta.label.slice(0, 12) + "…" : meta.label;
+      return `
+        <div class="cat-card" data-cat="${esc(cat)}" role="button" tabindex="0">
+          <span class="cat-emoji">${meta.emoji}</span>
+          <div class="cat-name">${esc(label)}</div>
+          <div class="cat-count">${count} Karte${count !== 1 ? "n" : ""}</div>
+        </div>`;
+    }).join("");
+
+    grid.querySelectorAll(".cat-card").forEach(c => {
+      c.addEventListener("click", () => {
+        hideRelatedCategories();
+        selectedCats = new Set([c.dataset.cat]);
+        loadCards();
+      });
+    });
+
+    $("relatedSheet").classList.add("open");
+    $("sheetOverlay").classList.add("show");
+  }
+
+  function hideRelatedCategories() {
+    $("relatedSheet").classList.remove("open");
+    $("sheetOverlay").classList.remove("show");
   }
 
   /* ── Bootstrap ──────────────────────────────────────── */
