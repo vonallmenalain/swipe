@@ -637,135 +637,6 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-    /* ─── RELATED TOPICS PANEL ────────────────────────── */
-    .related-panel {
-      position: absolute;
-      inset: 0;
-      background: rgba(7, 18, 15, .97);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      z-index: 100;
-      display: flex;
-      flex-direction: column;
-      transform: translateX(100%);
-      transition: transform .3s cubic-bezier(.4, 0, .2, 1);
-      pointer-events: none;
-      overflow: hidden;
-    }
-
-    .related-panel.open {
-      transform: translateX(0);
-      pointer-events: auto;
-    }
-
-    .related-panel-topbar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-
-    .related-panel-title {
-      flex: 1;
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    .related-panel-hint {
-      font-size: .72rem;
-      color: var(--text2);
-      margin-top: 2px;
-      font-weight: 400;
-    }
-
-    .close-panel-btn {
-      width: 36px; height: 36px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--card);
-      color: var(--text2);
-      font-size: .85rem;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: background .15s;
-    }
-
-    .close-panel-btn:active { background: var(--card2); }
-
-    .related-panel-scroll {
-      flex: 1;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      padding: 14px 16px 24px;
-    }
-
-    .related-topic-card {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 14px 16px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      margin-bottom: 10px;
-      cursor: pointer;
-      transition: background .15s, border-color .15s, transform .1s;
-      text-align: left;
-      width: 100%;
-    }
-
-    .related-topic-card:active { background: var(--card2); transform: scale(.98); }
-
-    .related-topic-card:hover { border-color: rgba(47, 206, 140, .3); background: rgba(47, 206, 140, .06); }
-
-    .related-topic-icon {
-      width: 40px; height: 40px;
-      border-radius: 10px;
-      background: rgba(47, 206, 140, .1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.2rem;
-      flex-shrink: 0;
-    }
-
-    .related-topic-info { flex: 1; min-width: 0; }
-
-    .related-topic-name {
-      font-size: .95rem;
-      font-weight: 700;
-      color: var(--text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .related-topic-meta {
-      font-size: .72rem;
-      color: var(--text2);
-      margin-top: 3px;
-    }
-
-    .related-topic-arrow {
-      color: var(--accent);
-      font-size: .85rem;
-      flex-shrink: 0;
-    }
-
-    .related-empty {
-      text-align: center;
-      color: var(--text2);
-      font-size: .9rem;
-      padding: 32px 16px;
-      line-height: 1.6;
-    }
-
     .swipe-hint {
       position: absolute;
       left: 50%;
@@ -799,18 +670,9 @@
     </div>
 
     <div class="setup-section">
-      <div class="setup-label">Sprache</div>
-      <div class="pill-group" id="langGroup">
-        <button class="pill-btn active" data-value="de">🇩🇪 Deutsch</button>
-        <button class="pill-btn"        data-value="en">🇬🇧 English</button>
-      </div>
-    </div>
-
-    <div class="setup-section">
       <div class="setup-label">Kartenlänge</div>
       <div class="pill-group" id="lengthGroup">
         <button class="pill-btn active" data-value="short">⚡ Kurz</button>
-        <button class="pill-btn"        data-value="medium">📄 Mittel</button>
         <button class="pill-btn"        data-value="long">📚 Lang</button>
       </div>
     </div>
@@ -852,9 +714,6 @@
       <div class="dev-wrap">
         <button class="dev-btn" id="devBtn" title="Dev-Menü">DEV</button>
         <div class="dev-menu" id="devMenu">
-          <a href="adm-topic-overview.html">📋 Themen-Übersicht</a>
-          <a href="adm-swipe-card-generator.html">✨ Card Generator</a>
-          <a href="adm-wikidata-import.html">📥 Wikidata Import</a>
           <a href="adm-church-import.html">🕍 Kirche Import</a>
         </div>
       </div>
@@ -866,7 +725,6 @@
 
     <div class="reader-len-bar" id="readerLenBar">
       <button class="len-pill active" data-value="short">⚡ Kurz</button>
-      <button class="len-pill"        data-value="medium">📄 Mittel</button>
       <button class="len-pill"        data-value="long">📚 Lang</button>
     </div>
 
@@ -875,22 +733,8 @@
         <!-- Card injected here -->
       </div>
 
-      <!-- Related Topics Panel (slides in from right on left swipe) -->
-      <div class="related-panel" id="relatedPanel">
-        <div class="related-panel-topbar">
-          <div>
-            <div class="related-panel-title">Verwandte Themen</div>
-            <div class="related-panel-hint">Tippe auf ein Thema, um dessen Karte zu lesen</div>
-          </div>
-          <button class="close-panel-btn" id="closePanelBtn" aria-label="Schließen">✕</button>
-        </div>
-        <div class="related-panel-scroll" id="relatedPanelScroll">
-          <div class="related-empty">Wird geladen…</div>
-        </div>
-      </div>
-
       <!-- Swipe hint (appears briefly on first card) -->
-      <div class="swipe-hint" id="swipeHint">← Neue Karte &nbsp;|&nbsp; Verwandte Themen →</div>
+      <div class="swipe-hint" id="swipeHint">← Nächste Karte &nbsp;|&nbsp; → Vorherige</div>
     </div>
 
     <div class="reader-nav">
@@ -918,9 +762,9 @@
       <div class="state-icon">🔍</div>
       <div class="state-title">Keine Karten gefunden</div>
       <div class="state-text">
-        Für diesen Themenbereich mit den gewählten Einstellungen sind noch keine Karten vorhanden.
+        Für diesen Themenbereich mit der gewählten Länge sind noch keine Karten vorhanden.
         <br><br>
-        Bitte wähle eine andere Kombination aus Thema, Sprache oder Länge.
+        Bitte wähle einen anderen Themenbereich oder eine andere Kartenlänge.
       </div>
       <button class="retry-btn" id="retryBtn">Andere Auswahl treffen</button>
     </div>
@@ -968,23 +812,21 @@
     kirche:          { label: "Kirche JCHNdLT", emoji: "🕍" },
   };
 
-  const LENGTH_LABELS = { short: "Kurz", medium: "Mittel", long: "Lang" };
+  const LENGTH_LABELS = { short: "Kurz", long: "Lang" };
 
   /* ── State ──────────────────────────────────────────── */
   let db;
-  let topics         = [];
+  let allCards       = [];
   let categoryCounts = {};
   let cards          = [];
   let idx            = 0;
-  let selectedLang   = "de";
+  const selectedLang = "de";
   let selectedLen    = "short";
   let selectedCats   = new Set();
 
   /* Touch tracking */
   let touchStartX = 0;
   let touchStartY = 0;
-  let touchStartScrollY = 0;
-  let relatedPanelOpen = false;
 
   /* ── Helpers ────────────────────────────────────────── */
   const $  = id => document.getElementById(id);
@@ -1003,7 +845,6 @@
   }
 
   function goBack() {
-    closeRelatedPanel();
     if (screenHistory.length > 1) {
       screenHistory.pop();
       const prev = screenHistory[screenHistory.length - 1];
@@ -1026,24 +867,12 @@
   // Body uses "## Section heading. Body text ## Next heading Body text…"
   // Headings end at '?' or '!', or we detect the sentence-start of body.
 
-  const SENT_STARTERS = /^(The|A|An|In|On|It|This|These|That|There|During|Before|After|When|Although|According|Many|Some|Most|All|As|With|From|Its|He|She|They|We|Between|Within|Under|Over|Around|Through|By|For|Because|However|Furthermore|Moreover|Since|While|Despite|Therefore|Thus|At|About|During|Among|Along|After|Building|Construction|Official|After|East|West|North|South|New|Old)\b/;
-
   function extractHeadingAndBody(chunk) {
     const t = chunk.trim();
 
     // Ends with ? or ! → clear sentence heading
     const m = t.match(/^([^.]*?[?!])\s+([\s\S]*)$/);
     if (m) return { heading: m[1].trim(), body: m[2].trim() };
-
-    // No terminal punctuation → search for sentence-start
-    const words = t.split(/\s+/);
-    for (let i = 2; i <= Math.min(14, words.length - 1); i++) {
-      const rest = words.slice(i).join(" ");
-      if (SENT_STARTERS.test(rest)) {
-        const heading = words.slice(0, i).join(" ").replace(/[.,;:]$/, "");
-        return { heading, body: rest };
-      }
-    }
 
     // Fallback: treat whole chunk as body
     return { heading: "", body: t };
@@ -1116,15 +945,20 @@
     db = getFirestore(app);
   }
 
-  /* ── Load topics (for categories) ──────────────────── */
-  async function loadTopics() {
+  /* ── Load all published cards once, derive categories ── */
+  async function loadCategories() {
     try {
-      const snap = await getDocs(collection(db, "topics"));
-      topics = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const snap = await getDocs(query(
+        collection(db, "swipeCards"),
+        where("status", "==", "published")
+      ));
+      allCards = snap.docs
+        .map(d => ({ _docId: d.id, ...d.data() }))
+        .filter(c => c.language === selectedLang);
 
       categoryCounts = {};
-      topics.forEach(t => {
-        const cat = String(t.mainCategory ?? "").trim();
+      allCards.forEach(c => {
+        const cat = String(c.mainCategory ?? "").trim();
         if (cat && cat !== "unknown") {
           categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
         }
@@ -1132,7 +966,7 @@
 
       renderCategories();
     } catch (err) {
-      console.error("Fehler beim Laden der Topics:", err);
+      console.error("Fehler beim Laden der Karten:", err);
       $("catGrid").innerHTML = `
         <div class="cat-error">
           ⚠️ Themenbereiche konnten nicht geladen werden.<br>
@@ -1161,7 +995,7 @@
              aria-pressed="${selectedCats.has(cat)}">
           <span class="cat-emoji">${meta.emoji}</span>
           <div class="cat-name">${esc(label)}</div>
-          <div class="cat-count">${count} Thema${count !== 1 ? "en" : ""}</div>
+          <div class="cat-count">${count} Karte${count !== 1 ? "n" : ""}</div>
         </div>`;
     }).join("");
 
@@ -1196,21 +1030,6 @@
         : `${n} Themen laden →`;
   }
 
-  /* ── Build Firestore query for current category selection ─ */
-  function buildCardQuery() {
-    const catsArray = [...selectedCats];
-    if (catsArray.length === 1) {
-      return query(
-        collection(db, "swipeCards"),
-        where("mainCategory", "==", catsArray[0])
-      );
-    }
-    return query(
-      collection(db, "swipeCards"),
-      where("mainCategory", "in", catsArray)
-    );
-  }
-
   function updateTopbarChip() {
     const catsArray = [...selectedCats];
     if (catsArray.length === 1) {
@@ -1222,51 +1041,35 @@
   }
 
   /* ── Load swipe cards ───────────────────────────────── */
-  async function loadCards() {
+  function loadCards() {
     showScreen("loadingScreen");
     $("loadingText").textContent = "Karten werden geladen…";
 
-    try {
-      const snap = await getDocs(buildCardQuery());
-      const all  = snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
+    const catsArray = [...selectedCats];
+    cards = shuffle(
+      allCards.filter(c =>
+        catsArray.includes(c.mainCategory) &&
+        c.length === selectedLen
+      )
+    );
 
-      // Filter in-memory (avoids composite index) - only show published cards
-      cards = shuffle(
-        all.filter(c =>
-          c.language === selectedLang &&
-          c.length   === selectedLen  &&
-          c.status   === "published"
-        )
-      );
-
-      if (!cards.length) {
-        showScreen("noCardsScreen");
-        return;
-      }
-
-      idx = 0;
-      showScreen("readerScreen");
-      updateTopbarChip();
-      syncReaderLenBar();
-      renderCard(idx);
-      renderNav();
-      maybeShowSwipeHint();
-
-    } catch (err) {
-      console.error("Fehler beim Laden der Karten:", err);
-      $("loadingText").textContent =
-        "❌ Fehler beim Laden. Bitte Firestore-Regeln prüfen.";
-      setTimeout(() => showScreen("setupScreen"), 3000);
+    if (!cards.length) {
+      showScreen("noCardsScreen");
+      return;
     }
+
+    idx = 0;
+    showScreen("readerScreen");
+    updateTopbarChip();
+    syncReaderLenBar();
+    renderCard(idx);
+    renderNav();
+    maybeShowSwipeHint();
   }
 
   /* ── Change length from within the reader ──────────── */
-  async function changeLength(newLen) {
+  function changeLength(newLen) {
     if (newLen === selectedLen) return;
-    closeRelatedPanel();
-
-    const currentCard = cards[idx];
-    const currentTopicId = currentCard?.topicId ?? null;
 
     selectedLen = newLen;
     syncReaderLenBar();
@@ -1276,36 +1079,24 @@
 
     const vp = $("cardViewport");
     vp.style.opacity = "0.35";
-    try {
-      const snap = await getDocs(buildCardQuery());
-      const all  = snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
-      cards = shuffle(
-        all.filter(c =>
-          c.language === selectedLang &&
-          c.length   === selectedLen  &&
-          c.status   === "published"
-        )
-      );
-      vp.style.opacity = "";
-      if (!cards.length) {
-        showScreen("noCardsScreen");
-        return;
-      }
 
-      // Keep same topic when switching length
-      let newIdx = 0;
-      if (currentTopicId) {
-        const sameTopicIdx = cards.findIndex(c => c.topicId === currentTopicId);
-        if (sameTopicIdx >= 0) newIdx = sameTopicIdx;
-      }
+    const catsArray = [...selectedCats];
+    cards = shuffle(
+      allCards.filter(c =>
+        catsArray.includes(c.mainCategory) &&
+        c.length === selectedLen
+      )
+    );
 
-      idx = newIdx;
-      renderCard(idx);
-      renderNav();
-    } catch (err) {
-      vp.style.opacity = "";
-      console.error("Fehler beim Laden:", err);
+    vp.style.opacity = "";
+    if (!cards.length) {
+      showScreen("noCardsScreen");
+      return;
     }
+
+    idx = 0;
+    renderCard(idx);
+    renderNav();
   }
 
   function syncReaderLenBar() {
@@ -1323,9 +1114,7 @@
     const meta  = CAT_META[card.mainCategory] ?? { label: card.mainCategory ?? "Thema", emoji: "📌" };
     const lenLbl  = LENGTH_LABELS[card.length]  ?? card.length  ?? "";
 
-    const topicTitle = selectedLang === "de"
-      ? String(card.topicTitle?.de ?? card.title ?? "")
-      : String(card.topicTitle?.en ?? card.title ?? "");
+    const topicTitle = String(card.topicTitle?.de ?? card.title ?? "");
 
     const src    = getBestSource(card);
     const srcHtml = src ? `
@@ -1418,9 +1207,8 @@
     const vp = $("cardViewport");
 
     vp.addEventListener("touchstart", e => {
-      touchStartX       = e.touches[0].clientX;
-      touchStartY       = e.touches[0].clientY;
-      touchStartScrollY = vp.scrollTop;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
     }, { passive: true });
 
     vp.addEventListener("touchend", e => {
@@ -1431,157 +1219,13 @@
 
       // Horizontal swipe (primarily horizontal gesture, min 45px)
       if (absDx > absDy * 1.4 && absDx > 45) {
-        if (dx < 0) {
-          // Left swipe → next card
-          closeRelatedPanel();
-          goTo(idx + 1, "next");
-        } else {
-          // Right swipe → open related topics panel (or close if already open)
-          if (relatedPanelOpen) closeRelatedPanel();
-          else openRelatedPanel();
-        }
+        if (dx < 0) goTo(idx + 1, "next");
+        else        goTo(idx - 1, "prev");
         return;
       }
 
-      // Vertical gestures: up = scroll (natural), no card navigation on vertical
+      // Vertical gestures: scroll naturally, no card navigation
     }, { passive: true });
-
-    // Handle swipe on the related panel (left swipe closes it)
-    const panel = $("relatedPanel");
-    let panelTouchStartX = 0;
-    panel.addEventListener("touchstart", e => {
-      panelTouchStartX = e.touches[0].clientX;
-    }, { passive: true });
-    panel.addEventListener("touchend", e => {
-      const dx = e.changedTouches[0].clientX - panelTouchStartX;
-      if (dx < -60) closeRelatedPanel();
-    }, { passive: true });
-  }
-
-  /* ── Related Topics Panel ───────────────────────────── */
-
-  function findTopicById(topicId) {
-    return topics.find(t => t.id === topicId || (t.wikidataId && t.wikidataId === topicId)) ?? null;
-  }
-
-  function findTopicForTerm(term) {
-    const titleLower = String(term.title ?? "").toLowerCase().trim();
-    if (term.wikidataId) {
-      const byId = topics.find(t => t.id === term.wikidataId || t.wikidataId === term.wikidataId);
-      if (byId) return byId;
-    }
-    return topics.find(t =>
-      String(t.title?.de ?? "").toLowerCase().trim() === titleLower ||
-      String(t.title?.en ?? "").toLowerCase().trim() === titleLower
-    ) ?? null;
-  }
-
-  function topicHasPublishedCards(topic) {
-    return (topic?.contentStatus?.cardsPublished ?? 0) > 0 ||
-           topic?.contentStatus?.hasShortCard === true;
-  }
-
-  function openRelatedPanel() {
-    relatedPanelOpen = true;
-    $("relatedPanel").classList.add("open");
-    loadRelatedTopicsForCard(cards[idx]);
-  }
-
-  function closeRelatedPanel() {
-    if (!relatedPanelOpen) return;
-    relatedPanelOpen = false;
-    $("relatedPanel").classList.remove("open");
-  }
-
-  async function loadRelatedTopicsForCard(card) {
-    if (!card) return;
-    const scroll = $("relatedPanelScroll");
-    scroll.innerHTML = `<div class="related-empty">Wird geladen…</div>`;
-
-    const topic = findTopicById(card.topicId);
-    const relatedTerms = Array.isArray(topic?.relatedTerms) ? topic.relatedTerms : [];
-
-    // Resolve each term to a topic with published cards
-    const resolved = relatedTerms
-      .map(term => findTopicForTerm(term))
-      .filter(t => t !== null && t.id !== card.topicId && t.wikidataId !== card.topicId)
-      .filter(t => topicHasPublishedCards(t));
-
-    // Deduplicate by topic id
-    const seen = new Set();
-    const unique = resolved.filter(t => {
-      const key = t.id ?? t.wikidataId;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    if (!unique.length) {
-      scroll.innerHTML = `<div class="related-empty">Für diese Karte sind noch keine verwandten Themen mit Karten verfügbar.</div>`;
-      return;
-    }
-
-    const CAT_META_LOCAL = {
-      geschichte: "📜", wissenschaft: "🔬", geografie: "🌍", politik: "🏛️",
-      gesellschaft: "👥", religion: "⛪", philosophie: "💭", technik: "⚙️",
-      wirtschaft: "📈", kultur: "🎭", sport: "⚽", biografie: "👤",
-      natur: "🌿", medizin: "🩺", mythologie: "⚡", allgemeinwissen: "💡",
-    };
-
-    scroll.innerHTML = unique.map(t => {
-      const title = selectedLang === "de"
-        ? String(t.title?.de ?? t.title?.en ?? t.wikidataId ?? "")
-        : String(t.title?.en ?? t.title?.de ?? t.wikidataId ?? "");
-      const cat = String(t.mainCategory ?? "");
-      const emoji = CAT_META_LOCAL[cat] ?? "📌";
-      const catLabel = CAT_META[cat]?.label ?? cat;
-      return `<button class="related-topic-card" data-related-topic="${esc(t.id ?? t.wikidataId)}">
-        <div class="related-topic-icon">${emoji}</div>
-        <div class="related-topic-info">
-          <div class="related-topic-name">${esc(title)}</div>
-          <div class="related-topic-meta">${esc(catLabel)}</div>
-        </div>
-        <div class="related-topic-arrow">→</div>
-      </button>`;
-    }).join("");
-
-    scroll.querySelectorAll("[data-related-topic]").forEach(btn => {
-      btn.addEventListener("click", () => navigateToRelatedTopic(btn.dataset.relatedTopic));
-    });
-  }
-
-  async function navigateToRelatedTopic(topicId) {
-    closeRelatedPanel();
-    const vp = $("cardViewport");
-    vp.style.opacity = "0.4";
-    try {
-      const snap = await getDocs(query(
-        collection(db, "swipeCards"),
-        where("topicId", "==", topicId)
-      ));
-      const newCards = snap.docs
-        .map(d => ({ _docId: d.id, ...d.data() }))
-        .filter(c => c.language === selectedLang && c.length === selectedLen && c.status === "published");
-
-      vp.style.opacity = "";
-      if (!newCards.length) {
-        // Try other lengths if this length has no card
-        const anyCard = snap.docs
-          .map(d => ({ _docId: d.id, ...d.data() }))
-          .filter(c => c.language === selectedLang && c.status === "published")[0];
-        if (anyCard) {
-          cards = [...cards.slice(0, idx + 1), anyCard, ...cards.slice(idx + 1)];
-          goTo(idx + 1, "next");
-        }
-        return;
-      }
-      // Insert the related topic's card(s) right after current position
-      cards = [...cards.slice(0, idx + 1), ...newCards, ...cards.slice(idx + 1)];
-      goTo(idx + 1, "next");
-    } catch (err) {
-      vp.style.opacity = "";
-      console.error("Fehler beim Laden der Karte:", err);
-    }
   }
 
   /* ── Swipe-left hint (shown briefly on first card) ─── */
@@ -1600,9 +1244,9 @@
     document.addEventListener("keydown", e => {
       const active = document.querySelector(".screen:not(.hidden)");
       if (active?.id !== "readerScreen") return;
-      if (e.key === "ArrowLeft")  { closeRelatedPanel(); goTo(idx + 1, "next"); }
-      if (e.key === "ArrowRight") { if (relatedPanelOpen) closeRelatedPanel(); else openRelatedPanel(); }
-      if (e.key === "Escape")     { if (relatedPanelOpen) closeRelatedPanel(); else goBack(); }
+      if (e.key === "ArrowLeft")  goTo(idx + 1, "next");
+      if (e.key === "ArrowRight") goTo(idx - 1, "prev");
+      if (e.key === "Escape")     goBack();
     });
   }
 
@@ -1617,14 +1261,6 @@
 
   /* ── Pill selectors (setup screen) ─────────────────── */
   function setupPills() {
-    $("langGroup").addEventListener("click", e => {
-      const btn = e.target.closest(".pill-btn");
-      if (!btn) return;
-      selectedLang = btn.dataset.value;
-      $("langGroup").querySelectorAll(".pill-btn")
-        .forEach(b => b.classList.toggle("active", b === btn));
-    });
-
     $("lengthGroup").addEventListener("click", e => {
       const btn = e.target.closest(".pill-btn");
       if (!btn) return;
@@ -1647,14 +1283,12 @@
   function setupEvents() {
     $("startBtn").addEventListener("click", loadCards);
 
-    $("prevBtn").addEventListener("click", () => { closeRelatedPanel(); goTo(idx - 1, "prev"); });
-    $("nextBtn").addEventListener("click", () => { closeRelatedPanel(); goTo(idx + 1, "next"); });
+    $("prevBtn").addEventListener("click", () => goTo(idx - 1, "prev"));
+    $("nextBtn").addEventListener("click", () => goTo(idx + 1, "next"));
 
     $("changeTopicBtn").addEventListener("click",  () => goBack());
     $("changeTopicBtn2").addEventListener("click", () => goBack());
     $("retryBtn").addEventListener("click",        () => goBack());
-
-    $("closePanelBtn").addEventListener("click", closeRelatedPanel);
   }
 
   /* ── Browser back button handling ───────────────────── */
@@ -1671,9 +1305,6 @@
     });
   }
 
-  // Override showScreen to push history states for key screens
-  const _originalShowScreen = showScreen;
-
   /* ── Bootstrap ──────────────────────────────────────── */
   function init() {
     initFirebase();
@@ -1684,7 +1315,7 @@
     setupKeyboard();
     setupEvents();
     setupBackButton();
-    loadTopics();
+    loadCategories();
   }
 
   init();
