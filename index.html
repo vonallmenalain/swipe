@@ -357,8 +357,41 @@
       transition: transform .22s cubic-bezier(.4, 0, .2, 1), opacity .22s ease;
     }
 
-    .card-viewport.slide-left  { transform: translateX(-45px); opacity: 0; }
-    .card-viewport.slide-right { transform: translateX( 45px); opacity: 0; }
+    .card-viewport.slide-up   { transform: translateY(-55px); opacity: 0; }
+    .card-viewport.slide-down { transform: translateY( 55px); opacity: 0; }
+
+    /* ── In-reader length bar ── */
+    .reader-len-bar {
+      display: flex;
+      gap: 6px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      background: rgba(7, 18, 15, .92);
+    }
+
+    .len-pill {
+      flex: 1;
+      padding: 6px 4px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text2);
+      font-size: .78rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: background .15s, color .15s, border-color .15s;
+      -webkit-appearance: none;
+    }
+
+    .len-pill.active {
+      background: rgba(47, 206, 140, .15);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .len-pill:active { opacity: .7; }
 
     /* ── The swipe card ── */
     .swipe-card {
@@ -641,7 +674,7 @@
     </div>
 
     <div class="setup-section">
-      <div class="setup-label">Themenbereich</div>
+      <div class="setup-label">Themenbereiche <span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:.7;font-size:.68rem">(mehrere wählbar)</span></div>
       <div id="catGrid" class="cat-grid">
         <div class="cat-placeholder">
           <div class="spinner" style="width:28px;height:28px;border-width:2.5px;margin:0 auto 10px;"></div>
@@ -688,6 +721,12 @@
       <div class="progress-fill" id="progressFill" style="width:0%"></div>
     </div>
 
+    <div class="reader-len-bar" id="readerLenBar">
+      <button class="len-pill active" data-value="short">⚡ Kurz</button>
+      <button class="len-pill"        data-value="medium">📄 Mittel</button>
+      <button class="len-pill"        data-value="long">📚 Lang</button>
+    </div>
+
     <div class="card-container">
       <div class="card-viewport" id="cardViewport">
         <!-- Card injected here -->
@@ -695,10 +734,10 @@
     </div>
 
     <div class="reader-nav">
-      <button class="nav-btn" id="prevBtn" aria-label="Vorherige Karte">←</button>
+      <button class="nav-btn" id="prevBtn" aria-label="Vorherige Karte">↑</button>
       <div class="progress-dots" id="progressDots"></div>
       <div class="card-counter" id="cardCounter">1 / 1</div>
-      <button class="nav-btn" id="nextBtn" aria-label="Nächste Karte">→</button>
+      <button class="nav-btn" id="nextBtn" aria-label="Nächste Karte">↓</button>
     </div>
 
   </div><!-- /readerScreen -->
@@ -779,7 +818,7 @@
   let idx            = 0;
   let selectedLang   = "de";
   let selectedLen    = "short";
-  let selectedCat    = null;
+  let selectedCats   = new Set();
 
   /* Touch tracking */
   let touchStartX = 0;
@@ -940,9 +979,9 @@
       const meta  = CAT_META[cat] ?? { label: cat, emoji: "📌" };
       const label = meta.label.length > 12 ? meta.label.slice(0, 12) + "…" : meta.label;
       return `
-        <div class="cat-card${selectedCat === cat ? " active" : ""}"
+        <div class="cat-card${selectedCats.has(cat) ? " active" : ""}"
              data-cat="${esc(cat)}" role="button" tabindex="0"
-             aria-pressed="${selectedCat === cat}">
+             aria-pressed="${selectedCats.has(cat)}">
           <span class="cat-emoji">${meta.emoji}</span>
           <div class="cat-name">${esc(label)}</div>
           <div class="cat-count">${count} Thema${count !== 1 ? "en" : ""}</div>
@@ -957,9 +996,13 @@
   }
 
   function selectCategory(cat) {
-    selectedCat = cat;
+    if (selectedCats.has(cat)) {
+      selectedCats.delete(cat);
+    } else {
+      selectedCats.add(cat);
+    }
     $("catGrid").querySelectorAll(".cat-card").forEach(c => {
-      const active = c.dataset.cat === cat;
+      const active = selectedCats.has(c.dataset.cat);
       c.classList.toggle("active", active);
       c.setAttribute("aria-pressed", active);
     });
@@ -967,7 +1010,38 @@
   }
 
   function updateStartBtn() {
-    $("startBtn").disabled = !selectedCat;
+    const n = selectedCats.size;
+    $("startBtn").disabled = n === 0;
+    $("startBtn").textContent = n === 0
+      ? "Karten laden →"
+      : n === 1
+        ? "Karten laden →"
+        : `${n} Themen laden →`;
+  }
+
+  /* ── Build Firestore query for current category selection ─ */
+  function buildCardQuery() {
+    const catsArray = [...selectedCats];
+    if (catsArray.length === 1) {
+      return query(
+        collection(db, "swipeCards"),
+        where("mainCategory", "==", catsArray[0])
+      );
+    }
+    return query(
+      collection(db, "swipeCards"),
+      where("mainCategory", "in", catsArray)
+    );
+  }
+
+  function updateTopbarChip() {
+    const catsArray = [...selectedCats];
+    if (catsArray.length === 1) {
+      const meta = CAT_META[catsArray[0]] ?? { label: catsArray[0], emoji: "📌" };
+      $("topbarChip").textContent = `${meta.emoji} ${meta.label}`;
+    } else {
+      $("topbarChip").textContent = `${catsArray.length} Themen`;
+    }
   }
 
   /* ── Load swipe cards ───────────────────────────────── */
@@ -976,12 +1050,7 @@
     $("loadingText").textContent = "Karten werden geladen…";
 
     try {
-      // Single-field query → no composite index required
-      const q = query(
-        collection(db, "swipeCards"),
-        where("mainCategory", "==", selectedCat)
-      );
-      const snap = await getDocs(q);
+      const snap = await getDocs(buildCardQuery());
       const all  = snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
 
       // Filter in-memory (avoids composite index)
@@ -1000,8 +1069,8 @@
 
       idx = 0;
       showScreen("readerScreen");
-      const meta = CAT_META[selectedCat] ?? { label: selectedCat, emoji: "📌" };
-      $("topbarChip").textContent = `${meta.emoji} ${meta.label}`;
+      updateTopbarChip();
+      syncReaderLenBar();
       renderCard(idx);
       renderNav();
 
@@ -1011,6 +1080,48 @@
         "❌ Fehler beim Laden. Bitte Firestore-Regeln prüfen.";
       setTimeout(() => showScreen("setupScreen"), 3000);
     }
+  }
+
+  /* ── Change length from within the reader ──────────── */
+  async function changeLength(newLen) {
+    if (newLen === selectedLen) return;
+    selectedLen = newLen;
+    syncReaderLenBar();
+    // Sync setup screen pills too
+    $("lengthGroup").querySelectorAll(".pill-btn").forEach(b => {
+      b.classList.toggle("active", b.dataset.value === newLen);
+    });
+
+    const vp = $("cardViewport");
+    vp.style.opacity = "0.35";
+    try {
+      const snap = await getDocs(buildCardQuery());
+      const all  = snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
+      cards = shuffle(
+        all.filter(c =>
+          c.language === selectedLang &&
+          c.length   === selectedLen  &&
+          c.status   !== "archived"
+        )
+      );
+      vp.style.opacity = "";
+      if (!cards.length) {
+        showScreen("noCardsScreen");
+        return;
+      }
+      idx = 0;
+      renderCard(idx);
+      renderNav();
+    } catch (err) {
+      vp.style.opacity = "";
+      console.error("Fehler beim Laden:", err);
+    }
+  }
+
+  function syncReaderLenBar() {
+    document.querySelectorAll("#readerLenBar .len-pill").forEach(b => {
+      b.classList.toggle("active", b.dataset.value === selectedLen);
+    });
   }
 
   /* ── Render a single card ───────────────────────────── */
@@ -1068,11 +1179,11 @@
 
     // Animate out, swap content, animate in
     if (direction) {
-      vp.classList.add("animating", direction === "next" ? "slide-left" : "slide-right");
+      vp.classList.add("animating", direction === "next" ? "slide-up" : "slide-down");
       setTimeout(() => {
         vp.innerHTML = html;
         vp.scrollTop = 0;
-        vp.classList.remove("slide-left", "slide-right");
+        vp.classList.remove("slide-up", "slide-down");
         setTimeout(() => vp.classList.remove("animating"), 260);
       }, 200);
     } else {
@@ -1123,8 +1234,8 @@
     const vp = $("cardViewport");
 
     vp.addEventListener("touchstart", e => {
-      touchStartX      = e.touches[0].clientX;
-      touchStartY      = e.touches[0].clientY;
+      touchStartX       = e.touches[0].clientX;
+      touchStartY       = e.touches[0].clientY;
       touchStartScrollY = vp.scrollTop;
     }, { passive: true });
 
@@ -1132,10 +1243,19 @@
       const dx = e.changedTouches[0].clientX - touchStartX;
       const dy = e.changedTouches[0].clientY - touchStartY;
 
-      // Only swipe when mostly horizontal and not a scroll gesture
-      if (Math.abs(dx) > Math.abs(dy) * 1.4 && Math.abs(dx) > 48) {
-        if (dx < 0) goTo(idx + 1, "next");
-        else        goTo(idx - 1, "prev");
+      // Require primarily vertical gesture
+      if (Math.abs(dy) <= Math.abs(dx) * 1.4 || Math.abs(dy) < 55) return;
+
+      const cardFitsViewport = vp.scrollHeight <= vp.clientHeight + 4;
+      const atTop    = touchStartScrollY < 8;
+      const atBottom = touchStartScrollY + vp.clientHeight >= vp.scrollHeight - 8;
+
+      if (dy < 0 && (cardFitsViewport || atBottom)) {
+        // Swipe up → next card (like Instagram Reels)
+        goTo(idx + 1, "next");
+      } else if (dy > 0 && (cardFitsViewport || atTop)) {
+        // Swipe down → previous card
+        goTo(idx - 1, "prev");
       }
     }, { passive: true });
   }
@@ -1145,13 +1265,22 @@
     document.addEventListener("keydown", e => {
       const active = document.querySelector(".screen:not(.hidden)");
       if (active?.id !== "readerScreen") return;
-      if (e.key === "ArrowRight") goTo(idx + 1, "next");
-      if (e.key === "ArrowLeft")  goTo(idx - 1, "prev");
-      if (e.key === "Escape")     showScreen("setupScreen");
+      if (e.key === "ArrowDown" || e.key === "ArrowRight") goTo(idx + 1, "next");
+      if (e.key === "ArrowUp"   || e.key === "ArrowLeft")  goTo(idx - 1, "prev");
+      if (e.key === "Escape") showScreen("setupScreen");
     });
   }
 
-  /* ── Pill selectors ─────────────────────────────────── */
+  /* ── Reader length bar ──────────────────────────────── */
+  function setupReaderLengthPills() {
+    $("readerLenBar").addEventListener("click", e => {
+      const btn = e.target.closest(".len-pill");
+      if (!btn) return;
+      changeLength(btn.dataset.value);
+    });
+  }
+
+  /* ── Pill selectors (setup screen) ─────────────────── */
   function setupPills() {
     $("langGroup").addEventListener("click", e => {
       const btn = e.target.closest(".pill-btn");
@@ -1195,6 +1324,7 @@
   function init() {
     initFirebase();
     setupPills();
+    setupReaderLengthPills();
     setupDevMenu();
     setupTouch();
     setupKeyboard();
