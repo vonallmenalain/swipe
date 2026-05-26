@@ -1,0 +1,1208 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#07120f" />
+  <title>WissensSwipe</title>
+  <style>
+    :root {
+      --bg:      #07120f;
+      --bg2:     #0d1d18;
+      --card:    #0f2219;
+      --card2:   #142e22;
+      --text:    #eaf8f2;
+      --text2:   #a8cfc0;
+      --accent:  #2fce8c;
+      --accent2: #1faa72;
+      --border:  #1e3d30;
+      --radius:  20px;
+      --shadow:  0 12px 40px rgba(0,0,0,.45);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { height: 100%; }
+
+    body {
+      height: 100%;
+      font-family: -apple-system, 'Inter', 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ─── SCREENS ─────────────────────────────────────── */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      transition: opacity .28s ease, transform .28s ease;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(.97) translateY(8px);
+    }
+
+    /* ─── SETUP SCREEN ────────────────────────────────── */
+    #setupScreen {
+      background: radial-gradient(ellipse 120% 60% at 50% -10%, #183d2c 0%, var(--bg) 65%);
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      padding: 0 16px 32px;
+    }
+
+    .app-header {
+      text-align: center;
+      padding: 32px 0 28px;
+    }
+
+    .app-logo {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      background: linear-gradient(135deg, #2fce8c 20%, #a8f0d0 80%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .app-tagline {
+      color: var(--text2);
+      font-size: .88rem;
+      margin-top: 6px;
+      letter-spacing: .2px;
+    }
+
+    .setup-section { margin-bottom: 22px; }
+
+    .setup-label {
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text2);
+      margin-bottom: 10px;
+    }
+
+    /* ── Pill toggles ── */
+    .pill-group { display: flex; gap: 8px; }
+
+    .pill-btn {
+      flex: 1;
+      padding: 11px 6px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      color: var(--text2);
+      font-size: .92rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .18s, color .18s, border-color .18s, transform .12s;
+      text-align: center;
+      -webkit-appearance: none;
+    }
+
+    .pill-btn:active { transform: scale(.95); }
+
+    .pill-btn.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #063018;
+      border-color: transparent;
+    }
+
+    /* ── Category grid ── */
+    .cat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 9px;
+    }
+
+    .cat-card {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 10px;
+      cursor: pointer;
+      transition: border-color .18s, background .18s, transform .12s;
+      text-align: center;
+      position: relative;
+    }
+
+    .cat-card:active { transform: scale(.95); }
+
+    .cat-card.active {
+      border-color: var(--accent);
+      background: rgba(47, 206, 140, .13);
+    }
+
+    .cat-card.active::after {
+      content: "✓";
+      position: absolute;
+      top: 8px; right: 10px;
+      font-size: .7rem;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .cat-emoji { font-size: 1.75rem; display: block; margin-bottom: 6px; }
+    .cat-name  { font-size: .82rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+    .cat-count { font-size: .7rem; color: var(--text2); margin-top: 3px; }
+
+    .cat-placeholder {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: var(--text2);
+      padding: 28px;
+      font-size: .9rem;
+      border: 1.5px dashed var(--border);
+      border-radius: 14px;
+    }
+
+    .cat-error {
+      grid-column: 1 / -1;
+      padding: 16px;
+      background: rgba(247, 95, 113, .08);
+      border: 1px solid rgba(247, 95, 113, .25);
+      border-radius: 12px;
+      font-size: .82rem;
+      color: #f7b3ba;
+      line-height: 1.5;
+    }
+
+    /* ── Start button ── */
+    .start-btn {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #053018;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      margin-top: 20px;
+      margin-bottom: 8px;
+      transition: transform .15s, opacity .15s;
+      letter-spacing: .2px;
+    }
+
+    .start-btn:disabled { opacity: .38; cursor: not-allowed; }
+    .start-btn:not(:disabled):active { transform: scale(.97); }
+
+    /* ─── LOADING SCREEN ──────────────────────────────── */
+    #loadingScreen {
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      background: var(--bg);
+    }
+
+    .spinner {
+      width: 42px; height: 42px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .75s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text { color: var(--text2); font-size: .92rem; }
+
+    /* ─── READER SCREEN ───────────────────────────────── */
+    #readerScreen { background: var(--bg); }
+
+    /* ── Topbar ── */
+    .reader-topbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      background: rgba(7, 18, 15, .92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .topbar-logo {
+      font-size: .85rem;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -.5px;
+      flex-shrink: 0;
+    }
+
+    .topbar-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      background: rgba(47, 206, 140, .1);
+      border: 1px solid rgba(47, 206, 140, .2);
+      border-radius: 999px;
+      font-size: .72rem;
+      font-weight: 600;
+      color: var(--accent);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 110px;
+    }
+
+    .spacer { flex: 1; min-width: 0; }
+
+    .change-topic-btn {
+      padding: 6px 11px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--card);
+      color: var(--text2);
+      font-size: .75rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background .15s, color .15s;
+    }
+
+    .change-topic-btn:active { background: var(--card2); }
+
+    /* ── Dev button & dropdown ── */
+    .dev-wrap { position: relative; flex-shrink: 0; }
+
+    .dev-btn {
+      padding: 4px 7px;
+      border: 1px solid rgba(30, 61, 48, .6);
+      border-radius: 6px;
+      background: transparent;
+      color: rgba(47, 206, 140, .3);
+      font-size: .6rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: .5px;
+      transition: opacity .2s;
+    }
+
+    .dev-btn:hover { color: rgba(47, 206, 140, .55); }
+
+    .dev-menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      background: #0c1e18;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 6px;
+      min-width: 170px;
+      z-index: 200;
+      box-shadow: var(--shadow);
+      display: none;
+    }
+
+    .dev-menu.show { display: block; }
+
+    .dev-menu a {
+      display: block;
+      padding: 9px 12px;
+      color: var(--text2);
+      text-decoration: none;
+      font-size: .82rem;
+      border-radius: 8px;
+      transition: background .12s;
+    }
+
+    .dev-menu a:hover { background: var(--card2); color: var(--text); }
+
+    /* ── Progress bar ── */
+    .progress-track {
+      height: 2px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      transition: width .4s ease;
+    }
+
+    /* ── Card container ── */
+    .card-container {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .card-viewport {
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      padding: 14px 14px 20px;
+      overscroll-behavior: contain;
+      will-change: transform;
+    }
+
+    .card-viewport.animating {
+      transition: transform .22s cubic-bezier(.4, 0, .2, 1), opacity .22s ease;
+    }
+
+    .card-viewport.slide-left  { transform: translateX(-45px); opacity: 0; }
+    .card-viewport.slide-right { transform: translateX( 45px); opacity: 0; }
+
+    /* ── The swipe card ── */
+    .swipe-card {
+      background: linear-gradient(160deg, var(--card2) 0%, var(--card) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 20px 20px;
+      box-shadow: var(--shadow);
+    }
+
+    /* Card header */
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .card-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .7rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .badge-cat {
+      background: rgba(47, 206, 140, .12);
+      border: 1px solid rgba(47, 206, 140, .22);
+      color: var(--accent);
+    }
+
+    .badge-len {
+      background: rgba(255,255,255,.05);
+      border: 1px solid var(--border);
+      color: var(--text2);
+    }
+
+    .badge-diff {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.06);
+      color: rgba(168,207,192,.6);
+    }
+
+    /* Card content */
+    .card-topic-label {
+      font-size: .72rem;
+      color: var(--text2);
+      font-weight: 500;
+      margin-bottom: 6px;
+      letter-spacing: .3px;
+    }
+
+    .card-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      line-height: 1.25;
+      margin-bottom: 14px;
+      color: var(--text);
+      letter-spacing: -.3px;
+    }
+
+    .card-hook {
+      font-size: .95rem;
+      color: #9de7c7;
+      font-weight: 500;
+      line-height: 1.55;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(30, 61, 48, .8);
+    }
+
+    /* Body text */
+    .card-body {
+      font-size: .94rem;
+      line-height: 1.8;
+      color: #cde8db;
+    }
+
+    .card-body p {
+      margin-bottom: 14px;
+    }
+
+    .card-body p:last-child { margin-bottom: 0; }
+
+    .section-heading {
+      display: block;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 24px 0 10px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(30, 61, 48, .8);
+      letter-spacing: -.1px;
+    }
+
+    .section-heading:first-child {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+    }
+
+    /* Source link at card bottom */
+    .card-footer {
+      margin-top: 24px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(30, 61, 48, .7);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .source-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--text2);
+      text-decoration: none;
+      font-size: .68rem;
+      opacity: .5;
+      transition: opacity .15s;
+      padding: 4px 0;
+    }
+
+    .source-link:hover { opacity: .85; }
+
+    .source-link svg {
+      width: 11px; height: 11px;
+      flex-shrink: 0;
+    }
+
+    /* ── Bottom navigation ── */
+    .reader-nav {
+      display: flex;
+      align-items: center;
+      padding: 10px 14px;
+      gap: 10px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      background: rgba(7, 18, 15, .96);
+    }
+
+    .nav-btn {
+      width: 44px; height: 44px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      color: var(--text2);
+      font-size: 1.15rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .15s, transform .12s, opacity .15s;
+      flex-shrink: 0;
+    }
+
+    .nav-btn:disabled { opacity: .28; cursor: not-allowed; }
+    .nav-btn:not(:disabled):active { background: var(--card2); transform: scale(.9); }
+
+    /* Progress dots */
+    .progress-dots {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 5px;
+      overflow: hidden;
+      flex-wrap: nowrap;
+    }
+
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: all .3s ease;
+      flex-shrink: 0;
+    }
+
+    .dot.active {
+      background: var(--accent);
+      width: 18px;
+      border-radius: 3px;
+    }
+
+    .card-counter {
+      font-size: .72rem;
+      color: var(--text2);
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 36px;
+      text-align: right;
+    }
+
+    /* ─── NO-CARDS SCREEN ─────────────────────────────── */
+    #noCardsScreen { background: var(--bg); }
+
+    .state-box {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .state-icon  { font-size: 3rem; margin-bottom: 16px; }
+    .state-title { font-size: 1.15rem; font-weight: 700; margin-bottom: 10px; }
+    .state-text  { color: var(--text2); font-size: .9rem; line-height: 1.6; max-width: 280px; }
+
+    .retry-btn {
+      margin-top: 22px;
+      padding: 11px 22px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      color: var(--text2);
+      font-size: .88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+
+    .retry-btn:active { background: var(--card2); }
+
+    /* ─── UTILITIES ───────────────────────────────────── */
+    @media (min-width: 480px) {
+      .cat-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media (min-width: 680px) {
+      .cat-grid { grid-template-columns: repeat(4, 1fr); }
+      .swipe-card { padding: 28px 26px 24px; }
+      .card-title { font-size: 1.5rem; }
+    }
+
+    @media (prefers-color-scheme: light) {
+      /* intentionally kept dark — brand is dark-only */
+    }
+
+    /* Scrollbar (Webkit) */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════
+       SETUP SCREEN
+  ══════════════════════════════════════════════════════ -->
+  <div id="setupScreen" class="screen">
+
+    <div class="app-header">
+      <div class="app-logo">WissensSwipe</div>
+      <div class="app-tagline">Wissen entdecken — eine Karte nach der anderen</div>
+    </div>
+
+    <div class="setup-section">
+      <div class="setup-label">Sprache</div>
+      <div class="pill-group" id="langGroup">
+        <button class="pill-btn active" data-value="de">🇩🇪 Deutsch</button>
+        <button class="pill-btn"        data-value="en">🇬🇧 English</button>
+      </div>
+    </div>
+
+    <div class="setup-section">
+      <div class="setup-label">Kartenlänge</div>
+      <div class="pill-group" id="lengthGroup">
+        <button class="pill-btn active" data-value="short">⚡ Kurz</button>
+        <button class="pill-btn"        data-value="medium">📄 Mittel</button>
+        <button class="pill-btn"        data-value="long">📚 Lang</button>
+      </div>
+    </div>
+
+    <div class="setup-section">
+      <div class="setup-label">Themenbereich</div>
+      <div id="catGrid" class="cat-grid">
+        <div class="cat-placeholder">
+          <div class="spinner" style="width:28px;height:28px;border-width:2.5px;margin:0 auto 10px;"></div>
+          Themenbereiche werden geladen…
+        </div>
+      </div>
+    </div>
+
+    <button id="startBtn" class="start-btn" disabled>Karten laden →</button>
+
+  </div><!-- /setupScreen -->
+
+
+  <!-- ═══════════════════════════════════════════════════
+       LOADING SCREEN
+  ══════════════════════════════════════════════════════ -->
+  <div id="loadingScreen" class="screen hidden">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">Karten werden geladen…</div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       READER SCREEN
+  ══════════════════════════════════════════════════════ -->
+  <div id="readerScreen" class="screen hidden">
+
+    <div class="reader-topbar">
+      <div class="topbar-logo">WissensSwipe</div>
+      <div class="topbar-chip" id="topbarChip">…</div>
+      <div class="spacer"></div>
+      <button class="change-topic-btn" id="changeTopicBtn">Thema wechseln</button>
+      <div class="dev-wrap">
+        <button class="dev-btn" id="devBtn" title="Dev-Menü">DEV</button>
+        <div class="dev-menu" id="devMenu">
+          <a href="adm-topic-overview.html">📋 Themen-Übersicht</a>
+          <a href="adm-swipe-card-generator.html">✨ Card Generator</a>
+          <a href="adm-wikidata-import.html">📥 Wikidata Import</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+
+    <div class="card-container">
+      <div class="card-viewport" id="cardViewport">
+        <!-- Card injected here -->
+      </div>
+    </div>
+
+    <div class="reader-nav">
+      <button class="nav-btn" id="prevBtn" aria-label="Vorherige Karte">←</button>
+      <div class="progress-dots" id="progressDots"></div>
+      <div class="card-counter" id="cardCounter">1 / 1</div>
+      <button class="nav-btn" id="nextBtn" aria-label="Nächste Karte">→</button>
+    </div>
+
+  </div><!-- /readerScreen -->
+
+
+  <!-- ═══════════════════════════════════════════════════
+       NO-CARDS SCREEN
+  ══════════════════════════════════════════════════════ -->
+  <div id="noCardsScreen" class="screen hidden">
+
+    <div class="reader-topbar">
+      <div class="topbar-logo">WissensSwipe</div>
+      <div class="spacer"></div>
+      <button class="change-topic-btn" id="changeTopicBtn2">Thema wechseln</button>
+    </div>
+
+    <div class="state-box">
+      <div class="state-icon">🔍</div>
+      <div class="state-title">Keine Karten gefunden</div>
+      <div class="state-text">
+        Für diesen Themenbereich mit den gewählten Einstellungen sind noch keine Karten vorhanden.
+        <br><br>
+        Bitte wähle eine andere Kombination aus Thema, Sprache oder Länge.
+      </div>
+      <button class="retry-btn" id="retryBtn">Andere Auswahl treffen</button>
+    </div>
+
+  </div><!-- /noCardsScreen -->
+
+
+  <!-- ═══════════════════════════════════════════════════
+       FIREBASE + APP LOGIC
+  ══════════════════════════════════════════════════════ -->
+  <script type="module">
+  import { initializeApp }
+    from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+  import { getFirestore, collection, getDocs, query, where }
+    from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+  /* ── Firebase config ────────────────────────────────── */
+  const firebaseConfig = {
+    apiKey:            "AIzaSyBOjkDk1Mmr79wY7bpKHQ5jidqwuHDo_kg",
+    authDomain:        "swipe-82eeb.firebaseapp.com",
+    projectId:         "swipe-82eeb",
+    storageBucket:     "swipe-82eeb.firebasestorage.app",
+    messagingSenderId: "649929298401",
+    appId:             "1:649929298401:web:d94f1a5ebf1407ac6502a0",
+  };
+
+  /* ── Category metadata ──────────────────────────────── */
+  const CAT_META = {
+    geschichte:      { label: "Geschichte",      emoji: "📜" },
+    wissenschaft:    { label: "Wissenschaft",    emoji: "🔬" },
+    geografie:       { label: "Geografie",       emoji: "🌍" },
+    politik:         { label: "Politik",         emoji: "🏛️" },
+    gesellschaft:    { label: "Gesellschaft",    emoji: "👥" },
+    religion:        { label: "Religion",        emoji: "⛪" },
+    philosophie:     { label: "Philosophie",     emoji: "💭" },
+    technik:         { label: "Technik",         emoji: "⚙️" },
+    wirtschaft:      { label: "Wirtschaft",      emoji: "📈" },
+    kultur:          { label: "Kultur",          emoji: "🎭" },
+    sport:           { label: "Sport",           emoji: "⚽" },
+    biografie:       { label: "Biografie",       emoji: "👤" },
+    natur:           { label: "Natur",           emoji: "🌿" },
+    medizin:         { label: "Medizin",         emoji: "🩺" },
+    mythologie:      { label: "Mythologie",      emoji: "⚡" },
+    allgemeinwissen: { label: "Allgemeinwissen", emoji: "💡" },
+  };
+
+  const LENGTH_LABELS = { short: "Kurz", medium: "Mittel", long: "Lang" };
+  const DIFF_LABELS   = { beginner: "Einsteiger", intermediate: "Fortgeschritten", advanced: "Experte" };
+
+  /* ── State ──────────────────────────────────────────── */
+  let db;
+  let topics         = [];
+  let categoryCounts = {};
+  let cards          = [];
+  let idx            = 0;
+  let selectedLang   = "de";
+  let selectedLen    = "short";
+  let selectedCat    = null;
+
+  /* Touch tracking */
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartScrollY = 0;
+
+  /* ── Helpers ────────────────────────────────────────── */
+  const $  = id => document.getElementById(id);
+  const esc = s  => String(s ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  function showScreen(id) {
+    ["setupScreen","loadingScreen","readerScreen","noCardsScreen"]
+      .forEach(s => $(s).classList.toggle("hidden", s !== id));
+  }
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  /* ── Body-text parser ───────────────────────────────── */
+  // Body uses "## Section heading. Body text ## Next heading Body text…"
+  // Headings end at '?' or '!', or we detect the sentence-start of body.
+
+  const SENT_STARTERS = /^(The|A|An|In|On|It|This|These|That|There|During|Before|After|When|Although|According|Many|Some|Most|All|As|With|From|Its|He|She|They|We|Between|Within|Under|Over|Around|Through|By|For|Because|However|Furthermore|Moreover|Since|While|Despite|Therefore|Thus|At|About|During|Among|Along|After|Building|Construction|Official|After|East|West|North|South|New|Old)\b/;
+
+  function extractHeadingAndBody(chunk) {
+    const t = chunk.trim();
+
+    // Ends with ? or ! → clear sentence heading
+    const m = t.match(/^([^.]*?[?!])\s+([\s\S]*)$/);
+    if (m) return { heading: m[1].trim(), body: m[2].trim() };
+
+    // No terminal punctuation → search for sentence-start
+    const words = t.split(/\s+/);
+    for (let i = 2; i <= Math.min(14, words.length - 1); i++) {
+      const rest = words.slice(i).join(" ");
+      if (SENT_STARTERS.test(rest)) {
+        const heading = words.slice(0, i).join(" ").replace(/[.,;:]$/, "");
+        return { heading, body: rest };
+      }
+    }
+
+    // Fallback: treat whole chunk as body
+    return { heading: "", body: t };
+  }
+
+  function renderParagraphs(text) {
+    if (!text.trim()) return "";
+    return text
+      .split(/\n{2,}/)
+      .map(p => p.trim())
+      .filter(Boolean)
+      .map(p => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`)
+      .join("");
+  }
+
+  function parseBody(rawText) {
+    const text = String(rawText ?? "").trim();
+    if (!text) return `<p style="color:var(--text2)">Kein Inhalt verfügbar.</p>`;
+
+    const startsWithMarker = text.startsWith("##");
+    const chunks = text.split(/\s*##\s*/).filter(c => c.trim());
+
+    let html = "";
+    let first = true;
+
+    for (const chunk of chunks) {
+      const trimmed = chunk.trim();
+      if (!trimmed) continue;
+
+      if (first && !startsWithMarker) {
+        // Opening paragraph with no heading
+        html += renderParagraphs(trimmed);
+        first = false;
+        continue;
+      }
+      first = false;
+
+      const { heading, body } = extractHeadingAndBody(trimmed);
+
+      if (heading) {
+        html += `<span class="section-heading">${esc(heading)}</span>`;
+      }
+      if (body) {
+        html += renderParagraphs(body);
+      }
+    }
+
+    return html || `<p style="color:var(--text2)">Kein Inhalt verfügbar.</p>`;
+  }
+
+  /* ── Source resolution ──────────────────────────────── */
+  function getBestSource(card) {
+    const sources = Array.isArray(card.sources) ? card.sources : [];
+    // Prefer Wikipedia matching card language
+    let src = sources.find(s => s.type === "wikipedia" && s.language === card.language && s.url);
+    if (src) return src;
+    // Any Wikipedia
+    src = sources.find(s => s.type === "wikipedia" && s.url);
+    if (src) return src;
+    // Wikidata
+    src = sources.find(s => s.type === "wikidata" && s.url);
+    if (src) return src;
+    // Any with url
+    return sources.find(s => s.url) ?? null;
+  }
+
+  /* ── Firebase init ──────────────────────────────────── */
+  function initFirebase() {
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+  }
+
+  /* ── Load topics (for categories) ──────────────────── */
+  async function loadTopics() {
+    try {
+      const snap = await getDocs(collection(db, "topics"));
+      topics = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      categoryCounts = {};
+      topics.forEach(t => {
+        const cat = String(t.mainCategory ?? "").trim();
+        if (cat && cat !== "unknown") {
+          categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+        }
+      });
+
+      renderCategories();
+    } catch (err) {
+      console.error("Fehler beim Laden der Topics:", err);
+      $("catGrid").innerHTML = `
+        <div class="cat-error">
+          ⚠️ Themenbereiche konnten nicht geladen werden.<br>
+          <small>Bitte sicherstellen, dass öffentliche Lesezugriffe in den Firestore-Regeln erlaubt sind.</small>
+        </div>`;
+    }
+  }
+
+  function renderCategories() {
+    const entries = Object.entries(categoryCounts)
+      .filter(([cat]) => CAT_META[cat] || cat) // keep all
+      .sort((a, b) => b[1] - a[1]);            // sort by count desc
+
+    if (!entries.length) {
+      $("catGrid").innerHTML = `
+        <div class="cat-placeholder">Keine Themenbereiche gefunden.</div>`;
+      return;
+    }
+
+    $("catGrid").innerHTML = entries.map(([cat, count]) => {
+      const meta  = CAT_META[cat] ?? { label: cat, emoji: "📌" };
+      const label = meta.label.length > 12 ? meta.label.slice(0, 12) + "…" : meta.label;
+      return `
+        <div class="cat-card${selectedCat === cat ? " active" : ""}"
+             data-cat="${esc(cat)}" role="button" tabindex="0"
+             aria-pressed="${selectedCat === cat}">
+          <span class="cat-emoji">${meta.emoji}</span>
+          <div class="cat-name">${esc(label)}</div>
+          <div class="cat-count">${count} Thema${count !== 1 ? "en" : ""}</div>
+        </div>`;
+    }).join("");
+
+    $("catGrid").querySelectorAll(".cat-card").forEach(card => {
+      const selectFn = () => selectCategory(card.dataset.cat);
+      card.addEventListener("click",   selectFn);
+      card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") selectFn(); });
+    });
+  }
+
+  function selectCategory(cat) {
+    selectedCat = cat;
+    $("catGrid").querySelectorAll(".cat-card").forEach(c => {
+      const active = c.dataset.cat === cat;
+      c.classList.toggle("active", active);
+      c.setAttribute("aria-pressed", active);
+    });
+    updateStartBtn();
+  }
+
+  function updateStartBtn() {
+    $("startBtn").disabled = !selectedCat;
+  }
+
+  /* ── Load swipe cards ───────────────────────────────── */
+  async function loadCards() {
+    showScreen("loadingScreen");
+    $("loadingText").textContent = "Karten werden geladen…";
+
+    try {
+      // Single-field query → no composite index required
+      const q = query(
+        collection(db, "swipeCards"),
+        where("mainCategory", "==", selectedCat)
+      );
+      const snap = await getDocs(q);
+      const all  = snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
+
+      // Filter in-memory (avoids composite index)
+      cards = shuffle(
+        all.filter(c =>
+          c.language === selectedLang &&
+          c.length   === selectedLen  &&
+          c.status   !== "archived"
+        )
+      );
+
+      if (!cards.length) {
+        showScreen("noCardsScreen");
+        return;
+      }
+
+      idx = 0;
+      showScreen("readerScreen");
+      const meta = CAT_META[selectedCat] ?? { label: selectedCat, emoji: "📌" };
+      $("topbarChip").textContent = `${meta.emoji} ${meta.label}`;
+      renderCard(idx);
+      renderNav();
+
+    } catch (err) {
+      console.error("Fehler beim Laden der Karten:", err);
+      $("loadingText").textContent =
+        "❌ Fehler beim Laden. Bitte Firestore-Regeln prüfen.";
+      setTimeout(() => showScreen("setupScreen"), 3000);
+    }
+  }
+
+  /* ── Render a single card ───────────────────────────── */
+  function renderCard(index, direction) {
+    const card = cards[index];
+    if (!card) return;
+
+    const vp    = $("cardViewport");
+    const meta  = CAT_META[card.mainCategory] ?? { label: card.mainCategory ?? "Thema", emoji: "📌" };
+    const lenLbl  = LENGTH_LABELS[card.length]  ?? card.length  ?? "";
+    const diffLbl = DIFF_LABELS[card.difficulty] ?? "";
+
+    const topicTitle = selectedLang === "de"
+      ? String(card.topicTitle?.de ?? card.title ?? "")
+      : String(card.topicTitle?.en ?? card.title ?? "");
+
+    const src    = getBestSource(card);
+    const srcHtml = src ? `
+      <a class="source-link" href="${esc(src.url)}" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/>
+          <line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+        ${src.type === "wikipedia" ? "Wikipedia" : src.publisher ?? "Quelle"} öffnen
+      </a>` : "";
+
+    const hookHtml = card.hook
+      ? `<div class="card-hook">${esc(String(card.hook))}</div>`
+      : "";
+
+    const topicLabelHtml = topicTitle && topicTitle !== String(card.title ?? "")
+      ? `<div class="card-topic-label">${esc(topicTitle)}</div>`
+      : "";
+
+    const diffBadge = diffLbl
+      ? `<span class="badge badge-diff">${esc(diffLbl)}</span>`
+      : "";
+
+    const html = `
+      <div class="swipe-card">
+        <div class="card-header">
+          <div class="card-badges">
+            <span class="badge badge-cat">${meta.emoji} ${esc(meta.label)}</span>
+            <span class="badge badge-len">${esc(lenLbl)}</span>
+            ${diffBadge}
+          </div>
+        </div>
+        ${topicLabelHtml}
+        <h1 class="card-title">${esc(String(card.title ?? ""))}</h1>
+        ${hookHtml}
+        <div class="card-body">${parseBody(card.body)}</div>
+        ${srcHtml ? `<div class="card-footer">${srcHtml}</div>` : ""}
+      </div>`;
+
+    // Animate out, swap content, animate in
+    if (direction) {
+      vp.classList.add("animating", direction === "next" ? "slide-left" : "slide-right");
+      setTimeout(() => {
+        vp.innerHTML = html;
+        vp.scrollTop = 0;
+        vp.classList.remove("slide-left", "slide-right");
+        setTimeout(() => vp.classList.remove("animating"), 260);
+      }, 200);
+    } else {
+      vp.innerHTML = html;
+      vp.scrollTop = 0;
+    }
+
+    // Progress
+    const pct = cards.length > 1 ? (index / (cards.length - 1)) * 100 : 100;
+    $("progressFill").style.width = `${pct}%`;
+    $("cardCounter").textContent  = `${index + 1} / ${cards.length}`;
+    renderDots(index);
+  }
+
+  /* ── Progress dots ──────────────────────────────────── */
+  function renderDots(current) {
+    const total = cards.length;
+    const maxDots = 9;
+
+    if (total <= 1) { $("progressDots").innerHTML = ""; return; }
+
+    const half  = Math.floor(maxDots / 2);
+    let   start = Math.max(0, Math.min(current - half, total - maxDots));
+    const end   = Math.min(total, start + maxDots);
+
+    let html = "";
+    for (let i = start; i < end; i++) {
+      html += `<div class="dot${i === current ? " active" : ""}"></div>`;
+    }
+    $("progressDots").innerHTML = html;
+  }
+
+  /* ── Navigate ───────────────────────────────────────── */
+  function renderNav() {
+    $("prevBtn").disabled = idx <= 0;
+    $("nextBtn").disabled = idx >= cards.length - 1;
+  }
+
+  function goTo(newIdx, direction) {
+    if (newIdx < 0 || newIdx >= cards.length) return;
+    idx = newIdx;
+    renderCard(idx, direction);
+    renderNav();
+  }
+
+  /* ── Touch / swipe ──────────────────────────────────── */
+  function setupTouch() {
+    const vp = $("cardViewport");
+
+    vp.addEventListener("touchstart", e => {
+      touchStartX      = e.touches[0].clientX;
+      touchStartY      = e.touches[0].clientY;
+      touchStartScrollY = vp.scrollTop;
+    }, { passive: true });
+
+    vp.addEventListener("touchend", e => {
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+
+      // Only swipe when mostly horizontal and not a scroll gesture
+      if (Math.abs(dx) > Math.abs(dy) * 1.4 && Math.abs(dx) > 48) {
+        if (dx < 0) goTo(idx + 1, "next");
+        else        goTo(idx - 1, "prev");
+      }
+    }, { passive: true });
+  }
+
+  /* ── Keyboard navigation ────────────────────────────── */
+  function setupKeyboard() {
+    document.addEventListener("keydown", e => {
+      const active = document.querySelector(".screen:not(.hidden)");
+      if (active?.id !== "readerScreen") return;
+      if (e.key === "ArrowRight") goTo(idx + 1, "next");
+      if (e.key === "ArrowLeft")  goTo(idx - 1, "prev");
+      if (e.key === "Escape")     showScreen("setupScreen");
+    });
+  }
+
+  /* ── Pill selectors ─────────────────────────────────── */
+  function setupPills() {
+    $("langGroup").addEventListener("click", e => {
+      const btn = e.target.closest(".pill-btn");
+      if (!btn) return;
+      selectedLang = btn.dataset.value;
+      $("langGroup").querySelectorAll(".pill-btn")
+        .forEach(b => b.classList.toggle("active", b === btn));
+    });
+
+    $("lengthGroup").addEventListener("click", e => {
+      const btn = e.target.closest(".pill-btn");
+      if (!btn) return;
+      selectedLen = btn.dataset.value;
+      $("lengthGroup").querySelectorAll(".pill-btn")
+        .forEach(b => b.classList.toggle("active", b === btn));
+    });
+  }
+
+  /* ── Dev menu ───────────────────────────────────────── */
+  function setupDevMenu() {
+    $("devBtn").addEventListener("click", e => {
+      e.stopPropagation();
+      $("devMenu").classList.toggle("show");
+    });
+    document.addEventListener("click", () => $("devMenu").classList.remove("show"));
+  }
+
+  /* ── Wire up events ─────────────────────────────────── */
+  function setupEvents() {
+    $("startBtn").addEventListener("click", loadCards);
+
+    $("prevBtn").addEventListener("click", () => goTo(idx - 1, "prev"));
+    $("nextBtn").addEventListener("click", () => goTo(idx + 1, "next"));
+
+    $("changeTopicBtn").addEventListener("click",  () => showScreen("setupScreen"));
+    $("changeTopicBtn2").addEventListener("click", () => showScreen("setupScreen"));
+    $("retryBtn").addEventListener("click",        () => showScreen("setupScreen"));
+  }
+
+  /* ── Bootstrap ──────────────────────────────────────── */
+  function init() {
+    initFirebase();
+    setupPills();
+    setupDevMenu();
+    setupTouch();
+    setupKeyboard();
+    setupEvents();
+    loadTopics();
+  }
+
+  init();
+  </script>
+</body>
+</html>
