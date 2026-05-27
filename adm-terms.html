@@ -143,9 +143,6 @@
       <div class="row">
         <span id="userEmail" class="badge"></span>
         <div class="nav-links">
-          <a href="adm-topic-overview.html">📋 Themen</a>
-          <a href="adm-swipe-card-generator.html">✨ Generator</a>
-          <a href="adm-wikidata-import.html">📥 Wikidata</a>
           <a href="adm-church-import.html">📖 Evangelium</a>
           <a href="adm-terms.html" class="active-nav">📚 Begriffe</a>
           <a href="index.html">🔭 App</a>
@@ -239,8 +236,7 @@
 <script type="module">
   import { initializeApp }
     from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
-           setPersistence, browserLocalStoragePersistence }
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
     from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, writeBatch, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
@@ -362,6 +358,7 @@ Erstelle Definitionen für folgende Begriffe:
     setStatus("Anmelden…");
     try {
       await signInWithEmailAndPassword(auth, email, pass);
+      setStatus("Angemeldet.");
     } catch (e) {
       let msg = e.message || "Unbekannter Fehler";
       if (e.code === "auth/invalid-credential" || e.code === "auth/wrong-password" || e.code === "auth/user-not-found") {
@@ -373,9 +370,9 @@ Erstelle Definitionen für folgende Begriffe:
       }
       showLoginError(msg);
       setStatus("Login fehlgeschlagen.", "error");
-      btn.disabled = false;
-      btn.textContent = "Login";
     }
+    btn.disabled = false;
+    btn.textContent = "Login";
   });
 
   $("passwordInput").addEventListener("keydown", e => {
@@ -398,10 +395,6 @@ Erstelle Definitionen für folgende Begriffe:
     }
   });
 
-  // Explicitly confirm localStorage persistence (already the default).
-  // Called after all handlers are registered so a storage failure can never
-  // silently prevent the login button from working.
-  try { await setPersistence(auth, browserLocalStoragePersistence); } catch (_) {}
 
   // ─── Step 1: Prompt ───────────────────────────────────
   $("promptText").value = CHATGPT_PROMPT;
@@ -677,6 +670,19 @@ Erstelle Definitionen für folgende Begriffe:
       t.references?.some(r => r.toLowerCase().includes(q))
     ));
   });
+
+  window.__firebaseReady = true;
+</script>
+<script>
+  setTimeout(function() {
+    if (!window.__firebaseReady) {
+      var err = document.getElementById('loginError');
+      if (err) {
+        err.textContent = 'App konnte nicht geladen werden. Bitte Seite neu laden oder Internetverbindung prüfen.';
+        err.classList.remove('hidden');
+      }
+    }
+  }, 8000);
 </script>
 </body>
 </html>

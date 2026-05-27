@@ -177,9 +177,6 @@
       <div class="row">
         <span id="userEmail" class="badge"></span>
         <div class="nav-links">
-          <a href="adm-topic-overview.html">📋 Themen</a>
-          <a href="adm-swipe-card-generator.html">✨ Generator</a>
-          <a href="adm-wikidata-import.html">📥 Wikidata</a>
           <a href="adm-terms.html">📚 Begriffe</a>
           <a href="index.html">🔭 App</a>
         </div>
@@ -396,8 +393,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut,
-         setPersistence,browserLocalStoragePersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import { getFirestore,collection,getDocs,doc,query,where,serverTimestamp,writeBatch } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 const firebaseConfig={apiKey:"AIzaSyBOjkDk1Mmr79wY7bpKHQ5jidqwuHDo_kg",authDomain:"swipe-82eeb.firebaseapp.com",projectId:"swipe-82eeb",storageBucket:"swipe-82eeb.firebasestorage.app",messagingSenderId:"649929298401",appId:"1:649929298401:web:d94f1a5ebf1407ac6502a0"};
@@ -1084,6 +1080,7 @@ async function init(){
     btn.textContent="Anmelden…";
     try{
       await signInWithEmailAndPassword(auth,email,pass);
+      showStatus("Angemeldet.");
     }catch(e){
       let msg=e.message||"Unbekannter Fehler";
       if(e.code==="auth/invalid-credential"||e.code==="auth/wrong-password"||e.code==="auth/user-not-found"){
@@ -1095,9 +1092,9 @@ async function init(){
       }
       showLoginError(msg);
       showStatus("Login fehlgeschlagen.","error");
-      btn.disabled=false;
-      btn.textContent="Login";
     }
+    btn.disabled=false;
+    btn.textContent="Login";
   };
   el("passwordInput").onkeydown=e=>{if(e.key==='Enter')el("loginBtn").click();};
   el("logoutBtn").onclick=()=>signOut(auth);
@@ -1250,9 +1247,7 @@ async function init(){
 
   el("jsonInput").addEventListener('paste',()=>setTimeout(()=>showStatus("JSON eingefügt. Klicke 'Prüfen & Vorschau'."),100));
 
-  // Explicitly confirm localStorage persistence (already the default).
-  // Called last so a storage failure can never prevent login handlers from working.
-  try{await setPersistence(auth,browserLocalStoragePersistence);}catch(_){}
+  window.__firebaseReady = true;
 }
 
 /* ─── Button ripple ───────────────────────────── */
@@ -1272,4 +1267,16 @@ init().catch(err=>{
   const p=document.getElementById("loginError");
   if(p){p.textContent="App-Initialisierung fehlgeschlagen: "+err.message;p.classList.remove("hidden");}
 });
-</script></body></html>
+</script>
+<script>
+  setTimeout(function() {
+    if (!window.__firebaseReady) {
+      var err = document.getElementById('loginError');
+      if (err) {
+        err.textContent = 'App konnte nicht geladen werden. Bitte Seite neu laden oder Internetverbindung prüfen.';
+        err.classList.remove('hidden');
+      }
+    }
+  }, 8000);
+</script>
+</body></html>
