@@ -250,6 +250,30 @@
             </div>
           </div>
 
+          <!-- Source / URL manual override -->
+          <div class="intro-assign-box">
+            <h3>🔗 Quelle / URL manuell anpassen <span class="muted" style="font-weight:400;font-size:.78rem">(optional)</span></h3>
+            <p class="muted small" style="margin-bottom:10px">Überschreibt die Quellenangabe aus dem JSON für alle importierten Karten. Leer lassen, um die Angabe aus dem JSON zu verwenden.</p>
+            <div class="field" style="margin-bottom:6px">
+              <label>Quelltitel <span class="muted small">(z.B. Generalkonferenz April 2024 – Russell M. Nelson)</span></label>
+              <input type="text" id="sourceTitleInput" placeholder="z.B. Generalkonferenz April 2024 – Russell M. Nelson" style="width:100%" />
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label>Quell-URL <span class="muted small">(Link zur Originalquelle)</span></label>
+              <input type="url" id="sourceUrlInput" placeholder="https://www.churchofjesuschrist.org/..." style="width:100%" />
+            </div>
+          </div>
+
+          <!-- Image URL -->
+          <div class="intro-assign-box">
+            <h3>🖼️ Bild-URL <span class="muted" style="font-weight:400;font-size:.78rem">(optional)</span></h3>
+            <p class="muted small" style="margin-bottom:10px">URL eines Bildes, das diesem Inhalt zugeordnet wird (z.B. Porträtfoto des Sprechers oder Kapitel-Illustration).</p>
+            <div class="field" style="margin-bottom:0">
+              <label>Bild-URL</label>
+              <input type="url" id="imageUrlInput" placeholder="https://..." style="width:100%" />
+            </div>
+          </div>
+
           <div id="dropZone" class="drop-zone mb">
             <div class="drop-zone-icon">📂</div>
             <div>JSON-Datei hier ablegen oder <strong>klicken zum Auswählen</strong></div>
@@ -545,10 +569,16 @@ function validateAndPreview(){
 function renderPreview(topics){
   const introTitleVal=(el('introTitleInput')?.value.trim())||(selectedImportCategory?.name||'');
   const introBodyVal=el('introBodyInput')?.value.trim()||'';
+  const manualSourceTitle=el('sourceTitleInput')?.value.trim()||'';
+  const manualSourceUrl=el('sourceUrlInput')?.value.trim()||'';
+  const manualImageUrl=el('imageUrlInput')?.value.trim()||'';
   const introBar=(introTitleVal||introBodyVal)
     ?`<div class="intro-preview-bar">📝 <strong>${esc(introTitleVal)}</strong>${introBodyVal?`: ${esc(introBodyVal.slice(0,120))}${introBodyVal.length>120?'…':''}`:''}</div>`
     :'';
   const html=topics.map(t=>{
+    const effectiveSourceTitle=manualSourceTitle||t.source?.title||'';
+    const effectiveSourceUrl=manualSourceUrl||t.source?.url||'';
+    const imageUrl=manualImageUrl||t.imageUrl||'';
     const cardsHtml=t.cards.map(c=>`
       <div class="preview-card">
         <div class="preview-card-header">
@@ -569,7 +599,8 @@ function renderPreview(topics){
       </div>
       ${introBar}
       ${t.description?.de?`<div class="muted small" style="margin-bottom:8px">${esc(t.description.de)}</div>`:''}
-      ${t.source?.title?`<div class="small" style="margin-bottom:8px">📖 ${esc(t.source.title)}${t.source.url?` – <a href="${esc(t.source.url)}" target="_blank" style="color:var(--accent)">Link</a>`:''}</div>`:''}
+      ${(effectiveSourceTitle||effectiveSourceUrl)?`<div class="small" style="margin-bottom:8px">🔗 ${esc(effectiveSourceTitle)}${effectiveSourceUrl?` – <a href="${esc(effectiveSourceUrl)}" target="_blank" style="color:var(--accent)">Link</a>`:''}</div>`:''}
+      ${imageUrl?`<div class="small" style="margin-bottom:8px">🖼️ <a href="${esc(imageUrl)}" target="_blank" style="color:var(--accent)">${esc(imageUrl.length>60?imageUrl.slice(0,60)+'…':imageUrl)}</a></div>`:''}
       <details>
         <summary class="small muted" style="cursor:pointer">${t.cards.length} Karte${t.cards.length!==1?'n':''} anzeigen</summary>
         ${cardsHtml}
@@ -690,10 +721,23 @@ function attachRelatedSearchListeners(topicId,mode){
 /* ─── JSON Output ─────────────────────────────── */
 function updateJsonOutput(){
   if(!parsedImportData)return;
-  const enriched=parsedImportData.map(t=>({
-    ...t,
-    relatedTopics:relatedTopicsEditors[t.topicId]||[],
-  }));
+  const manualSourceTitle=el('sourceTitleInput')?.value.trim()||'';
+  const manualSourceUrl=el('sourceUrlInput')?.value.trim()||'';
+  const manualImageUrl=el('imageUrlInput')?.value.trim()||'';
+  const enriched=parsedImportData.map(t=>{
+    const effectiveSourceTitle=manualSourceTitle||t.source?.title||'';
+    const effectiveSourceUrl=manualSourceUrl||t.source?.url||'';
+    const effectiveSource=(effectiveSourceTitle||effectiveSourceUrl)
+      ?{title:effectiveSourceTitle,url:effectiveSourceUrl}
+      :(t.source||undefined);
+    const out={
+      ...t,
+      relatedTopics:relatedTopicsEditors[t.topicId]||[],
+    };
+    if(effectiveSource)out.source=effectiveSource;
+    if(manualImageUrl)out.imageUrl=manualImageUrl;
+    return out;
+  });
   const json=JSON.stringify(enriched.length===1?enriched[0]:enriched,null,2);
   const ta=el("jsonOutputText");
   if(ta)ta.value=json;
@@ -795,6 +839,11 @@ async function importData(){
   const introBodyVal=el('introBodyInput')?.value.trim()||'';
   const chapterIntro=(introTitleVal||introBodyVal)?{title:introTitleVal,body:introBodyVal}:null;
 
+  // Read manual source / image URL overrides
+  const manualSourceTitle=el('sourceTitleInput')?.value.trim()||'';
+  const manualSourceUrl=el('sourceUrlInput')?.value.trim()||'';
+  const manualImageUrl=el('imageUrlInput')?.value.trim()||'';
+
   for(const topicData of parsedImportData){
     try{
       const topicId=topicData.topicId;
@@ -803,6 +852,13 @@ async function importData(){
 
       const hasShortDE=cardsForTopic.some(c=>c.language==='de'&&c.length==='short');
       const hasLongDE=cardsForTopic.some(c=>c.language==='de'&&c.length==='long');
+
+      // Resolve effective source: manual overrides the JSON value
+      const effectiveSourceTitle=manualSourceTitle||topicData.source?.title||'';
+      const effectiveSourceUrl=manualSourceUrl||topicData.source?.url||'';
+      const effectiveSource=(effectiveSourceTitle||effectiveSourceUrl)
+        ?{title:effectiveSourceTitle,url:effectiveSourceUrl}
+        :(topicData.source||null);
 
       const topicRef=doc(db,'topics',topicId);
       const existingSnap=await getDoc(topicRef);
@@ -818,6 +874,8 @@ async function importData(){
         mainCategory:'kirche',
         subCategory:selectedImportCategory||null,
         ...(chapterIntro?{chapterIntro}:{}),
+        ...(effectiveSource?{source:effectiveSource}:{}),
+        ...(manualImageUrl?{imageUrl:manualImageUrl}:{}),
         topicType:'other',
         status:'active',
         contentStatus:{
@@ -839,7 +897,7 @@ async function importData(){
         const ts=nowDate.getTime();
         const cardId=`${topicId}_${card.language}_${card.length}_${card.cardType}_manual_${ts}`;
         const cardRef=doc(db,'swipeCards',cardId);
-        const source=topicData.source?[{title:topicData.source.title||'',url:topicData.source.url||'',type:'manual'}]:[];
+        const sourceArr=effectiveSource?[{title:effectiveSource.title||'',url:effectiveSource.url||'',type:'manual'}]:[];
         batchObj.set(cardRef,{
           cardId,topicId,
           language:card.language,
@@ -851,11 +909,12 @@ async function importData(){
           mainCategory:'kirche',
           subCategory:selectedImportCategory||null,
           ...(chapterIntro?{chapterIntro}:{}),
+          ...(manualImageUrl?{imageUrl:manualImageUrl}:{}),
           topicTitle:topicData.topicTitle||{de:topicId},
           tags:Array.isArray(topicData.tags)?topicData.tags:[],
           relatedTopics,
           relatedTerms:[],
-          sources:source,
+          sources:sourceArr,
           sourceIds:[],
           sourceBasis:'manual',
           sourceLimitations:[],
@@ -1142,6 +1201,13 @@ function init(){
     if(introBody)introBody.value='';
     if(introBadge)introBadge.classList.add('hidden');
     introTitleManual=false;
+    // Reset source / image URL fields
+    const sourceTitleEl=el('sourceTitleInput');
+    const sourceUrlEl=el('sourceUrlInput');
+    const imageUrlEl=el('imageUrlInput');
+    if(sourceTitleEl)sourceTitleEl.value='';
+    if(sourceUrlEl)sourceUrlEl.value='';
+    if(imageUrlEl)imageUrlEl.value='';
     goToStep(1);
   };
   el("reloadTopicsBtn").onclick=loadChurchTopics;
@@ -1177,6 +1243,11 @@ function init(){
       introTitleManual=false;
       autoFillIntroFromCategory(selectedImportCategory);
     }
+  });
+
+  // Live-update JSON output when source / image URL fields change
+  ['sourceTitleInput','sourceUrlInput','imageUrlInput'].forEach(id=>{
+    el(id)?.addEventListener('input',()=>updateJsonOutput());
   });
 
   document.querySelectorAll('.step').forEach(s=>{
