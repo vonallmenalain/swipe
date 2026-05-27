@@ -451,14 +451,6 @@
     }
 
     /* Card content */
-    .card-topic-label {
-      font-size: .72rem;
-      color: var(--text2);
-      font-weight: 500;
-      margin-bottom: 6px;
-      letter-spacing: .3px;
-    }
-
     .card-title {
       font-size: 1.3rem;
       font-weight: 800;
@@ -506,6 +498,50 @@
       margin-top: 0;
       padding-top: 0;
       border-top: none;
+    }
+
+    /* Sub-category label (below main-category badge) */
+    .card-subcategory {
+      font-size: .75rem;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 8px;
+      letter-spacing: .2px;
+    }
+
+    /* Key terms chips at card bottom */
+    .card-keyterms {
+      margin-top: 20px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(30, 61, 48, .6);
+    }
+
+    .keyterms-label {
+      font-size: .65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--text2);
+      margin-bottom: 8px;
+    }
+
+    .keyterms-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .keyterm-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .7rem;
+      font-weight: 500;
+      background: rgba(47, 206, 140, .07);
+      border: 1px solid rgba(47, 206, 140, .18);
+      color: var(--text2);
+      white-space: nowrap;
     }
 
     /* Source link at card bottom */
@@ -764,11 +800,11 @@
     </div>
 
     <div class="setup-section">
-      <div class="setup-label">Themenbereiche <span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:.7;font-size:.68rem">(mehrere wählbar)</span></div>
+      <div class="setup-label">Kategorie <span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:.7;font-size:.68rem">(mehrere wählbar)</span></div>
       <div id="catGrid" class="cat-grid">
         <div class="cat-placeholder">
           <div class="spinner" style="width:28px;height:28px;border-width:2.5px;margin:0 auto 10px;"></div>
-          Themenbereiche werden geladen…
+          Kategorien werden geladen…
         </div>
       </div>
     </div>
@@ -845,9 +881,9 @@
       <div class="state-icon">🔍</div>
       <div class="state-title">Keine Karten gefunden</div>
       <div class="state-text">
-        Für diesen Themenbereich mit der gewählten Länge sind noch keine Karten vorhanden.
+        Für diese Kategorie mit der gewählten Länge sind noch keine Karten vorhanden.
         <br><br>
-        Bitte wähle einen anderen Themenbereich oder eine andere Kartenlänge.
+        Bitte wähle eine andere Kategorie oder eine andere Kartenlänge.
       </div>
       <button class="retry-btn" id="retryBtn">Andere Auswahl treffen</button>
     </div>
@@ -1067,7 +1103,7 @@
       console.error("Fehler beim Laden der Karten:", err);
       $("catGrid").innerHTML = `
         <div class="cat-error">
-          ⚠️ Themenbereiche konnten nicht geladen werden.<br>
+          ⚠️ Kategorien konnten nicht geladen werden.<br>
           <small>Bitte sicherstellen, dass öffentliche Lesezugriffe in den Firestore-Regeln erlaubt sind.</small>
         </div>`;
     }
@@ -1080,7 +1116,7 @@
 
     if (!entries.length) {
       $("catGrid").innerHTML = `
-        <div class="cat-placeholder">Keine Themenbereiche gefunden.</div>`;
+        <div class="cat-placeholder">Keine Kategorien gefunden.</div>`;
       return;
     }
 
@@ -1124,7 +1160,7 @@
       ? "Karten laden →"
       : n === 1
         ? "Karten laden →"
-        : `${n} Themen laden →`;
+        : `${n} Kategorien laden →`;
   }
 
   /* ── Load swipe cards ───────────────────────────────── */
@@ -1194,14 +1230,12 @@
     const card = cards[index];
     if (!card) return;
 
-    const vp    = $("cardViewport");
-    const meta  = CAT_META[card.mainCategory] ?? { label: card.mainCategory ?? "Thema", emoji: "📌" };
+    const vp      = $("cardViewport");
+    const meta    = CAT_META[card.mainCategory] ?? { label: card.mainCategory ?? "Thema", emoji: "📌" };
     const lenLbl  = LENGTH_LABELS[card.length]  ?? card.length  ?? "";
 
-    const topicTitle = String(card.topicTitle?.de ?? card.title ?? "");
-
-    // Use subCategory name when available, otherwise fall back to main-category label
-    const catLabel = card.subCategory?.name ?? meta.label;
+    // Sub-category: prefer subCategory.name, fall back to chapterIntro.title
+    const subCatName = card.subCategory?.name ?? card.chapterIntro?.title ?? null;
 
     const src    = getBestSource(card);
     const srcHtml = src ? `
@@ -1218,24 +1252,32 @@
       ? `<div class="card-hook">${esc(String(card.hook))}</div>`
       : "";
 
-    // Prefer the chapter description (chapterIntro.title) when present
-    const topicLabelText = card.chapterIntro?.title ?? (topicTitle !== String(card.title ?? "") ? topicTitle : "");
-    const topicLabelHtml = topicLabelText
-      ? `<div class="card-topic-label">${esc(topicLabelText)}</div>`
+    const subCatHtml = subCatName
+      ? `<div class="card-subcategory">${esc(subCatName)}</div>`
+      : "";
+
+    // Key terms ("Verwandte Themen") – stored as keyTerms array on each card
+    const keyTerms = Array.isArray(card.keyTerms) ? card.keyTerms.filter(Boolean) : [];
+    const keyTermsHtml = keyTerms.length > 0
+      ? `<div class="card-keyterms">
+           <div class="keyterms-label">Verwandte Themen</div>
+           <div class="keyterms-chips">${keyTerms.map(t => `<span class="keyterm-chip">${esc(t)}</span>`).join("")}</div>
+         </div>`
       : "";
 
     const html = `
       <div class="swipe-card">
         <div class="card-header">
           <div class="card-badges">
-            <span class="badge badge-cat">${meta.emoji} ${esc(catLabel)}</span>
+            <span class="badge badge-cat">${meta.emoji} ${esc(meta.label)}</span>
             <span class="badge badge-len">${esc(lenLbl)}</span>
           </div>
         </div>
-        ${topicLabelHtml}
+        ${subCatHtml}
         <h1 class="card-title">${esc(String(card.title ?? ""))}</h1>
         ${hookHtml}
         <div class="card-body">${parseBody(card.body)}</div>
+        ${keyTermsHtml}
         ${srcHtml ? `<div class="card-footer">${srcHtml}</div>` : ""}
       </div>`;
 
