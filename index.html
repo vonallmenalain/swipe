@@ -908,6 +908,7 @@
   const selectedLang = "de";
   let selectedLen    = null;
   let selectedCats   = new Set();
+  let preferredLen   = null;  // Tracks the active Kurz/Lang mode; only the toggle may change it
 
   /* Touch tracking */
   let touchStartX = 0;
@@ -1152,6 +1153,7 @@
     }
 
     idx = 0;
+    preferredLen = cards[0]?.length ?? null;
     showScreen("readerScreen");
     renderCard(idx);
     renderNav();
@@ -1184,6 +1186,26 @@
     renderNav();
   }
 
+  /* Applies preferredLen to the card at cardIndex (used on navigation). */
+  function applyPreferredLen(cardIndex) {
+    if (!preferredLen) return;
+    const card = cards[cardIndex];
+    if (!card || card.length === preferredLen) return;
+
+    const match = allCards.find(c =>
+      c.topicId &&
+      c.topicId === card.topicId &&
+      c.mainCategory === card.mainCategory &&
+      c.length === preferredLen
+    ) || allCards.find(c =>
+      c.title === card.title &&
+      c.mainCategory === card.mainCategory &&
+      c.length === preferredLen
+    );
+
+    if (match) cards[cardIndex] = match;
+  }
+
   function toggleCardLength(currentIndex) {
     const currentCard = cards[currentIndex];
     if (!currentCard) return;
@@ -1202,6 +1224,7 @@
 
     if (match) {
       cards[currentIndex] = match;
+      preferredLen = targetLen;
       renderCard(currentIndex);
     }
   }
@@ -1324,6 +1347,7 @@
   function goTo(newIdx, direction) {
     if (newIdx < 0 || newIdx >= cards.length) return;
     idx = newIdx;
+    applyPreferredLen(idx);
     renderCard(idx, direction);
     renderNav();
   }
