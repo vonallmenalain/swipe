@@ -250,16 +250,13 @@
     appId:             "1:649929298401:web:d94f1a5ebf1407ac6502a0",
   };
 
-  const app  = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db   = getFirestore(app);
-
-  const $ = id => document.getElementById(id);
-
+  let app, auth, db;
   let currentUser  = null;
   let parsedTerms  = [];
   let allTerms     = [];
   let currentStep  = 1;
+
+  const $ = id => document.getElementById(id);
 
   // ─── ChatGPT prompt template ──────────────────────────
   const CHATGPT_PROMPT = `Erstelle ein JSON-Array mit Begriffsdefinitionen für einen theologischen Themenkatalog einer Lern-App.
@@ -326,14 +323,7 @@ Erstelle Definitionen für folgende Begriffe:
     });
   }
 
-  $("stepTabs").addEventListener("click", e => {
-    const step = e.target.closest(".step");
-    if (!step) return;
-    const n = parseInt(step.dataset.step);
-    if (step.classList.contains("done") || n < currentStep) goToStep(n);
-  });
-
-  // ─── Auth ─────────────────────────────────────────────
+  // ─── Auth helpers ─────────────────────────────────────
   function showLoginError(msg) {
     const el = $("loginError");
     el.textContent = msg;
@@ -343,103 +333,6 @@ Erstelle Definitionen für folgende Begriffe:
   function clearLoginError() {
     $("loginError").classList.add("hidden");
   }
-
-  $("loginBtn").addEventListener("click", async () => {
-    const email = $("emailInput").value.trim();
-    const pass  = $("passwordInput").value;
-    clearLoginError();
-    if (!email || !pass) {
-      showLoginError("Bitte E-Mail und Passwort eingeben.");
-      return;
-    }
-    const btn = $("loginBtn");
-    btn.disabled = true;
-    btn.textContent = "Anmelden…";
-    setStatus("Anmelden…");
-    try {
-      await signInWithEmailAndPassword(auth, email, pass);
-      setStatus("Angemeldet.");
-    } catch (e) {
-      let msg = e.message || "Unbekannter Fehler";
-      if (e.code === "auth/invalid-credential" || e.code === "auth/wrong-password" || e.code === "auth/user-not-found") {
-        msg = "E-Mail oder Passwort falsch.";
-      } else if (e.code === "auth/too-many-requests") {
-        msg = "Zu viele Versuche. Bitte später erneut versuchen.";
-      } else if (e.code === "auth/network-request-failed") {
-        msg = "Netzwerkfehler. Bitte Internetverbindung prüfen.";
-      }
-      showLoginError(msg);
-      setStatus("Login fehlgeschlagen.", "error");
-    }
-    btn.disabled = false;
-    btn.textContent = "Login";
-  });
-
-  $("passwordInput").addEventListener("keydown", e => {
-    if (e.key === "Enter") $("loginBtn").click();
-  });
-
-  $("logoutBtn").addEventListener("click", () => signOut(auth));
-
-  onAuthStateChanged(auth, user => {
-    currentUser = user;
-    $("loginBox").classList.toggle("hidden", !!user);
-    $("appRoot").classList.toggle("hidden", !user);
-    if (user) {
-      clearLoginError();
-      const btn = $("loginBtn");
-      btn.disabled = false;
-      btn.textContent = "Login";
-      $("userEmail").textContent = user.email;
-      loadTerms();
-    }
-  });
-
-
-  // ─── Step 1: Prompt ───────────────────────────────────
-  $("promptText").value = CHATGPT_PROMPT;
-
-  $("copyPromptBtn").addEventListener("click", () => {
-    navigator.clipboard.writeText(CHATGPT_PROMPT).then(() => {
-      $("copyPromptBtn").textContent = "✅ Kopiert!";
-      setTimeout(() => { $("copyPromptBtn").textContent = "📋 Kopieren"; }, 2000);
-    });
-  });
-
-  const templateBlob = new Blob([JSON_TEMPLATE], { type: "application/json" });
-  $("downloadTemplateBtn").href = URL.createObjectURL(templateBlob);
-
-  $("toStep2Btn").addEventListener("click", () => goToStep(2));
-
-  // ─── Step 2: JSON input ───────────────────────────────
-  $("toStep1Btn").addEventListener("click", () => goToStep(1));
-
-  const dropZone  = $("dropZone");
-  const fileInput = $("fileInput");
-
-  dropZone.addEventListener("click", () => fileInput.click());
-  dropZone.addEventListener("dragover",  e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
-  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
-  dropZone.addEventListener("drop", e => {
-    e.preventDefault();
-    dropZone.classList.remove("drag-over");
-    const file = e.dataTransfer.files[0];
-    if (file) readFile(file);
-  });
-  fileInput.addEventListener("change", () => {
-    if (fileInput.files[0]) readFile(fileInput.files[0]);
-  });
-
-  function readFile(file) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      $("jsonInput").value = e.target.result;
-      setStatus(`Datei geladen: ${file.name}`, "ok");
-    };
-    reader.readAsText(file);
-  }
-
-  $("validateBtn").addEventListener("click", validateAndPreview);
 
   // ─── Validation & preview ─────────────────────────────
   function validateAndPreview() {
@@ -512,74 +405,14 @@ Erstelle Definitionen für folgende Begriffe:
     goToStep(3);
   }
 
-  // ─── Step 3: Import ───────────────────────────────────
-  $("toStep2BtnBack").addEventListener("click", () => goToStep(2));
-
-  $("importBtn").addEventListener("click", async () => {
-    if (!currentUser) { setStatus("Nicht angemeldet.", "error"); return; }
-    if (!parsedTerms.length) return;
-
-    $("importBtn").disabled = true;
-    setStatus(`Importiere ${parsedTerms.length} Begriff${parsedTerms.length !== 1 ? "e" : ""}…`);
-
-    const results = [];
-
-    // Firestore batch limit is 500 operations; split if needed
-    const BATCH_SIZE = 490;
-    for (let start = 0; start < parsedTerms.length; start += BATCH_SIZE) {
-      const chunk = parsedTerms.slice(start, start + BATCH_SIZE);
-      const batch = writeBatch(db);
-
-      for (const term of chunk) {
-        const termId = slugify(term.term);
-        if (!termId) {
-          results.push({ term: term.term, status: "error", msg: "Ungültige Term-ID" });
-          continue;
-        }
-        batch.set(
-          doc(db, "termCatalog", termId),
-          {
-            termId,
-            term:            term.term,
-            shortDefinition: term.shortDefinition,
-            longDefinition:  term.longDefinition,
-            references:      term.references,
-            updatedAt:       serverTimestamp(),
-            createdAt:       serverTimestamp(),
-          },
-          { merge: true }
-        );
-        results.push({ term: term.term, status: "ok" });
-      }
-
-      try {
-        await batch.commit();
-      } catch (e) {
-        chunk.forEach(t => {
-          const r = results.find(r => r.term === t.term && r.status === "ok");
-          if (r) { r.status = "error"; r.msg = e.message; }
-        });
-        setStatus("Import-Fehler: " + e.message, "error");
-      }
-    }
-
-    const okCount = results.filter(r => r.status === "ok").length;
-    if (okCount > 0) {
-      setStatus(`✅ ${okCount} Begriff${okCount !== 1 ? "e" : ""} erfolgreich importiert.`, "ok");
-    }
-
-    $("importResults").innerHTML =
-      `<h3 style="margin:10px 0 8px">Import-Ergebnis</h3>` +
-      results.map(r => `
-        <div class="import-result-item ${r.status}">
-          <span>${r.status === "ok" ? "✅" : "❌"}</span>
-          <span>${esc(r.term)}</span>
-          ${r.msg ? `<span class="muted small">– ${esc(r.msg)}</span>` : ""}
-        </div>`).join("");
-
-    $("importBtn").disabled = false;
-    await loadTerms();
-  });
+  function readFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      $("jsonInput").value = e.target.result;
+      setStatus(`Datei geladen: ${file.name}`, "ok");
+    };
+    reader.readAsText(file);
+  }
 
   // ─── Load & render saved terms ────────────────────────
   async function loadTerms() {
@@ -587,7 +420,7 @@ Erstelle Definitionen für folgende Begriffe:
       const snap = await getDocs(collection(db, "termCatalog"));
       allTerms = snap.docs
         .map(d => ({ _id: d.id, ...d.data() }))
-        .sort((a, b) => a.term.localeCompare(b.term, "de"));
+        .sort((a, b) => (a.term ?? "").localeCompare(b.term ?? "", "de"));
       renderTerms(allTerms);
     } catch (e) {
       setStatus("Fehler beim Laden der Begriffe: " + e.message, "error");
@@ -659,19 +492,217 @@ Erstelle Definitionen für folgende Begriffe:
     });
   }
 
-  // ─── Search ───────────────────────────────────────────
-  $("termSearch").addEventListener("input", () => {
-    const q = $("termSearch").value.trim().toLowerCase();
-    if (!q) { renderTerms(allTerms); return; }
-    renderTerms(allTerms.filter(t =>
-      t.term.toLowerCase().includes(q) ||
-      t.shortDefinition?.toLowerCase().includes(q) ||
-      t.longDefinition?.toLowerCase().includes(q) ||
-      t.references?.some(r => r.toLowerCase().includes(q))
-    ));
+  // ─── Init ─────────────────────────────────────────────
+  async function init() {
+    app  = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db   = getFirestore(app);
+
+    // Step navigation
+    $("stepTabs").addEventListener("click", e => {
+      const step = e.target.closest(".step");
+      if (!step) return;
+      const n = parseInt(step.dataset.step);
+      if (step.classList.contains("done") || n < currentStep) goToStep(n);
+    });
+
+    // Auth state observer
+    onAuthStateChanged(auth, user => {
+      currentUser = user;
+      $("loginBox").classList.toggle("hidden", !!user);
+      $("appRoot").classList.toggle("hidden", !user);
+      if (user) {
+        clearLoginError();
+        const btn = $("loginBtn");
+        btn.disabled = false;
+        btn.textContent = "Login";
+        $("userEmail").textContent = user.email || '';
+        loadTerms();
+      }
+    });
+
+    // Login
+    $("loginBtn").addEventListener("click", async () => {
+      const email = $("emailInput").value.trim();
+      const pass  = $("passwordInput").value;
+      clearLoginError();
+      if (!email || !pass) {
+        showLoginError("Bitte E-Mail und Passwort eingeben.");
+        return;
+      }
+      const btn = $("loginBtn");
+      btn.disabled = true;
+      btn.textContent = "Anmelden…";
+      setStatus("Anmelden…");
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+        setStatus("Angemeldet.");
+      } catch (e) {
+        let msg = e.message || "Unbekannter Fehler";
+        if (e.code === "auth/invalid-credential" || e.code === "auth/wrong-password" || e.code === "auth/user-not-found") {
+          msg = "E-Mail oder Passwort falsch.";
+        } else if (e.code === "auth/too-many-requests") {
+          msg = "Zu viele Versuche. Bitte später erneut versuchen.";
+        } else if (e.code === "auth/network-request-failed") {
+          msg = "Netzwerkfehler. Bitte Internetverbindung prüfen.";
+        }
+        showLoginError(msg);
+        setStatus("Login fehlgeschlagen.", "error");
+      }
+      btn.disabled = false;
+      btn.textContent = "Login";
+    });
+
+    $("passwordInput").addEventListener("keydown", e => {
+      if (e.key === "Enter") $("loginBtn").click();
+    });
+
+    $("logoutBtn").addEventListener("click", () => signOut(auth));
+
+    // Step 1: Prompt
+    $("promptText").value = CHATGPT_PROMPT;
+
+    $("copyPromptBtn").addEventListener("click", () => {
+      navigator.clipboard.writeText(CHATGPT_PROMPT).then(() => {
+        $("copyPromptBtn").textContent = "✅ Kopiert!";
+        setTimeout(() => { $("copyPromptBtn").textContent = "📋 Kopieren"; }, 2000);
+      }).catch(() => {
+        $("promptText").select();
+        document.execCommand('copy');
+        $("copyPromptBtn").textContent = "✅ Kopiert!";
+        setTimeout(() => { $("copyPromptBtn").textContent = "📋 Kopieren"; }, 2000);
+      });
+    });
+
+    const templateBlob = new Blob([JSON_TEMPLATE], { type: "application/json" });
+    $("downloadTemplateBtn").href = URL.createObjectURL(templateBlob);
+
+    $("toStep2Btn").addEventListener("click", () => goToStep(2));
+
+    // Step 2: JSON input
+    $("toStep1Btn").addEventListener("click", () => goToStep(1));
+
+    const dropZone  = $("dropZone");
+    const fileInput = $("fileInput");
+
+    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("dragover",  e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+    dropZone.addEventListener("drop", e => {
+      e.preventDefault();
+      dropZone.classList.remove("drag-over");
+      const file = e.dataTransfer.files[0];
+      if (file) readFile(file);
+    });
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files[0]) readFile(fileInput.files[0]);
+    });
+
+    $("validateBtn").addEventListener("click", validateAndPreview);
+
+    // Step 3: Import
+    $("toStep2BtnBack").addEventListener("click", () => goToStep(2));
+
+    $("importBtn").addEventListener("click", async () => {
+      if (!currentUser) { setStatus("Nicht angemeldet.", "error"); return; }
+      if (!parsedTerms.length) return;
+
+      $("importBtn").disabled = true;
+      setStatus(`Importiere ${parsedTerms.length} Begriff${parsedTerms.length !== 1 ? "e" : ""}…`);
+
+      const results = [];
+
+      const BATCH_SIZE = 490;
+      for (let start = 0; start < parsedTerms.length; start += BATCH_SIZE) {
+        const chunk = parsedTerms.slice(start, start + BATCH_SIZE);
+        const batch = writeBatch(db);
+
+        for (const term of chunk) {
+          const termId = slugify(term.term);
+          if (!termId) {
+            results.push({ term: term.term, status: "error", msg: "Ungültige Term-ID" });
+            continue;
+          }
+          batch.set(
+            doc(db, "termCatalog", termId),
+            {
+              termId,
+              term:            term.term,
+              shortDefinition: term.shortDefinition,
+              longDefinition:  term.longDefinition,
+              references:      term.references,
+              updatedAt:       serverTimestamp(),
+              createdAt:       serverTimestamp(),
+            },
+            { merge: true }
+          );
+          results.push({ term: term.term, status: "ok" });
+        }
+
+        try {
+          await batch.commit();
+        } catch (e) {
+          chunk.forEach(t => {
+            const r = results.find(r => r.term === t.term && r.status === "ok");
+            if (r) { r.status = "error"; r.msg = e.message; }
+          });
+          setStatus("Import-Fehler: " + e.message, "error");
+        }
+      }
+
+      const okCount = results.filter(r => r.status === "ok").length;
+      if (okCount > 0) {
+        setStatus(`✅ ${okCount} Begriff${okCount !== 1 ? "e" : ""} erfolgreich importiert.`, "ok");
+      }
+
+      $("importResults").innerHTML =
+        `<h3 style="margin:10px 0 8px">Import-Ergebnis</h3>` +
+        results.map(r => `
+          <div class="import-result-item ${r.status}">
+            <span>${r.status === "ok" ? "✅" : "❌"}</span>
+            <span>${esc(r.term)}</span>
+            ${r.msg ? `<span class="muted small">– ${esc(r.msg)}</span>` : ""}
+          </div>`).join("");
+
+      $("importBtn").disabled = false;
+      await loadTerms();
+    });
+
+    // Search
+    $("termSearch").addEventListener("input", () => {
+      const q = $("termSearch").value.trim().toLowerCase();
+      if (!q) { renderTerms(allTerms); return; }
+      renderTerms(allTerms.filter(t =>
+        (t.term ?? "").toLowerCase().includes(q) ||
+        (t.shortDefinition ?? "").toLowerCase().includes(q) ||
+        (t.longDefinition ?? "").toLowerCase().includes(q) ||
+        t.references?.some(r => r.toLowerCase().includes(q))
+      ));
+    });
+
+    window.__firebaseReady = true;
+  }
+
+  // Button ripple effect
+  document.addEventListener("pointerdown", e => {
+    const btn = e.target.closest("button");
+    if (!btn || btn.disabled) return;
+    const rect = btn.getBoundingClientRect();
+    const dot = document.createElement("span");
+    dot.className = "btn-ripple-dot";
+    dot.style.top = `${e.clientY - rect.top}px`;
+    dot.style.left = `${e.clientX - rect.left}px`;
+    btn.appendChild(dot);
+    dot.addEventListener("animationend", () => dot.remove());
   });
 
-  window.__firebaseReady = true;
+  init().catch(err => {
+    const p = document.getElementById("loginError");
+    if (p) {
+      p.textContent = "App-Initialisierung fehlgeschlagen: " + err.message;
+      p.classList.remove("hidden");
+    }
+  });
 </script>
 <script>
   setTimeout(function() {
