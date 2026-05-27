@@ -130,6 +130,7 @@
     <div class="field"><label>E-Mail</label><input id="emailInput" type="email" autocomplete="email" /></div>
     <div class="field"><label>Passwort</label><input id="passwordInput" type="password" autocomplete="current-password" /></div>
     <button id="loginBtn" class="btn-primary">Login</button>
+    <p id="loginError" class="hidden" style="color:#ff9e9e;margin-top:10px;font-size:.88rem"></p>
   </section>
 
   <!-- APP -->
@@ -238,7 +239,8 @@
 <script type="module">
   import { initializeApp }
     from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
+           setPersistence, browserLocalStoragePersistence }
     from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, writeBatch, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
@@ -254,6 +256,7 @@
 
   const app  = initializeApp(firebaseConfig);
   const auth = getAuth(app);
+  await setPersistence(auth, browserLocalStoragePersistence);
   const db   = getFirestore(app);
 
   const $ = id => document.getElementById(id);
@@ -336,15 +339,43 @@ Erstelle Definitionen für folgende Begriffe:
   });
 
   // ─── Auth ─────────────────────────────────────────────
+  function showLoginError(msg) {
+    const el = $("loginError");
+    el.textContent = msg;
+    el.classList.remove("hidden");
+  }
+
+  function clearLoginError() {
+    $("loginError").classList.add("hidden");
+  }
+
   $("loginBtn").addEventListener("click", async () => {
     const email = $("emailInput").value.trim();
     const pass  = $("passwordInput").value;
-    if (!email || !pass) { setStatus("E-Mail und Passwort eingeben.", "error"); return; }
+    clearLoginError();
+    if (!email || !pass) {
+      showLoginError("Bitte E-Mail und Passwort eingeben.");
+      return;
+    }
+    const btn = $("loginBtn");
+    btn.disabled = true;
+    btn.textContent = "Anmelden…";
     setStatus("Anmelden…");
     try {
       await signInWithEmailAndPassword(auth, email, pass);
     } catch (e) {
-      setStatus("Login fehlgeschlagen: " + e.message, "error");
+      let msg = e.message || "Unbekannter Fehler";
+      if (e.code === "auth/invalid-credential" || e.code === "auth/wrong-password" || e.code === "auth/user-not-found") {
+        msg = "E-Mail oder Passwort falsch.";
+      } else if (e.code === "auth/too-many-requests") {
+        msg = "Zu viele Versuche. Bitte später erneut versuchen.";
+      } else if (e.code === "auth/network-request-failed") {
+        msg = "Netzwerkfehler. Bitte Internetverbindung prüfen.";
+      }
+      showLoginError(msg);
+      setStatus("Login fehlgeschlagen.", "error");
+      btn.disabled = false;
+      btn.textContent = "Login";
     }
   });
 
@@ -359,6 +390,10 @@ Erstelle Definitionen für folgende Begriffe:
     $("loginBox").classList.toggle("hidden", !!user);
     $("appRoot").classList.toggle("hidden", !user);
     if (user) {
+      clearLoginError();
+      const btn = $("loginBtn");
+      btn.disabled = false;
+      btn.textContent = "Login";
       $("userEmail").textContent = user.email;
       loadTerms();
     }
