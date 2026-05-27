@@ -1214,6 +1214,9 @@
 
     const topicTitle = String(card.topicTitle?.de ?? card.title ?? "");
 
+    // Use subCategory name when available, otherwise fall back to main-category label
+    const catLabel = card.subCategory?.name ?? meta.label;
+
     const src    = getBestSource(card);
     const srcHtml = src ? `
       <a class="source-link" href="${esc(src.url)}" target="_blank" rel="noopener noreferrer">
@@ -1229,15 +1232,17 @@
       ? `<div class="card-hook">${esc(String(card.hook))}</div>`
       : "";
 
-    const topicLabelHtml = topicTitle && topicTitle !== String(card.title ?? "")
-      ? `<div class="card-topic-label">${esc(topicTitle)}</div>`
+    // Prefer the chapter description (chapterIntro.title) when present
+    const topicLabelText = card.chapterIntro?.title ?? (topicTitle !== String(card.title ?? "") ? topicTitle : "");
+    const topicLabelHtml = topicLabelText
+      ? `<div class="card-topic-label">${esc(topicLabelText)}</div>`
       : "";
 
     const html = `
       <div class="swipe-card">
         <div class="card-header">
           <div class="card-badges">
-            <span class="badge badge-cat">${meta.emoji} ${esc(meta.label)}</span>
+            <span class="badge badge-cat">${meta.emoji} ${esc(catLabel)}</span>
             <span class="badge badge-len">${esc(lenLbl)}</span>
           </div>
         </div>
