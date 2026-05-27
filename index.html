@@ -1136,7 +1136,7 @@
 
   /* ── Load swipe cards ───────────────────────────────── */
   function loadCards() {
-    showScreen("loadingScreen");
+    showScreen("loadingScreen", false);
     $("loadingText").textContent = "Karten werden geladen…";
 
     const catsArray = [...selectedCats];
