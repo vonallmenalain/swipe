@@ -198,9 +198,17 @@
         <!-- STEP 1: ChatGPT Prompt -->
         <section id="step1" class="panel section mb step-panel active">
           <h2>Schritt 1 – ChatGPT-Prompt</h2>
-          <p class="muted small">Kopiere diesen Prompt, öffne ChatGPT und füge <strong>danach deinen Text / deine PDF-Inhalte</strong> hinzu. ChatGPT generiert das fertige JSON automatisch.</p>
+          <p class="muted small">Trage zuerst optionale spezifische Anweisungen ein, dann kopiere den fertigen Prompt, öffne ChatGPT und füge <strong>danach deinen Text</strong> ein.</p>
+
+          <!-- Specific instructions -->
+          <div class="intro-assign-box" style="margin-bottom:12px">
+            <h3>✏️ Spezifische Anweisungen <span class="muted" style="font-weight:400;font-size:.78rem">(optional)</span></h3>
+            <p class="muted small" style="margin-bottom:8px">Diese Anweisungen werden in den Prompt eingefügt. Nutze sie, um z.B. die Subkategorie oder Hauptkategorie vorzugeben.</p>
+            <textarea id="specificInstructionsInput" rows="3" placeholder='z.B.: Die Subkategorie ist "Kapitel 1". Die topicId beginnt mit lds_vme_kapitel1_.'></textarea>
+          </div>
+
           <div class="prompt-box mb">
-            <textarea id="promptText" rows="18" readonly></textarea>
+            <textarea id="promptText" rows="20" readonly></textarea>
             <button id="copyPromptBtn" class="btn-primary btn-small copy-btn">📋 Kopieren</button>
           </div>
           <div class="row">
@@ -214,26 +222,26 @@
           <h2>Schritt 2 – JSON einfügen oder hochladen</h2>
           <p class="muted small">Füge das von ChatGPT generierte JSON hier ein oder lade eine JSON-Datei hoch. Einzelnes Topic oder Array mit mehreren Topics.</p>
 
-          <!-- Category assignment -->
+          <!-- Subcategory override (optional) -->
           <div class="cat-assign-box">
-            <h3>📂 Hauptkategorie zuweisen</h3>
-            <p class="muted small" style="margin-bottom:10px">Alle importierten Karten werden dieser Kategorie zugewiesen. Wähle eine bestehende oder erstelle eine neue.</p>
+            <h3>📂 Subkategorie / Kapitel überschreiben <span class="muted" style="font-weight:400;font-size:.78rem">(optional)</span></h3>
+            <p class="muted small" style="margin-bottom:10px">Wenn du eine Subkategorie hier wählst, wird sie für alle importierten Karten verwendet und überschreibt den von ChatGPT ermittelten Wert. Leer lassen, um die Subkategorie aus dem JSON zu übernehmen.</p>
             <div class="field" style="margin-bottom:6px">
-              <label>Bestehende Kategorie wählen</label>
+              <label>Bestehende Subkategorie wählen</label>
               <select id="categorySelect">
-                <option value="">– Kategorie wählen –</option>
+                <option value="">– keine Überschreibung –</option>
               </select>
             </div>
-            <div class="cat-divider-or">oder</div>
+            <div class="cat-divider-or">oder neue erstellen</div>
             <div class="field" style="margin-bottom:6px">
-              <label>Neue Kategorie erstellen</label>
+              <label>Neue Subkategorie erstellen</label>
               <div class="row" style="gap:8px">
-                <input type="text" id="newCategoryInput" placeholder="z.B. Verkündet mein Evangelium" style="flex:1" />
+                <input type="text" id="newCategoryInput" placeholder="z.B. Kapitel 1" style="flex:1" />
                 <button id="createCategoryBtn" class="btn-primary btn-small" style="white-space:nowrap">+ Erstellen</button>
               </div>
             </div>
             <div id="selectedCategoryBadge" class="cat-selected-badge hidden"></div>
-            <div id="categoryRequiredHint" class="cat-required-hint hidden">⚠️ Bitte eine Kategorie wählen oder erstellen, bevor du fortfährst.</div>
+            <div id="categoryRequiredHint" class="cat-required-hint hidden"></div>
           </div>
 
           <!-- Intro / Chapter description -->
@@ -292,7 +300,7 @@
 
         <!-- STEP 3: Validate & Preview -->
         <section id="step3" class="panel section mb step-panel">
-          <h2>Schritt 3 – Prüfen, Verwandte Themen &amp; Vorschau</h2>
+          <h2>Schritt 3 – Prüfen &amp; Vorschau</h2>
           <div id="validationResult"></div>
           <div id="previewArea"></div>
 
@@ -326,7 +334,7 @@
       <div>
         <section class="panel section mb">
           <div class="row mb" style="justify-content:space-between">
-            <h2 style="margin:0">Bereits importierte Inhalte</h2>
+            <h2 style="margin:0">Bereits importierte Karten</h2>
             <button id="reloadTopicsBtn" class="btn-ghost btn-small">🔄</button>
           </div>
           <div id="churchTopicsList"><span class="muted small">Wird geladen…</span></div>
@@ -335,12 +343,18 @@
         <section class="panel section mb">
           <h2>JSON-Format Referenz</h2>
           <div class="small muted" style="line-height:1.6">
-            <p>Pflichtfelder pro Topic:</p>
+            <p>Pflichtfelder pro Inhalt:</p>
             <ul style="padding-left:18px;margin:4px 0">
-              <li><code>topicId</code> – z.B. <code>lds_nelson_apr2024</code></li>
+              <li><code>topicId</code> – z.B. <code>lds_vme_kapitel1</code></li>
               <li><code>topicTitle.de</code></li>
               <li><code>cards</code> – Array mit mindestens 1 Karte</li>
-              <li><code>relatedTopics</code> – Array mit verwandten Themen</li>
+            </ul>
+            <p>Empfohlene Felder:</p>
+            <ul style="padding-left:18px;margin:4px 0">
+              <li><code>subCategory</code> – z.B. <code>"Kapitel 1"</code></li>
+              <li><code>keyTerms</code> – 1–10 allgemeine Hauptbegriffe, z.B. <code>["Jesus Christus", "Glaube"]</code></li>
+              <li><code>source</code> – <code>{title, url}</code></li>
+              <li><code>description.de</code></li>
             </ul>
             <p>Pflichtfelder pro Karte:</p>
             <ul style="padding-left:18px;margin:4px 0">
@@ -349,7 +363,7 @@
               <li><code>cardType</code>: <code>"intro"</code>, <code>"fact"</code>, <code>"deep_dive"</code>, <code>"myth_buster"</code>, <code>"comparison"</code>, <code>"timeline"</code></li>
               <li><code>title</code>, <code>hook</code>, <code>body</code></li>
             </ul>
-            <p>Empfehlung: 2 DE-Karten (short + long). Array-Import für mehrere Topics möglich.</p>
+            <p>Empfehlung: 2 DE-Karten (short + long). Array-Import für mehrere Inhalte möglich.</p>
           </div>
         </section>
       </div>
@@ -360,7 +374,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import { getFirestore,collection,getDocs,doc,setDoc,getDoc,query,where,serverTimestamp,writeBatch,updateDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getFirestore,collection,getDocs,doc,query,where,serverTimestamp,writeBatch } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 const firebaseConfig={apiKey:"AIzaSyBOjkDk1Mmr79wY7bpKHQ5jidqwuHDo_kg",authDomain:"swipe-82eeb.firebaseapp.com",projectId:"swipe-82eeb",storageBucket:"swipe-82eeb.firebasestorage.app",messagingSenderId:"649929298401",appId:"1:649929298401:web:d94f1a5ebf1407ac6502a0"};
 
@@ -368,17 +382,15 @@ let app,auth,db,user=null;
 let parsedImportData=null;
 let currentStep=1;
 
-// Verwandte-Themen-Editor-State: {topicId: [{topicId, title}]}
-let relatedTopicsEditors={};
-// Cache aller Kirchenthemen für Autocomplete
-let allChurchTopics=[];
-
 // Category state
 let churchCategories=[]; // [{id, name}]
-let selectedImportCategory=null; // {id, name} | null
+let selectedImportCategory=null; // {id, name} | null – overrides JSON subCategory when set
 
 // Intro state
 let introTitleManual=false; // true once user has typed in the intro title field
+
+// Specific instructions appended to the ChatGPT prompt when copying
+let specificInstructions='';
 
 const VALID_LANGUAGES=["de"];
 const VALID_LENGTHS=["short","long"];
@@ -394,8 +406,8 @@ function showStatus(msg,type=''){
   bar.className='status'+(type?` ${type}`:'');
 }
 
-/* ─── ChatGPT Prompt ──────────────────────────── */
-const CHATGPT_PROMPT=`Du bist ein Assistent, der Inhalte der Kirche Jesu Christi der Heiligen der Letzten Tage in strukturierte Lernkarten (SwipeCards) für eine Lern-App umwandelt.
+/* ─── ChatGPT Prompt (Basistext ohne spezifische Anweisungen) ── */
+const CHATGPT_PROMPT_BASE=`Du bist ein Assistent, der Inhalte der Kirche Jesu Christi der Heiligen der Letzten Tage in strukturierte Lernkarten (SwipeCards) für eine Lern-App umwandelt.
 
 Analysiere den folgenden Text und erstelle SwipeCards auf DEUTSCH. Gib das Ergebnis AUSSCHLIESSLICH als gültiges JSON zurück (kein Text davor oder danach, kein Markdown, keine Erklärungen).
 
@@ -403,26 +415,17 @@ Analysiere den folgenden Text und erstelle SwipeCards auf DEUTSCH. Gib das Ergeb
 {
   "topicId": "lds_[kurzer_bezeichner_lowercase_unterstriche]",
   "topicTitle": {
-    "de": "Titel auf Deutsch (präzise, max. 80 Zeichen)"
+    "de": "Titel des Inhalts auf Deutsch (präzise, max. 80 Zeichen)"
   },
   "description": {
     "de": "Kurze Beschreibung auf Deutsch (1-2 Sätze, worum geht es?)"
   },
-  "tags": ["tag1", "tag2", "tag3", "tag4"],
+  "subCategory": "Kapitel 1",
   "source": {
     "title": "Quellenangabe, z.B. Generalkonferenz April 2024 – Russell M. Nelson",
     "url": "https://www.churchofjesuschrist.org/..."
   },
-  "relatedTopics": [
-    {
-      "title": "Titel eines thematisch verwandten Themas",
-      "topicId": "lds_verwandtes_thema"
-    },
-    {
-      "title": "Weiteres verwandtes Thema",
-      "topicId": ""
-    }
-  ],
+  "keyTerms": ["Jesus Christus", "Glaube", "Buße", "Erlösung"],
   "cards": [
     {
       "language": "de",
@@ -445,12 +448,12 @@ Analysiere den folgenden Text und erstelle SwipeCards auf DEUTSCH. Gib das Ergeb
 
 === REGELN ===
 - topicId: Nur Kleinbuchstaben a-z, Ziffern und _, beginnt immer mit lds_
-  Beispiele: lds_nelson_glaube_2024, lds_bom_nephi_1ne3, lds_wp_familienverklaerung
+  Beispiele: lds_nelson_glaube_2024, lds_bom_nephi_1ne3, lds_vme_kapitel1
 - Sprache: NUR Deutsch (language: "de").
 - Kartenlängen (length):
     "short" → body: 5-8 Sätze, ca. 100-200 Wörter, KEIN ##-Markdown
     "long"  → body: mind. 15 Sätze mit ##-Abschnitten, ca. 300-500 Wörter
-- Für "long"-Karten MUSS der body ## Überschriften enthalten
+- Für "long"-Karten MUSS der body ## Überschriften enthalten.
 - cardType passend zum Inhalt wählen:
     intro       → Einführung in ein Thema
     fact        → Wichtige Lehre / Kernaussage
@@ -458,31 +461,42 @@ Analysiere den folgenden Text und erstelle SwipeCards auf DEUTSCH. Gib das Ergeb
     myth_buster → Missverständnis aufklären
     comparison  → Vergleich zweier Konzepte
     timeline    → Chronologische Abfolge
-- PRO TOPIC genau 2 Karten erstellen: 1× short + 1× long
-- Verwandte Themen (relatedTopics): Schlage 5-10 thematisch verwandte Themen vor.
-  Die topicId kannst du leer lassen (""), wenn du sie nicht kennst. Wichtig sind die Titel.
-  Beispiele für verwandte Themen: andere Ansprachen derselben Konferenz, verwandte Schriftstellen,
-  ähnliche Lehrpunkte (Glaube, Buße, Taufe, Heiliger Geist, Buch Mormon etc.)
+- PRO TOPIC genau 2 Karten erstellen: 1× short + 1× long.
+- subCategory: Bezeichnung der Untergruppe bzw. des Kapitels (z.B. "Kapitel 1", "Einheit 3").
+  Ermittle den korrekten Wert aus den spezifischen Anweisungen oder aus dem Text selbst.
+- keyTerms: Gib 1-10 allgemeine Hauptbegriffe an, die im Inhalt zentral vorkommen.
+  Diese Begriffe sollen möglichst allgemein und einheitlich über viele Karten hinweg sein,
+  damit Karten thematisch verknüpft werden können.
+  Beispiele: "Jesus Christus", "Glaube", "Buße", "Taufe", "Heiliger Geist", "Buch Mormon",
+  "Prophetie", "Familie", "Tempel", "Erlösung", "Adam", "Priestertum", "Gebot".
 - Bleibe STRIKT am Originaltext. Erfinde keine Fakten oder Lehren.
 - Falls mehrere Themen im Text erkannt werden: erstelle ein Array von Topic-Objekten: [{...},{...}]
+
+=== SPEZIFISCHE ANWEISUNGEN ===
+[HIER KANNST DU SPEZIFISCHE ANWEISUNGEN EINFÜGEN – z.B.: Die Subkategorie ist "Kapitel 1", topicId beginnt mit lds_vme_. Oder leer lassen.]
 
 === DEIN TEXT / ANSPRACHE ===
 [FÜGE HIER DEINEN TEXT EIN – z.B. die ganze Ansprache, Schriftstelle oder Buchkapitel]`;
 
+function buildPrompt(){
+  const instr=(el('specificInstructionsInput')?.value.trim())||specificInstructions;
+  if(!instr) return CHATGPT_PROMPT_BASE;
+  return CHATGPT_PROMPT_BASE.replace(
+    '[HIER KANNST DU SPEZIFISCHE ANWEISUNGEN EINFÜGEN – z.B.: Die Subkategorie ist "Kapitel 1", topicId beginnt mit lds_vme_. Oder leer lassen.]',
+    instr
+  );
+}
+
 /* ─── JSON Template ───────────────────────────── */
 const JSON_TEMPLATE={
-  topicId:"lds_beispiel_ansprache_2024",
-  topicTitle:{de:"Beispiel: Titel der Ansprache auf Deutsch"},
-  description:{de:"Kurze Beschreibung worum es in dieser Ansprache geht."},
-  tags:["glaube","hoffnung","generalkonferenz"],
-  source:{title:"Generalkonferenz Oktober 2024 – Vorname Nachname",url:"https://www.churchofjesuschrist.org/study/general-conference/2024/10?lang=deu"},
-  relatedTopics:[
-    {title:"Glaube und Vertrauen auf den Herrn",topicId:"lds_glaube_vertrauen"},
-    {title:"Das Buch Mormon als Zeuge Christi",topicId:"lds_buch_mormon"},
-    {title:"Die Kraft der Buße",topicId:""}
-  ],
+  topicId:"lds_beispiel_kapitel1",
+  topicTitle:{de:"Beispiel: Titel des Inhalts auf Deutsch"},
+  description:{de:"Kurze Beschreibung, worum es in diesem Kapitel geht."},
+  subCategory:"Kapitel 1",
+  source:{title:"Verkündet mein Evangelium – Kapitel 1",url:"https://www.churchofjesuschrist.org/study/manual/preach-my-gospel?lang=deu"},
+  keyTerms:["Jesus Christus","Glaube","Evangelium","Bekehrung","Heiliger Geist"],
   cards:[
-    {language:"de",length:"short",cardType:"intro",title:"Kurzversion: Kernbotschaft",hook:"Ein Satz, der sofort Interesse weckt.",body:"Die Kernbotschaft der Ansprache in 5-8 klaren Sätzen. Prägnant und inspirierend. Ca. 100-200 Wörter."},
+    {language:"de",length:"short",cardType:"intro",title:"Kurzversion: Kernbotschaft",hook:"Ein Satz, der sofort Interesse weckt.",body:"Die Kernbotschaft des Kapitels in 5-8 klaren Sätzen. Prägnant und inspirierend. Ca. 100-200 Wörter."},
     {language:"de",length:"long",cardType:"deep_dive",title:"Langversion: Tiefe Analyse",hook:"Hook-Satz für die lange Karte.",body:"## Einleitung\nAusführliche Einleitung...\n\n## Hauptlehre\nDetaillierte Erklärung der Kernbotschaft...\n\n## Schriftstellen\nRelevante Verse und Zitate...\n\n## Anwendung\nPraktische Schlussfolgerungen..."}
   ]
 };
@@ -506,6 +520,9 @@ function validateTopicObj(obj,idx){
   if(!obj.topicId||typeof obj.topicId!=='string') errs.push(`${prefix}topicId fehlt oder ungültig`);
   else if(!/^[a-z0-9_]+$/.test(obj.topicId)) errs.push(`${prefix}topicId darf nur a-z, 0-9 und _ enthalten`);
   if(!obj.topicTitle?.de) errs.push(`${prefix}topicTitle.de fehlt`);
+  if(Array.isArray(obj.keyTerms)){
+    if(obj.keyTerms.length>10) errs.push(`${prefix}keyTerms: maximal 10 Begriffe erlaubt (${obj.keyTerms.length} angegeben)`);
+  }
   if(!Array.isArray(obj.cards)||obj.cards.length===0) errs.push(`${prefix}cards-Array fehlt oder leer`);
   else{
     obj.cards.forEach((c,ci)=>{
@@ -549,13 +566,7 @@ function validateAndPreview(){
     el("jsonOutputSection").classList.add('hidden');
     parsedImportData=null;
   }else{
-    el("validationResult").innerHTML=`<div class="val-ok">✅ <strong>${topics.length} Topic${topics.length!==1?'s':''}</strong> mit <strong>${topics.reduce((s,t)=>s+t.cards.length,0)} Karten</strong> – bereit zum Importieren</div>`;
-    // Initialize relatedTopics editors from parsed data
-    topics.forEach(t=>{
-      if(!relatedTopicsEditors[t.topicId]){
-        relatedTopicsEditors[t.topicId]=Array.isArray(t.relatedTopics)?t.relatedTopics.map(r=>({topicId:r.topicId||'',title:r.title||''})):[];
-      }
-    });
+    el("validationResult").innerHTML=`<div class="val-ok">✅ <strong>${topics.length} Inhalt${topics.length!==1?'e':''}</strong> mit <strong>${topics.reduce((s,t)=>s+t.cards.length,0)} Karten</strong> – bereit zum Importieren</div>`;
     renderPreview(topics);
     el("importBtn").classList.remove('hidden');
     parsedImportData=topics;
@@ -579,6 +590,15 @@ function renderPreview(topics){
     const effectiveSourceTitle=manualSourceTitle||t.source?.title||'';
     const effectiveSourceUrl=manualSourceUrl||t.source?.url||'';
     const imageUrl=manualImageUrl||t.imageUrl||'';
+    // Effective subCategory: admin override or JSON value
+    const rawSubCat=t.subCategory??null;
+    const jsonSubCat=rawSubCat?(typeof rawSubCat==='object'?rawSubCat:{id:slugify(String(rawSubCat)),name:String(rawSubCat)}):null;
+    const effectiveSubCat=selectedImportCategory||jsonSubCat;
+    // keyTerms
+    const keyTerms=Array.isArray(t.keyTerms)?t.keyTerms.filter(Boolean):[];
+    const keyTermsHtml=keyTerms.length>0
+      ?`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${keyTerms.map(k=>`<span class="badge badge-related">🔑 ${esc(k)}</span>`).join('')}</div>`
+      :'';
     const cardsHtml=t.cards.map(c=>`
       <div class="preview-card">
         <div class="preview-card-header">
@@ -592,8 +612,8 @@ function renderPreview(topics){
       </div>`).join('');
     return `<div class="preview-topic">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-        <span class="badge badge-cat">📖 Verkündet mein Evangelium</span>
-        ${selectedImportCategory?`<span class="badge badge-subcat">📂 ${esc(selectedImportCategory.name)}</span>`:''}
+        <span class="badge badge-cat">📖 Grundbegriffe des Evangeliums</span>
+        ${effectiveSubCat?`<span class="badge badge-subcat">📂 ${esc(effectiveSubCat.name)}</span>`:''}
         <strong>${esc(t.topicTitle?.de||t.topicId)}</strong>
         <span class="muted small">${esc(t.topicId)}</span>
       </div>
@@ -601,122 +621,17 @@ function renderPreview(topics){
       ${t.description?.de?`<div class="muted small" style="margin-bottom:8px">${esc(t.description.de)}</div>`:''}
       ${(effectiveSourceTitle||effectiveSourceUrl)?`<div class="small" style="margin-bottom:8px">🔗 ${esc(effectiveSourceTitle)}${effectiveSourceUrl?` – <a href="${esc(effectiveSourceUrl)}" target="_blank" style="color:var(--accent)">Link</a>`:''}</div>`:''}
       ${imageUrl?`<div class="small" style="margin-bottom:8px">🖼️ <a href="${esc(imageUrl)}" target="_blank" style="color:var(--accent)">${esc(imageUrl.length>60?imageUrl.slice(0,60)+'…':imageUrl)}</a></div>`:''}
-      <details>
+      ${keyTerms.length>0?`<div class="small muted" style="margin-bottom:6px">🔑 Hauptbegriffe (${keyTerms.length}):</div>${keyTermsHtml}`:'<div class="small muted" style="margin-bottom:6px">⚠️ Keine keyTerms angegeben</div>'}
+      <details style="margin-top:8px">
         <summary class="small muted" style="cursor:pointer">${t.cards.length} Karte${t.cards.length!==1?'n':''} anzeigen</summary>
         ${cardsHtml}
       </details>
-      ${renderRelatedTopicsEditor(t.topicId,relatedTopicsEditors[t.topicId]||[],'import')}
     </div>`;
   }).join('');
   el("previewArea").innerHTML=html;
-  // Attach search listeners
-  topics.forEach(t=>attachRelatedSearchListeners(t.topicId,'import'));
 }
 
-/* ─── Related Topics Editor ───────────────────── */
-function renderRelatedTopicsEditor(topicId,related,mode){
-  const safeId=topicId.replace(/[^a-z0-9_]/g,'_');
-  const chipsHtml=related.length===0
-    ?`<span class="related-topics-empty">Noch keine verwandten Themen hinzugefügt.</span>`
-    :related.map((r,i)=>`
-      <span class="related-chip">
-        <span class="related-chip-title">${esc(r.title||r.topicId)}</span>
-        ${r.topicId?`<span class="related-chip-id">${esc(r.topicId)}</span>`:''}
-        <button class="related-chip-remove" data-topic="${esc(topicId)}" data-idx="${i}" data-mode="${esc(mode)}" title="Entfernen">✕</button>
-      </span>`).join('');
-  return `
-    <div class="related-topics-editor" id="rte_${safeId}">
-      <h3>🔗 Verwandte Themen <span class="muted" style="font-weight:400;font-size:.78rem">(${related.length})</span></h3>
-      <div class="related-chips" id="chips_${safeId}">${chipsHtml}</div>
-      <div class="related-search-wrap">
-        <input type="text" class="related-search-input" id="rsi_${safeId}"
-          placeholder="Bestehendes Thema suchen…"
-          data-topic="${esc(topicId)}" data-mode="${esc(mode)}" autocomplete="off" />
-        <div class="related-search-results hidden" id="rsr_${safeId}"></div>
-      </div>
-      <div class="related-manual-row">
-        <input type="text" class="related-manual-input" id="rmi_title_${safeId}" placeholder="Titel des verwandten Themas" />
-        <input type="text" class="related-manual-input" id="rmi_id_${safeId}" placeholder="topicId (optional)" style="max-width:200px" />
-        <button class="btn-ghost btn-small related-add-manual" data-topic="${esc(topicId)}" data-mode="${esc(mode)}">+ Hinzufügen</button>
-      </div>
-    </div>`;
-}
-
-function getRelatedState(topicId,mode){
-  if(mode==='import') return relatedTopicsEditors[topicId]||[];
-  return relatedTopicsEditors['_existing_'+topicId]||[];
-}
-
-function setRelatedState(topicId,mode,arr){
-  if(mode==='import') relatedTopicsEditors[topicId]=arr;
-  else relatedTopicsEditors['_existing_'+topicId]=arr;
-}
-
-function refreshRelatedChips(topicId,mode){
-  const safeId=topicId.replace(/[^a-z0-9_]/g,'_');
-  const chipsEl=document.getElementById('chips_'+safeId);
-  if(!chipsEl)return;
-  const related=getRelatedState(topicId,mode);
-  if(related.length===0){
-    chipsEl.innerHTML=`<span class="related-topics-empty">Noch keine verwandten Themen hinzugefügt.</span>`;
-  }else{
-    chipsEl.innerHTML=related.map((r,i)=>`
-      <span class="related-chip">
-        <span class="related-chip-title">${esc(r.title||r.topicId)}</span>
-        ${r.topicId?`<span class="related-chip-id">${esc(r.topicId)}</span>`:''}
-        <button class="related-chip-remove" data-topic="${esc(topicId)}" data-idx="${i}" data-mode="${esc(mode)}" title="Entfernen">✕</button>
-      </span>`).join('');
-  }
-  if(mode==='import') updateJsonOutput();
-}
-
-function addRelatedEntry(topicId,mode,title,relatedTopicId){
-  if(!title.trim()&&!relatedTopicId.trim())return;
-  const state=getRelatedState(topicId,mode);
-  const alreadyExists=relatedTopicId&&state.some(r=>r.topicId===relatedTopicId);
-  if(alreadyExists)return;
-  state.push({title:title.trim()||relatedTopicId,topicId:relatedTopicId.trim()});
-  setRelatedState(topicId,mode,state);
-  refreshRelatedChips(topicId,mode);
-}
-
-function removeRelatedEntry(topicId,mode,idx){
-  const state=getRelatedState(topicId,mode);
-  state.splice(idx,1);
-  setRelatedState(topicId,mode,state);
-  refreshRelatedChips(topicId,mode);
-}
-
-function attachRelatedSearchListeners(topicId,mode){
-  const safeId=topicId.replace(/[^a-z0-9_]/g,'_');
-  const searchInput=document.getElementById('rsi_'+safeId);
-  const searchResults=document.getElementById('rsr_'+safeId);
-  if(!searchInput||!searchResults)return;
-
-  searchInput.addEventListener('input',()=>{
-    const q=searchInput.value.trim().toLowerCase();
-    if(q.length<1){searchResults.classList.add('hidden');searchResults.innerHTML='';return;}
-    const matches=allChurchTopics.filter(t=>
-      (t.title?.de||'').toLowerCase().includes(q)||t.id.toLowerCase().includes(q)
-    ).slice(0,8);
-    if(matches.length===0){searchResults.classList.add('hidden');searchResults.innerHTML='';return;}
-    searchResults.innerHTML=matches.map(t=>`
-      <div class="related-search-result-item" data-id="${esc(t.id)}" data-title="${esc(t.title?.de||t.id)}">
-        ${esc(t.title?.de||t.id)}
-        <span class="related-search-result-id">${esc(t.id)}</span>
-      </div>`).join('');
-    searchResults.classList.remove('hidden');
-    searchResults.querySelectorAll('.related-search-result-item').forEach(item=>{
-      item.onclick=()=>{
-        addRelatedEntry(topicId,mode,item.dataset.title,item.dataset.id);
-        searchInput.value='';
-        searchResults.classList.add('hidden');
-        searchResults.innerHTML='';
-      };
-    });
-  });
-  searchInput.addEventListener('blur',()=>setTimeout(()=>{searchResults.classList.add('hidden');},200));
-}
+/* ─── (Related Topics Editor removed – keyTerms are now embedded in cards) ─── */
 
 /* ─── JSON Output ─────────────────────────────── */
 function updateJsonOutput(){
@@ -730,9 +645,17 @@ function updateJsonOutput(){
     const effectiveSource=(effectiveSourceTitle||effectiveSourceUrl)
       ?{title:effectiveSourceTitle,url:effectiveSourceUrl}
       :(t.source||undefined);
+    // Resolve effective subCategory
+    const rawSubCat=t.subCategory??null;
+    const jsonSubCat=rawSubCat?(typeof rawSubCat==='object'?rawSubCat:{id:slugify(String(rawSubCat)),name:String(rawSubCat)}):null;
+    const effectiveSubCat=selectedImportCategory||jsonSubCat;
     const out={
-      ...t,
-      relatedTopics:relatedTopicsEditors[t.topicId]||[],
+      topicId:t.topicId,
+      topicTitle:t.topicTitle,
+      description:t.description,
+      subCategory:effectiveSubCat?.name||null,
+      keyTerms:Array.isArray(t.keyTerms)?t.keyTerms:[],
+      cards:t.cards,
     };
     if(effectiveSource)out.source=effectiveSource;
     if(manualImageUrl)out.imageUrl=manualImageUrl;
@@ -743,84 +666,9 @@ function updateJsonOutput(){
   if(ta)ta.value=json;
 }
 
-/* ─── Delegated events for related topics ─────── */
-document.addEventListener('click',e=>{
-  // Remove chip
-  const removeBtn=e.target.closest('.related-chip-remove');
-  if(removeBtn){
-    removeRelatedEntry(removeBtn.dataset.topic,removeBtn.dataset.mode,Number(removeBtn.dataset.idx));
-    return;
-  }
-  // Manual add button
-  const addBtn=e.target.closest('.related-add-manual');
-  if(addBtn){
-    const topicId=addBtn.dataset.topic;
-    const mode=addBtn.dataset.mode;
-    const safeId=topicId.replace(/[^a-z0-9_]/g,'_');
-    const titleInput=document.getElementById('rmi_title_'+safeId);
-    const idInput=document.getElementById('rmi_id_'+safeId);
-    if(!titleInput||!idInput)return;
-    addRelatedEntry(topicId,mode,titleInput.value,idInput.value);
-    titleInput.value='';
-    idInput.value='';
-    return;
-  }
-  // Edit existing topic related topics
-  const editBtn=e.target.closest('.btn-edit-related');
-  if(editBtn){
-    const topicId=editBtn.dataset.topic;
-    const safeId=topicId.replace(/[^a-z0-9_]/g,'_');
-    const panel=document.getElementById('panel_'+safeId);
-    if(!panel)return;
-    const isOpen=panel.classList.toggle('topic-edit-panel');
-    if(!relatedTopicsEditors['_existing_'+topicId]){
-      relatedTopicsEditors['_existing_'+topicId]=JSON.parse(editBtn.dataset.related||'[]');
-    }
-    panel.innerHTML=renderRelatedTopicsEditor(topicId,relatedTopicsEditors['_existing_'+topicId],'existing')
-      +`<div class="row mt"><button class="btn-ok btn-small btn-save-related" data-topic="${esc(topicId)}">💾 Speichern</button><button class="btn-ghost btn-small btn-cancel-related" data-topic="${esc(topicId)}">Abbrechen</button></div>`;
-    attachRelatedSearchListeners(topicId,'existing');
-    return;
-  }
-  // Save existing topic related topics
-  const saveBtn=e.target.closest('.btn-save-related');
-  if(saveBtn){
-    saveExistingTopicRelatedTopics(saveBtn.dataset.topic);
-    return;
-  }
-  // Cancel
-  const cancelBtn=e.target.closest('.btn-cancel-related');
-  if(cancelBtn){
-    const topicId=cancelBtn.dataset.topic;
-    const safeId=topicId.replace(/[^a-z0-9_]/g,'_');
-    const panel=document.getElementById('panel_'+safeId);
-    if(panel){panel.innerHTML='';panel.classList.remove('topic-edit-panel');}
-  }
-});
+/* ─── (Related topics delegated events removed – no longer needed) ─── */
 
-/* ─── Save existing topic related topics ─────── */
-async function saveExistingTopicRelatedTopics(topicId){
-  if(!user){showStatus("Nicht eingeloggt.","error");return;}
-  const related=relatedTopicsEditors['_existing_'+topicId]||[];
-  try{
-    showStatus("Speichere verwandte Themen…");
-    const topicRef=doc(db,'topics',topicId);
-    await updateDoc(topicRef,{relatedTopics:related,updatedAt:serverTimestamp()});
-    // Also update all cards of this topic
-    const cSnap=await getDocs(query(collection(db,'swipeCards'),where('topicId','==',topicId)));
-    if(!cSnap.empty){
-      const batch=writeBatch(db);
-      cSnap.docs.forEach(d=>batch.update(d.ref,{relatedTopics:related,updatedAt:serverTimestamp()}));
-      await batch.commit();
-    }
-    showStatus(`Verwandte Themen für "${topicId}" gespeichert.`,"ok");
-    const safeId=topicId.replace(/[^a-z0-9_]/g,'_');
-    const panel=document.getElementById('panel_'+safeId);
-    if(panel){
-      panel.innerHTML=`<div class="status ok" style="margin:0">✅ Gespeichert (${related.length} verwandte Themen)</div>`;
-      setTimeout(()=>{if(panel){panel.innerHTML='';panel.classList.remove('topic-edit-panel');}loadChurchTopics();},2000);
-    }
-  }catch(e){showStatus("Fehler beim Speichern: "+e.message,"error");}
-}
+/* ─── (saveExistingTopicRelatedTopics removed – replaced by keyTerms on cards) ─── */
 
 /* ─── Import ──────────────────────────────────── */
 async function importData(){
@@ -834,8 +682,8 @@ async function importData(){
   const now=serverTimestamp();
   const nowDate=new Date();
 
-  // Read intro fields; fall back to subCategory name for title if user left it blank
-  const introTitleVal=(el('introTitleInput')?.value.trim())||(selectedImportCategory?.name||'');
+  // Read intro fields
+  const introTitleVal=el('introTitleInput')?.value.trim()||'';
   const introBodyVal=el('introBodyInput')?.value.trim()||'';
   const chapterIntro=(introTitleVal||introBodyVal)?{title:introTitleVal,body:introBodyVal}:null;
 
@@ -848,10 +696,6 @@ async function importData(){
     try{
       const topicId=topicData.topicId;
       const cardsForTopic=topicData.cards;
-      const relatedTopics=relatedTopicsEditors[topicId]||topicData.relatedTopics||[];
-
-      const hasShortDE=cardsForTopic.some(c=>c.language==='de'&&c.length==='short');
-      const hasLongDE=cardsForTopic.some(c=>c.language==='de'&&c.length==='long');
 
       // Resolve effective source: manual overrides the JSON value
       const effectiveSourceTitle=manualSourceTitle||topicData.source?.title||'';
@@ -860,34 +704,17 @@ async function importData(){
         ?{title:effectiveSourceTitle,url:effectiveSourceUrl}
         :(topicData.source||null);
 
-      const topicRef=doc(db,'topics',topicId);
-      const existingSnap=await getDoc(topicRef);
-      const topicPayload={
-        wikidataId:topicId,
-        title:topicData.topicTitle||{de:topicId},
-        description:topicData.description||{de:''},
-        aliases:{de:[],en:[]},
-        sitelinks:{},
-        tags:Array.isArray(topicData.tags)?topicData.tags:[],
-        relatedTopics,
-        sourceIds:[],
-        mainCategory:'kirche',
-        subCategory:selectedImportCategory||null,
-        ...(chapterIntro?{chapterIntro}:{}),
-        ...(effectiveSource?{source:effectiveSource}:{}),
-        ...(manualImageUrl?{imageUrl:manualImageUrl}:{}),
-        topicType:'other',
-        status:'active',
-        contentStatus:{
-          hasShortCard:hasShortDE,
-          hasLongCard:hasLongDE,
-          reviewStatus:'approved',
-        },
-        import:{source:'manual_import',importedAt:existingSnap.exists()?existingSnap.data()?.import?.importedAt||now:now,lastFetchedAt:now},
-        createdAt:existingSnap.exists()?existingSnap.data()?.createdAt||now:now,
-        updatedAt:now,
-      };
-      await setDoc(topicRef,topicPayload,{merge:true});
+      // Resolve sub-category: admin-UI override takes precedence over JSON value
+      const rawSubCat=topicData.subCategory??null;
+      const jsonSubCat=rawSubCat
+        ?(typeof rawSubCat==='object'?rawSubCat:{id:slugify(String(rawSubCat)),name:String(rawSubCat)})
+        :null;
+      const effectiveSubCategory=selectedImportCategory||jsonSubCat;
+
+      // Key terms embedded directly in cards
+      const keyTerms=Array.isArray(topicData.keyTerms)
+        ?topicData.keyTerms.filter(k=>typeof k==='string'&&k.trim()).map(k=>k.trim())
+        :[];
 
       const BATCH_SIZE=400;
       let batchObj=writeBatch(db);
@@ -907,13 +734,11 @@ async function importData(){
           hook:card.hook||'',
           body:card.body||'',
           mainCategory:'kirche',
-          subCategory:selectedImportCategory||null,
+          subCategory:effectiveSubCategory||null,
           ...(chapterIntro?{chapterIntro}:{}),
           ...(manualImageUrl?{imageUrl:manualImageUrl}:{}),
           topicTitle:topicData.topicTitle||{de:topicId},
-          tags:Array.isArray(topicData.tags)?topicData.tags:[],
-          relatedTopics,
-          relatedTerms:[],
+          keyTerms,
           sources:sourceArr,
           sourceIds:[],
           sourceBasis:'manual',
@@ -931,9 +756,9 @@ async function importData(){
       }
       if(batchCount>0) await batchObj.commit();
 
-      results.push({topicId,title:topicData.topicTitle?.de||topicId,cards:cardsForTopic.length,related:relatedTopics.length,status:'ok'});
+      results.push({topicId,title:topicData.topicTitle?.de||topicId,cards:cardsForTopic.length,keyTerms:keyTerms.length,status:'ok'});
     }catch(e){
-      results.push({topicId:topicData.topicId,title:topicData.topicTitle?.de||topicData.topicId,cards:0,related:0,status:'error',error:e.message});
+      results.push({topicId:topicData.topicId,title:topicData.topicTitle?.de||topicData.topicId,cards:0,keyTerms:0,status:'error',error:e.message});
     }
   }
 
@@ -941,14 +766,14 @@ async function importData(){
   const errCount=results.filter(r=>r.status==='error').length;
   const html=`
     <div class="${errCount===0?'status ok':'status warn'}" style="margin-bottom:12px">
-      ${errCount===0?'✅':'⚠️'} <strong>${okCount} Topic${okCount!==1?'s':''} importiert</strong>
+      ${errCount===0?'✅':'⚠️'} <strong>${okCount} Inhalt${okCount!==1?'e':''} importiert</strong>
       ${errCount>0?`, ${errCount} Fehler`:''}
     </div>
     ${results.map(r=>`<div class="import-result-item ${r.status}">
       ${r.status==='ok'?'✅':'❌'} <strong>${esc(r.title)}</strong>
       <span class="muted small">${esc(r.topicId)}</span>
       ${r.status==='ok'
-        ?`<span class="muted small">${r.cards} Karten · ${r.related} Verknüpfungen</span>`
+        ?`<span class="muted small">${r.cards} Karten · ${r.keyTerms} Hauptbegriffe</span>`
         :`<span style="color:var(--danger)">${esc(r.error)}</span>`}
     </div>`).join('')}`;
   el("importResult").innerHTML=html;
@@ -959,54 +784,59 @@ async function importData(){
   el("importBtn").textContent='✅ Jetzt importieren →';
 }
 
-/* ─── Load existing church topics ────────────── */
+/* ─── Load existing church content (from swipeCards) ── */
 async function loadChurchTopics(){
   const listEl=el("churchTopicsList");
   listEl.innerHTML='<span class="muted small">Lädt…</span>';
   try{
-    const snap=await getDocs(query(collection(db,'topics'),where('mainCategory','==','kirche')));
-    const topics=snap.docs.map(d=>({id:d.id,...d.data()}));
-    allChurchTopics=topics; // update autocomplete cache
+    const snap=await getDocs(query(collection(db,'swipeCards'),where('mainCategory','==','kirche')));
+    // Group cards by topicId
+    const topicMap=new Map();
+    snap.docs.forEach(d=>{
+      const data={_docId:d.id,...d.data()};
+      const tid=data.topicId||data._docId;
+      if(!topicMap.has(tid)){
+        topicMap.set(tid,{
+          id:tid,
+          title:data.topicTitle||{de:tid},
+          subCategory:data.subCategory||null,
+          keyTerms:Array.isArray(data.keyTerms)?data.keyTerms:[],
+          cards:[],
+        });
+      }
+      const entry=topicMap.get(tid);
+      entry.cards.push(data);
+      // Use keyTerms from first card that has them
+      if(!entry.keyTerms.length&&Array.isArray(data.keyTerms)&&data.keyTerms.length){
+        entry.keyTerms=data.keyTerms;
+      }
+    });
+
+    const topics=Array.from(topicMap.values());
     if(topics.length===0){listEl.innerHTML='<span class="muted small">Noch keine Inhalte importiert.</span>';return;}
     topics.sort((a,b)=>(a.title?.de||'').localeCompare(b.title?.de||''));
 
-    const topicIds=topics.map(t=>t.id);
-    let cardCounts={};
-    for(let i=0;i<topicIds.length;i+=10){
-      const chunk=topicIds.slice(i,i+10);
-      const cSnap=await getDocs(query(collection(db,'swipeCards'),where('topicId','in',chunk)));
-      cSnap.docs.forEach(d=>{
-        const tid=d.data().topicId;
-        cardCounts[tid]=(cardCounts[tid]||0)+1;
-      });
-    }
-
     listEl.innerHTML=topics.map(t=>{
-      const cs=t.contentStatus||{};
-      const count=cardCounts[t.id]||0;
-      const related=Array.isArray(t.relatedTopics)?t.relatedTopics:[];
+      const hasShort=t.cards.some(c=>c.length==='short');
+      const hasLong=t.cards.some(c=>c.length==='long');
       const subCatName=t.subCategory?.name||(typeof t.subCategory==='string'?t.subCategory:null);
-      const safeId=t.id.replace(/[^a-z0-9_]/g,'_');
-      const relatedJson=esc(JSON.stringify(related));
       return `<div class="topic-row">
         <div class="topic-row-body">
           <div class="topic-row-title" title="${esc(t.id)}">${esc(t.title?.de||t.id)}</div>
           <div class="topic-row-meta">${esc(t.id)}</div>
           <div class="topic-row-badges">
             ${subCatName?`<span class="badge badge-subcat">📂 ${esc(subCatName)}</span>`:''}
-            <span class="badge ${cs.hasShortCard?'badge-has':'badge-miss'}">${cs.hasShortCard?'✓':'✗'} kurz</span>
-            <span class="badge ${cs.hasLongCard?'badge-has':'badge-miss'}">${cs.hasLongCard?'✓':'✗'} lang</span>
-            <span class="badge badge-related">🔗 ${related.length} Verknüpfungen</span>
-            <span class="badge muted">${count} Karten</span>
+            <span class="badge ${hasShort?'badge-has':'badge-miss'}">${hasShort?'✓':'✗'} kurz</span>
+            <span class="badge ${hasLong?'badge-has':'badge-miss'}">${hasLong?'✓':'✗'} lang</span>
+            <span class="badge muted">${t.cards.length} Karte${t.cards.length!==1?'n':''}</span>
           </div>
-          ${related.length>0?`<div style="margin-top:5px;font-size:.73rem;color:var(--muted)">${related.slice(0,3).map(r=>esc(r.title||r.topicId)).join(' · ')}${related.length>3?` · +${related.length-3}`:''}</div>`:''}
-          <div id="panel_${safeId}"></div>
+          ${t.keyTerms.length>0
+            ?`<div style="margin-top:5px;font-size:.73rem;color:var(--muted)">🔑 ${t.keyTerms.slice(0,5).map(k=>esc(k)).join(' · ')}${t.keyTerms.length>5?` · +${t.keyTerms.length-5}`:''}</div>`
+            :''}
         </div>
-        <button class="btn-ghost btn-small btn-edit-related" data-topic="${esc(t.id)}" data-related="${relatedJson}" style="flex-shrink:0;margin-top:4px">✏️ Verknüpfungen</button>
       </div>`;
     }).join('');
   }catch(e){listEl.innerHTML=`<span class="muted small">Fehler: ${esc(e.message)}</span>`;}
-  // Refresh category dropdown with any newly found categories
   loadChurchCategories();
 }
 
@@ -1029,7 +859,7 @@ function slugify(str){
 async function loadChurchCategories(){
   if(!db)return;
   try{
-    const snap=await getDocs(query(collection(db,'topics'),where('mainCategory','==','kirche')));
+    const snap=await getDocs(query(collection(db,'swipeCards'),where('mainCategory','==','kirche')));
     const catMap=new Map();
     snap.docs.forEach(d=>{
       const sc=d.data().subCategory;
@@ -1042,12 +872,10 @@ async function loadChurchCategories(){
     });
     churchCategories=Array.from(catMap.values()).sort((a,b)=>a.name.localeCompare(b.name,'de'));
     updateCategoryDropdown();
-    // Restore last used category from localStorage (only if nothing selected yet)
     if(!selectedImportCategory){
       try{
         const saved=JSON.parse(localStorage.getItem('lastChurchCategory')||'null');
         if(saved&&saved.id&&saved.name){
-          // Only auto-restore if the category exists in Firestore (or newly added)
           if(!churchCategories.some(c=>c.id===saved.id)){
             churchCategories.push(saved);
             churchCategories.sort((a,b)=>a.name.localeCompare(b.name,'de'));
@@ -1097,7 +925,7 @@ function setSelectedCategory(cat){
   const sel=el('categorySelect');
   if(!badge)return;
   if(cat){
-    badge.textContent=`✓ Gewählte Kategorie: "${cat.name}"`;
+    badge.textContent=`✓ Gewählte Subkategorie: "${cat.name}"`;
     badge.classList.remove('hidden');
     if(hint)hint.classList.add('hidden');
     // Ensure the category appears in dropdown
@@ -1122,7 +950,7 @@ function init(){
   auth=getAuth(app);
   db=getFirestore(app);
 
-  el("promptText").value=CHATGPT_PROMPT;
+  el("promptText").value=buildPrompt();
 
   const templateBlob=new Blob([JSON.stringify(JSON_TEMPLATE,null,2)],{type:'application/json'});
   el("downloadTemplateBtn").href=URL.createObjectURL(templateBlob);
@@ -1142,7 +970,9 @@ function init(){
   el("logoutBtn").onclick=()=>signOut(auth);
 
   el("copyPromptBtn").onclick=()=>{
-    navigator.clipboard.writeText(CHATGPT_PROMPT).then(()=>{
+    const prompt=buildPrompt();
+    el("promptText").value=prompt;
+    navigator.clipboard.writeText(prompt).then(()=>{
       el("copyPromptBtn").textContent="✓ Kopiert!";
       setTimeout(()=>{el("copyPromptBtn").textContent="📋 Kopieren";},2000);
     }).catch(()=>{
@@ -1168,13 +998,6 @@ function init(){
   el("backTo1Btn").onclick=()=>goToStep(1);
   el("backTo2Btn").onclick=()=>goToStep(2);
   el("validateBtn").onclick=()=>{
-    if(!selectedImportCategory){
-      const hint=el('categoryRequiredHint');
-      if(hint)hint.classList.remove('hidden');
-      showStatus('Bitte zuerst eine Kategorie auswählen oder erstellen.','error');
-      el('categorySelect').focus();
-      return;
-    }
     validateAndPreview();
   };
   el("importBtn").onclick=()=>importData();
@@ -1186,14 +1009,11 @@ function init(){
     el("importBtn").classList.add('hidden');
     el("jsonOutputSection").classList.add('hidden');
     parsedImportData=null;
-    relatedTopicsEditors={};
-    // Reset category selection so a fresh one can be chosen
     selectedImportCategory=null;
     const badge=el('selectedCategoryBadge');
     if(badge)badge.classList.add('hidden');
     const sel=el('categorySelect');
     if(sel)sel.value='';
-    // Reset intro fields
     const introTitle=el('introTitleInput');
     const introBody=el('introBodyInput');
     const introBadge=el('introAutoBadge');
@@ -1201,7 +1021,6 @@ function init(){
     if(introBody)introBody.value='';
     if(introBadge)introBadge.classList.add('hidden');
     introTitleManual=false;
-    // Reset source / image URL fields
     const sourceTitleEl=el('sourceTitleInput');
     const sourceUrlEl=el('sourceUrlInput');
     const imageUrlEl=el('imageUrlInput');
@@ -1222,12 +1041,12 @@ function init(){
   el('createCategoryBtn').onclick=()=>{
     const input=el('newCategoryInput');
     const name=input.value.trim();
-    if(!name){showStatus('Bitte einen Kategorienamen eingeben.','error');return;}
+    if(!name){showStatus('Bitte einen Subkategorienamen eingeben.','error');return;}
     const id=slugify(name);
-    if(!id){showStatus('Ungültiger Kategoriename – bitte andere Buchstaben verwenden.','error');return;}
+    if(!id){showStatus('Ungültiger Subkategoriename – bitte andere Buchstaben verwenden.','error');return;}
     setSelectedCategory({id,name});
     input.value='';
-    showStatus(`Neue Kategorie erstellt: "${name}"`,'ok');
+    showStatus(`Neue Subkategorie erstellt: "${name}"`,'ok');
   };
   el('newCategoryInput').onkeydown=e=>{if(e.key==='Enter')el('createCategoryBtn').click();};
 
@@ -1248,6 +1067,12 @@ function init(){
   // Live-update JSON output when source / image URL fields change
   ['sourceTitleInput','sourceUrlInput','imageUrlInput'].forEach(id=>{
     el(id)?.addEventListener('input',()=>updateJsonOutput());
+  });
+
+  // Live-update prompt preview when specific instructions change
+  el('specificInstructionsInput')?.addEventListener('input',()=>{
+    specificInstructions=el('specificInstructionsInput').value;
+    el("promptText").value=buildPrompt();
   });
 
   document.querySelectorAll('.step').forEach(s=>{
