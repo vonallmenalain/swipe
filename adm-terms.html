@@ -256,10 +256,6 @@
 
   const app  = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  // browserLocalStoragePersistence is already the default; wrap in try-catch so
-  // that a storage failure (e.g. Safari Private Browsing) never silently prevents
-  // the event listeners below from being registered.
-  try { await setPersistence(auth, browserLocalStoragePersistence); } catch (_) {}
   const db   = getFirestore(app);
 
   const $ = id => document.getElementById(id);
@@ -401,6 +397,11 @@ Erstelle Definitionen für folgende Begriffe:
       loadTerms();
     }
   });
+
+  // Explicitly confirm localStorage persistence (already the default).
+  // Called after all handlers are registered so a storage failure can never
+  // silently prevent the login button from working.
+  try { await setPersistence(auth, browserLocalStoragePersistence); } catch (_) {}
 
   // ─── Step 1: Prompt ───────────────────────────────────
   $("promptText").value = CHATGPT_PROMPT;
