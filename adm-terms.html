@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Themenkatalog – Begriffe &amp; Definitionen</title>
+  <style>
+    :root{--bg:#0a0f1a;--bg-soft:#0e1626;--card:#121e36;--text:#e5eeff;--muted:#7a94c4;--accent:#5b9cf6;--accent2:#7eb3ff;--line:rgba(100,150,255,.1);--warn:#ffd166;--ok:#52d8a2;--danger:#ff6b6b;--radius:14px;--shadow:0 8px 30px rgba(0,0,0,.32);}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);background:radial-gradient(circle at top right,#0d1a3a 0%,var(--bg) 50%);min-height:100vh}
+    .container{max-width:1300px;margin:0 auto;padding:16px}
+    .panel{background:linear-gradient(180deg,var(--card),var(--bg-soft));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .section{padding:16px}
+    .header{padding:14px 18px;display:flex;justify-content:space-between;flex-wrap:wrap;align-items:center;gap:10px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .field{display:grid;gap:6px;margin-bottom:10px}
+    label{color:var(--muted);font-size:.85rem}
+    button,select,input,textarea{border:1px solid var(--line);background:#0c1830;color:var(--text);border-radius:10px;padding:9px 13px;font:inherit;outline:none;transition:border-color .15s}
+    button:hover:not(:disabled){border-color:var(--accent);cursor:pointer}
+    textarea{resize:vertical;width:100%;font-size:.82rem;line-height:1.5;font-family:monospace}
+    .btn-primary{background:linear-gradient(180deg,#3a7eef,#2a64cc);border:none;color:#fff;font-weight:700;padding:10px 18px}
+    .btn-ok{background:linear-gradient(180deg,#2bb989,#1f9f74);border:none;color:#072018;font-weight:700}
+    .btn-danger{background:linear-gradient(180deg,#ef4a4a,#cc2a2a);border:none;color:#fff;font-weight:700}
+    .btn-small{padding:6px 11px;font-size:.82rem;border-radius:8px}
+    .btn-ghost{background:transparent;border-color:var(--line)}
+    button:disabled{opacity:.4;cursor:not-allowed}
+    .status{margin:10px 0;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:rgba(91,156,246,.07);font-size:.88rem}
+    .status.error{background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.3);color:#ff9e9e}
+    .status.ok{background:rgba(82,216,162,.08);border-color:rgba(82,216,162,.25);color:var(--ok)}
+    .status.warn{background:rgba(255,209,102,.08);border-color:rgba(255,209,102,.25);color:var(--warn)}
+    .badge{display:inline-block;padding:3px 9px;border-radius:999px;border:1px solid var(--line);font-size:.72rem;white-space:nowrap}
+    .small,.muted{color:var(--muted);font-size:.88rem}
+    .hidden{display:none!important}
+    h1{margin:0 0 4px;font-size:1.3rem}
+    h2{margin:0 0 12px;font-size:1.05rem;font-weight:600}
+    h3{margin:0 0 8px;font-size:.9rem;font-weight:600;color:var(--muted)}
+    .mb{margin-bottom:14px}
+    .mt{margin-top:14px}
+    hr{border:none;border-top:1px solid var(--line);margin:14px 0}
+
+    /* Steps */
+    .steps{display:flex;gap:0;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+    .step{flex:1;padding:10px 8px;text-align:center;font-size:.78rem;background:#0c1830;color:var(--muted);border-right:1px solid var(--line);cursor:pointer;transition:background .15s,color .15s}
+    .step:last-child{border-right:none}
+    .step.active{background:linear-gradient(180deg,#1a3060,#122348);color:var(--text);font-weight:600}
+    .step.done{color:var(--ok)}
+    .step-num{display:block;font-size:1.1rem;margin-bottom:2px}
+    .step-panel{display:none}
+    .step-panel.active{display:block}
+
+    /* Prompt box */
+    .prompt-box{position:relative}
+    .prompt-box textarea{min-height:220px;background:#080e1e;border-color:rgba(91,156,246,.2)}
+    .copy-btn{position:absolute;top:8px;right:8px}
+
+    /* Drop zone */
+    .drop-zone{border:2px dashed var(--line);border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:#080e1e}
+    .drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:rgba(91,156,246,.06)}
+    .drop-zone-icon{font-size:2.2rem;margin-bottom:8px}
+
+    /* Template download */
+    .template-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid rgba(91,156,246,.3);background:rgba(91,156,246,.08);color:var(--accent2);font-size:.82rem;cursor:pointer;text-decoration:none}
+    .template-badge:hover{background:rgba(91,156,246,.15)}
+
+    /* Validation */
+    .val-error{background:rgba(255,107,107,.07);border:1px solid rgba(255,107,107,.25);border-radius:8px;padding:10px;margin-bottom:8px;font-size:.83rem;color:#ff9e9e}
+    .val-ok{background:rgba(82,216,162,.07);border:1px solid rgba(82,216,162,.2);border-radius:8px;padding:10px;margin-bottom:8px;font-size:.83rem;color:var(--ok)}
+
+    /* Preview */
+    .preview-term{background:#0c1830;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px}
+    .preview-term-name{font-weight:700;font-size:.95rem;color:var(--accent2);margin-bottom:6px}
+    .preview-term-short{font-size:.83rem;color:var(--text);margin-bottom:6px;line-height:1.4}
+    .preview-term-long-box{background:#080e1e;border-radius:8px;padding:8px;margin-top:4px}
+    .preview-term-long{font-size:.8rem;color:var(--muted);line-height:1.4;white-space:pre-wrap}
+    .preview-term-refs{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+    .badge-ref{background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.25);color:var(--warn);font-size:.72rem}
+
+    /* Import result */
+    .import-result-item{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;margin-bottom:4px;font-size:.85rem}
+    .import-result-item.ok{background:rgba(82,216,162,.08)}
+    .import-result-item.error{background:rgba(255,107,107,.08)}
+
+    /* Terms list */
+    .terms-list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+    .term-search{width:100%;padding:8px 12px;font-size:.85rem;border-radius:10px;margin-bottom:10px}
+    .term-row{border:1px solid var(--line);border-radius:10px;background:#0c1830;margin-bottom:6px;overflow:hidden;transition:border-color .15s}
+    .term-row:hover{border-color:rgba(91,156,246,.3)}
+    .term-row-header{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none}
+    .term-row-name{font-weight:600;font-size:.92rem;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .term-row-short-preview{color:var(--muted);font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;max-width:160px}
+    .term-row-expand{background:none;border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:.72rem;color:var(--muted);cursor:pointer;flex-shrink:0;transition:border-color .15s,color .15s}
+    .term-row-expand:hover{border-color:var(--accent);color:var(--accent2)}
+    .term-row-body{display:none;padding:12px;border-top:1px solid var(--line);background:#080e1e}
+    .term-row-body.open{display:block}
+    .term-def-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:4px;margin-top:12px}
+    .term-def-label:first-child{margin-top:0}
+    .term-def-text{font-size:.83rem;line-height:1.5;white-space:pre-wrap;color:var(--text)}
+    .term-refs-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+    .term-row-actions{display:flex;gap:6px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+
+    /* Count badge */
+    .count-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:rgba(91,156,246,.12);border:1px solid rgba(91,156,246,.2);font-size:.78rem;color:var(--accent2)}
+
+    /* Empty state */
+    .empty-state{text-align:center;padding:32px 16px;color:var(--muted);font-size:.88rem}
+    .empty-state-icon{font-size:2.5rem;margin-bottom:8px}
+
+    /* Nav links */
+    .nav-links{display:flex;gap:8px;flex-wrap:wrap}
+    .nav-links a{color:var(--muted);font-size:.8rem;text-decoration:none;padding:5px 10px;border-radius:8px;border:1px solid var(--line)}
+    .nav-links a:hover{color:var(--text);border-color:var(--accent)}
+    .nav-links a.active-nav{color:var(--text);border-color:var(--accent);background:rgba(91,156,246,.08)}
+
+    /* Split layout */
+    @media(min-width:920px){.split{display:grid;grid-template-columns:1.1fr 0.9fr;gap:16px}}
+
+    /* Button ripple */
+    button{position:relative;overflow:hidden}
+    @keyframes btnRipple{0%{transform:scale(0);opacity:.5}100%{transform:scale(2.5);opacity:0}}
+    .btn-ripple-dot{position:absolute;border-radius:50%;background:rgba(255,255,255,.3);width:60px;height:60px;margin-top:-30px;margin-left:-30px;animation:btnRipple .4s ease-out forwards;pointer-events:none}
+  </style>
+</head>
+<body><div class="container">
+  <div id="statusBar" class="status">Bereit.</div>
+
+  <!-- LOGIN -->
+  <section id="loginBox" class="panel section mb">
+    <h1>📚 Themenkatalog – Begriffe &amp; Definitionen</h1>
+    <p class="muted">Admin-Zugang erforderlich</p>
+    <div class="field"><label>E-Mail</label><input id="emailInput" type="email" autocomplete="email" /></div>
+    <div class="field"><label>Passwort</label><input id="passwordInput" type="password" autocomplete="current-password" /></div>
+    <button id="loginBtn" class="btn-primary">Login</button>
+  </section>
+
+  <!-- APP -->
+  <div id="appRoot" class="hidden">
+    <header class="panel header mb">
+      <div>
+        <h1>📚 Themenkatalog – Begriffe &amp; Definitionen</h1>
+        <div class="small muted">Begriffe, kurze und lange Definitionen sowie Schriftstellen verwalten</div>
+      </div>
+      <div class="row">
+        <span id="userEmail" class="badge"></span>
+        <div class="nav-links">
+          <a href="adm-topic-overview.html">📋 Themen</a>
+          <a href="adm-swipe-card-generator.html">✨ Generator</a>
+          <a href="adm-wikidata-import.html">📥 Wikidata</a>
+          <a href="adm-church-import.html">📖 Evangelium</a>
+          <a href="adm-terms.html" class="active-nav">📚 Begriffe</a>
+          <a href="index.html">🔭 App</a>
+        </div>
+        <button id="logoutBtn" class="btn-ghost btn-small">Logout</button>
+      </div>
+    </header>
+
+    <div class="split">
+
+      <!-- LEFT: Import Workflow -->
+      <div>
+        <div class="steps mb" id="stepTabs">
+          <div class="step active" data-step="1"><span class="step-num">1️⃣</span>Prompt</div>
+          <div class="step" data-step="2"><span class="step-num">2️⃣</span>JSON laden</div>
+          <div class="step" data-step="3"><span class="step-num">3️⃣</span>Prüfen &amp; Importieren</div>
+        </div>
+
+        <!-- STEP 1: ChatGPT Prompt -->
+        <section id="step1" class="panel section mb step-panel active">
+          <h2>Schritt 1 – ChatGPT-Prompt</h2>
+          <p class="muted small">Kopiere diesen Prompt, öffne ChatGPT und füge die Begriffe ein, für die du Definitionen erstellen möchtest. Lade danach das JSON hier hoch.</p>
+          <div class="prompt-box mb">
+            <textarea id="promptText" rows="18" readonly></textarea>
+            <button id="copyPromptBtn" class="btn-primary btn-small copy-btn">📋 Kopieren</button>
+          </div>
+          <div class="row">
+            <a id="downloadTemplateBtn" class="template-badge" href="#" download="begriffe_vorlage.json">⬇️ JSON-Vorlage herunterladen</a>
+            <button id="toStep2Btn" class="btn-primary">Weiter zu Schritt 2 →</button>
+          </div>
+        </section>
+
+        <!-- STEP 2: JSON Input -->
+        <section id="step2" class="panel section mb step-panel">
+          <h2>Schritt 2 – JSON laden</h2>
+          <p class="muted small">Füge das JSON ein (einzelner Begriff oder Array mit mehreren Begriffen) oder lade eine Datei hoch.</p>
+
+          <div class="drop-zone mb" id="dropZone">
+            <div class="drop-zone-icon">📂</div>
+            <div>JSON-Datei hier ablegen oder <strong>klicken</strong> zum Auswählen</div>
+            <div class="muted small" style="margin-top:4px">.json Dateien werden akzeptiert</div>
+            <input type="file" id="fileInput" accept=".json" style="display:none" />
+          </div>
+
+          <div class="field">
+            <label>Oder JSON direkt einfügen</label>
+            <textarea id="jsonInput" rows="10" placeholder='[{"term":"Glaube","shortDefinition":"...","longDefinition":"...","references":["Heb 11:1"]}]'></textarea>
+          </div>
+
+          <div class="row mt">
+            <button id="toStep1Btn" class="btn-ghost">← Zurück</button>
+            <button id="validateBtn" class="btn-primary">→ Prüfen</button>
+          </div>
+        </section>
+
+        <!-- STEP 3: Validate & Import -->
+        <section id="step3" class="panel section mb step-panel">
+          <h2>Schritt 3 – Prüfen &amp; Importieren</h2>
+          <div id="validationResult" class="mb"></div>
+          <div id="previewList" class="mb"></div>
+          <div class="row mb">
+            <button id="toStep2BtnBack" class="btn-ghost">← Zurück</button>
+            <button id="importBtn" class="btn-ok" disabled>⬆️ In Themenkatalog importieren</button>
+          </div>
+          <div id="importResults"></div>
+        </section>
+      </div>
+
+      <!-- RIGHT: Saved terms list -->
+      <div>
+        <div class="panel section">
+          <div class="terms-list-header">
+            <h2 style="margin:0">📖 Gespeicherte Begriffe</h2>
+            <span id="termCountBadge" class="count-badge">0 Begriffe</span>
+          </div>
+          <input type="text" class="term-search" id="termSearch" placeholder="Begriff suchen…" />
+          <div id="termsList">
+            <div class="empty-state">
+              <div class="empty-state-icon">📭</div>
+              <div>Noch keine Begriffe vorhanden</div>
+              <div class="muted" style="font-size:.78rem;margin-top:4px">Importiere Begriffe über den Import-Workflow links</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /split -->
+  </div><!-- /appRoot -->
+</div><!-- /container -->
+
+<script type="module">
+  import { initializeApp }
+    from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+    from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+  import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, writeBatch, serverTimestamp }
+    from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey:            "AIzaSyBOjkDk1Mmr79wY7bpKHQ5jidqwuHDo_kg",
+    authDomain:        "swipe-82eeb.firebaseapp.com",
+    projectId:         "swipe-82eeb",
+    storageBucket:     "swipe-82eeb.firebasestorage.app",
+    messagingSenderId: "649929298401",
+    appId:             "1:649929298401:web:d94f1a5ebf1407ac6502a0",
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+
+  const $ = id => document.getElementById(id);
+
+  let currentUser  = null;
+  let parsedTerms  = [];
+  let allTerms     = [];
+  let currentStep  = 1;
+
+  // ─── ChatGPT prompt template ──────────────────────────
+  const CHATGPT_PROMPT = `Erstelle ein JSON-Array mit Begriffsdefinitionen für einen theologischen Themenkatalog einer Lern-App.
+
+Für jeden Begriff erstelle folgendes JSON-Objekt:
+{
+  "term": "Begriff auf Deutsch",
+  "shortDefinition": "Kurze, prägnante Definition (2-3 klare Sätze)",
+  "longDefinition": "Ausführliche Erklärung mit theologischer Tiefe (3-5 Absätze, verwende \\n\\n für Absatztrennungen)",
+  "references": ["Schriftstelle 1", "Schriftstelle 2", "Schriftstelle 3"]
+}
+
+Regeln:
+- term: exakt so wie der Begriff verwendet wird (z.B. "Jesus Christus", "Buße", "Taufe")
+- shortDefinition: maximal 2-3 klare Sätze, einfach und verständlich formuliert
+- longDefinition: mehrere Absätze mit theologischer Tiefe, \\n\\n für Absatztrennungen
+- references: nur echte Schriftstellen (z.B. "Johannes 3:16", "2 Nephi 31:20", "Alma 32:21")
+- Sprache: Deutsch
+- Antworte NUR mit dem JSON-Array (kein Markdown, keine Erklärungen)
+
+Erstelle Definitionen für folgende Begriffe:
+[BEGRIFFE HIER EINFÜGEN]`;
+
+  // ─── JSON template for download ───────────────────────
+  const JSON_TEMPLATE = JSON.stringify([
+    {
+      term: "Glaube",
+      shortDefinition: "Glaube ist Vertrauen und Zuversicht in Gott und seine Verheißungen, auch wenn wir sie noch nicht sehen können.",
+      longDefinition: "Glaube ist das erste Prinzip des Evangeliums Jesu Christi. Er ist nicht nur ein intellektuelles Einverständnis, sondern eine Kraft, die uns zum Handeln bewegt.\n\nDer Apostel Paulus definiert Glaube als „eine feste Zuversicht auf das, was man hofft, und ein Nichtzweifeln an dem, was man nicht sieht" (Hebräer 11:1). Dieser Glaube manifestiert sich in unserem täglichen Leben durch Gebet, Schriftstudium und das Befolgen der Gebote Gottes.\n\nGlaube wächst, wenn wir handeln – selbst wenn unsere Erkenntnis noch unvollständig ist. Alma vergleicht Glaube mit einem Samenkorn, das wir pflegen müssen, damit es wachsen kann.",
+      references: ["Hebräer 11:1", "Alma 32:21", "Ether 12:6", "Römer 10:17"]
+    }
+  ], null, 2);
+
+  // ─── Helpers ──────────────────────────────────────────
+  function setStatus(msg, type = "") {
+    const bar = $("statusBar");
+    bar.textContent = msg;
+    bar.className = "status" + (type ? " " + type : "");
+  }
+
+  function slugify(str) {
+    return str.trim().toLowerCase()
+      .replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+
+  function esc(str) {
+    return String(str ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  // ─── Step navigation ──────────────────────────────────
+  function goToStep(n) {
+    currentStep = n;
+    document.querySelectorAll(".step").forEach(s => {
+      const sn = parseInt(s.dataset.step);
+      s.classList.toggle("active", sn === n);
+      s.classList.toggle("done",   sn < n);
+    });
+    document.querySelectorAll(".step-panel").forEach(p => {
+      p.classList.toggle("active", p.id === `step${n}`);
+    });
+  }
+
+  $("stepTabs").addEventListener("click", e => {
+    const step = e.target.closest(".step");
+    if (!step) return;
+    const n = parseInt(step.dataset.step);
+    if (step.classList.contains("done") || n < currentStep) goToStep(n);
+  });
+
+  // ─── Auth ─────────────────────────────────────────────
+  $("loginBtn").addEventListener("click", async () => {
+    const email = $("emailInput").value.trim();
+    const pass  = $("passwordInput").value;
+    if (!email || !pass) { setStatus("E-Mail und Passwort eingeben.", "error"); return; }
+    setStatus("Anmelden…");
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch (e) {
+      setStatus("Login fehlgeschlagen: " + e.message, "error");
+    }
+  });
+
+  $("passwordInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") $("loginBtn").click();
+  });
+
+  $("logoutBtn").addEventListener("click", () => signOut(auth));
+
+  onAuthStateChanged(auth, user => {
+    currentUser = user;
+    $("loginBox").classList.toggle("hidden", !!user);
+    $("appRoot").classList.toggle("hidden", !user);
+    if (user) {
+      $("userEmail").textContent = user.email;
+      loadTerms();
+    }
+  });
+
+  // ─── Step 1: Prompt ───────────────────────────────────
+  $("promptText").value = CHATGPT_PROMPT;
+
+  $("copyPromptBtn").addEventListener("click", () => {
+    navigator.clipboard.writeText(CHATGPT_PROMPT).then(() => {
+      $("copyPromptBtn").textContent = "✅ Kopiert!";
+      setTimeout(() => { $("copyPromptBtn").textContent = "📋 Kopieren"; }, 2000);
+    });
+  });
+
+  const templateBlob = new Blob([JSON_TEMPLATE], { type: "application/json" });
+  $("downloadTemplateBtn").href = URL.createObjectURL(templateBlob);
+
+  $("toStep2Btn").addEventListener("click", () => goToStep(2));
+
+  // ─── Step 2: JSON input ───────────────────────────────
+  $("toStep1Btn").addEventListener("click", () => goToStep(1));
+
+  const dropZone  = $("dropZone");
+  const fileInput = $("fileInput");
+
+  dropZone.addEventListener("click", () => fileInput.click());
+  dropZone.addEventListener("dragover",  e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropZone.classList.remove("drag-over");
+    const file = e.dataTransfer.files[0];
+    if (file) readFile(file);
+  });
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files[0]) readFile(fileInput.files[0]);
+  });
+
+  function readFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      $("jsonInput").value = e.target.result;
+      setStatus(`Datei geladen: ${file.name}`, "ok");
+    };
+    reader.readAsText(file);
+  }
+
+  $("validateBtn").addEventListener("click", validateAndPreview);
+
+  // ─── Validation & preview ─────────────────────────────
+  function validateAndPreview() {
+    const raw = $("jsonInput").value.trim();
+    if (!raw) { setStatus("Bitte JSON eingeben oder Datei hochladen.", "error"); return; }
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      setStatus("JSON-Fehler: " + e.message, "error");
+      return;
+    }
+
+    const items  = Array.isArray(data) ? data : [data];
+    const errors = [];
+    const valid  = [];
+
+    items.forEach((item, i) => {
+      const prefix = `Begriff ${i + 1}`;
+      if (!item.term || typeof item.term !== "string" || !item.term.trim()) {
+        errors.push(`${prefix}: Feld "term" fehlt oder ist leer`);
+        return;
+      }
+      if (!item.shortDefinition || typeof item.shortDefinition !== "string" || !item.shortDefinition.trim()) {
+        errors.push(`${prefix} (${item.term}): Feld "shortDefinition" fehlt`);
+        return;
+      }
+      if (!item.longDefinition || typeof item.longDefinition !== "string" || !item.longDefinition.trim()) {
+        errors.push(`${prefix} (${item.term}): Feld "longDefinition" fehlt`);
+        return;
+      }
+      valid.push({
+        term:             item.term.trim(),
+        shortDefinition:  item.shortDefinition.trim(),
+        longDefinition:   item.longDefinition.trim(),
+        references:       Array.isArray(item.references)
+          ? item.references.filter(r => typeof r === "string" && r.trim()).map(r => r.trim())
+          : [],
+      });
+    });
+
+    const validationDiv = $("validationResult");
+    const previewDiv    = $("previewList");
+
+    let valHtml = "";
+    if (errors.length) {
+      valHtml += `<div class="val-error"><strong>⚠️ ${errors.length} Fehler gefunden:</strong><ul style="margin:6px 0 0 16px">${errors.map(e => `<li>${esc(e)}</li>`).join("")}</ul></div>`;
+    }
+    if (valid.length) {
+      valHtml += `<div class="val-ok">✅ ${valid.length} Begriff${valid.length !== 1 ? "e" : ""} valide und bereit zum Import</div>`;
+    }
+    validationDiv.innerHTML = valHtml;
+
+    previewDiv.innerHTML = valid.map(t => `
+      <div class="preview-term">
+        <div class="preview-term-name">${esc(t.term)}</div>
+        <div class="preview-term-short">${esc(t.shortDefinition)}</div>
+        <div class="preview-term-long-box">
+          <div class="preview-term-long">${esc(t.longDefinition)}</div>
+        </div>
+        ${t.references.length
+          ? `<div class="preview-term-refs">${t.references.map(r => `<span class="badge badge-ref">${esc(r)}</span>`).join("")}</div>`
+          : ""}
+      </div>`).join("");
+
+    parsedTerms = valid;
+    $("importBtn").disabled = valid.length === 0;
+    $("importResults").innerHTML = "";
+    goToStep(3);
+  }
+
+  // ─── Step 3: Import ───────────────────────────────────
+  $("toStep2BtnBack").addEventListener("click", () => goToStep(2));
+
+  $("importBtn").addEventListener("click", async () => {
+    if (!currentUser) { setStatus("Nicht angemeldet.", "error"); return; }
+    if (!parsedTerms.length) return;
+
+    $("importBtn").disabled = true;
+    setStatus(`Importiere ${parsedTerms.length} Begriff${parsedTerms.length !== 1 ? "e" : ""}…`);
+
+    const results = [];
+
+    // Firestore batch limit is 500 operations; split if needed
+    const BATCH_SIZE = 490;
+    for (let start = 0; start < parsedTerms.length; start += BATCH_SIZE) {
+      const chunk = parsedTerms.slice(start, start + BATCH_SIZE);
+      const batch = writeBatch(db);
+
+      for (const term of chunk) {
+        const termId = slugify(term.term);
+        if (!termId) {
+          results.push({ term: term.term, status: "error", msg: "Ungültige Term-ID" });
+          continue;
+        }
+        batch.set(
+          doc(db, "termCatalog", termId),
+          {
+            termId,
+            term:            term.term,
+            shortDefinition: term.shortDefinition,
+            longDefinition:  term.longDefinition,
+            references:      term.references,
+            updatedAt:       serverTimestamp(),
+            createdAt:       serverTimestamp(),
+          },
+          { merge: true }
+        );
+        results.push({ term: term.term, status: "ok" });
+      }
+
+      try {
+        await batch.commit();
+      } catch (e) {
+        chunk.forEach(t => {
+          const r = results.find(r => r.term === t.term && r.status === "ok");
+          if (r) { r.status = "error"; r.msg = e.message; }
+        });
+        setStatus("Import-Fehler: " + e.message, "error");
+      }
+    }
+
+    const okCount = results.filter(r => r.status === "ok").length;
+    if (okCount > 0) {
+      setStatus(`✅ ${okCount} Begriff${okCount !== 1 ? "e" : ""} erfolgreich importiert.`, "ok");
+    }
+
+    $("importResults").innerHTML =
+      `<h3 style="margin:10px 0 8px">Import-Ergebnis</h3>` +
+      results.map(r => `
+        <div class="import-result-item ${r.status}">
+          <span>${r.status === "ok" ? "✅" : "❌"}</span>
+          <span>${esc(r.term)}</span>
+          ${r.msg ? `<span class="muted small">– ${esc(r.msg)}</span>` : ""}
+        </div>`).join("");
+
+    $("importBtn").disabled = false;
+    await loadTerms();
+  });
+
+  // ─── Load & render saved terms ────────────────────────
+  async function loadTerms() {
+    try {
+      const snap = await getDocs(collection(db, "termCatalog"));
+      allTerms = snap.docs
+        .map(d => ({ _id: d.id, ...d.data() }))
+        .sort((a, b) => a.term.localeCompare(b.term, "de"));
+      renderTerms(allTerms);
+    } catch (e) {
+      setStatus("Fehler beim Laden der Begriffe: " + e.message, "error");
+    }
+  }
+
+  function renderTerms(terms) {
+    $("termCountBadge").textContent = `${terms.length} Begriff${terms.length !== 1 ? "e" : ""}`;
+
+    if (!terms.length) {
+      $("termsList").innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <div>Keine Begriffe gefunden</div>
+        </div>`;
+      return;
+    }
+
+    $("termsList").innerHTML = terms.map(t => `
+      <div class="term-row" id="row_${esc(t._id)}">
+        <div class="term-row-header" data-id="${esc(t._id)}">
+          <span class="term-row-name">${esc(t.term)}</span>
+          <span class="term-row-short-preview">${esc(t.shortDefinition ?? "")}</span>
+          ${t.references?.length ? `<span class="badge badge-ref">${t.references.length}&nbsp;Ref.</span>` : ""}
+          <button class="term-row-expand btn-small" data-expand="${esc(t._id)}">▼</button>
+        </div>
+        <div class="term-row-body" id="body_${esc(t._id)}">
+          <div class="term-def-label">Kurze Definition</div>
+          <div class="term-def-text">${esc(t.shortDefinition ?? "–")}</div>
+          <div class="term-def-label">Ausführliche Definition</div>
+          <div class="term-def-text">${esc(t.longDefinition ?? "–")}</div>
+          ${t.references?.length ? `
+          <div class="term-def-label">Schriftstellen</div>
+          <div class="term-refs-row">${t.references.map(r => `<span class="badge badge-ref">${esc(r)}</span>`).join("")}</div>` : ""}
+          <div class="term-row-actions">
+            <button class="btn-danger btn-small" data-delete="${esc(t._id)}" data-term="${esc(t.term)}">🗑️ Löschen</button>
+          </div>
+        </div>
+      </div>`).join("");
+
+    // Expand / collapse
+    $("termsList").querySelectorAll(".term-row-header").forEach(header => {
+      header.addEventListener("click", e => {
+        if (e.target.closest("[data-delete]")) return;
+        const id   = header.dataset.id;
+        const body = document.getElementById(`body_${id}`);
+        const btn  = header.querySelector("[data-expand]");
+        if (!body) return;
+        const open = body.classList.toggle("open");
+        if (btn) btn.textContent = open ? "▲" : "▼";
+      });
+    });
+
+    // Delete
+    $("termsList").querySelectorAll("[data-delete]").forEach(btn => {
+      btn.addEventListener("click", async e => {
+        e.stopPropagation();
+        const id   = btn.dataset.delete;
+        const term = btn.dataset.term;
+        if (!confirm(`„${term}" wirklich löschen?`)) return;
+        try {
+          await deleteDoc(doc(db, "termCatalog", id));
+          setStatus(`„${term}" wurde gelöscht.`, "ok");
+          await loadTerms();
+        } catch (err) {
+          setStatus("Fehler beim Löschen: " + err.message, "error");
+        }
+      });
+    });
+  }
+
+  // ─── Search ───────────────────────────────────────────
+  $("termSearch").addEventListener("input", () => {
+    const q = $("termSearch").value.trim().toLowerCase();
+    if (!q) { renderTerms(allTerms); return; }
+    renderTerms(allTerms.filter(t =>
+      t.term.toLowerCase().includes(q) ||
+      t.shortDefinition?.toLowerCase().includes(q) ||
+      t.longDefinition?.toLowerCase().includes(q) ||
+      t.references?.some(r => r.toLowerCase().includes(q))
+    ));
+  });
+</script>
+</body>
+</html>
