@@ -146,6 +146,12 @@
     .cat-selected-badge{margin-top:8px;padding:8px 12px;background:rgba(82,216,162,.1);border:1px solid rgba(82,216,162,.3);border-radius:8px;font-size:.85rem;color:var(--ok)}
     .cat-required-hint{margin-top:6px;font-size:.78rem;color:var(--warn)}
     .badge-subcat{background:rgba(82,216,162,.12);border:1px solid rgba(82,216,162,.25);color:var(--ok)}
+
+    /* Intro assign box */
+    .intro-assign-box{background:#060d1c;border:1px solid rgba(91,156,246,.2);border-radius:10px;padding:14px;margin-bottom:14px}
+    .intro-assign-box h3{color:var(--accent2);font-size:.9rem;margin:0 0 8px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .intro-auto-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:rgba(82,216,162,.1);border:1px solid rgba(82,216,162,.25);border-radius:999px;font-size:.7rem;color:var(--ok);font-weight:400}
+    .intro-preview-bar{margin-top:8px;padding:8px 12px;background:rgba(91,156,246,.08);border:1px solid rgba(91,156,246,.2);border-radius:8px;font-size:.83rem}
   </style>
 </head>
 <body><div class="container">
@@ -228,6 +234,20 @@
             </div>
             <div id="selectedCategoryBadge" class="cat-selected-badge hidden"></div>
             <div id="categoryRequiredHint" class="cat-required-hint hidden">⚠️ Bitte eine Kategorie wählen oder erstellen, bevor du fortfährst.</div>
+          </div>
+
+          <!-- Intro / Chapter description -->
+          <div class="intro-assign-box">
+            <h3>📝 Intro / Kapitel-Beschreibung <span id="introAutoBadge" class="intro-auto-badge hidden">✨ auto-befüllt</span></h3>
+            <p class="muted small" style="margin-bottom:10px">Optionaler Kontext für alle importierten Inhalte (z.B. Kapitelname + Beschreibung). Wird automatisch aus der gewählten Kategorie befüllt, wenn das Titelfeld leer ist.</p>
+            <div class="field" style="margin-bottom:6px">
+              <label>Titel <span class="muted small">(z.B. Kapitel 1)</span></label>
+              <input type="text" id="introTitleInput" placeholder="z.B. Kapitel 1 – Was ist das Evangelium?" style="width:100%" />
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label>Text / Beschreibung <span class="muted small">(optional)</span></label>
+              <textarea id="introBodyInput" rows="3" placeholder="Optionale Beschreibung oder Einleitung für das Kapitel / den Inhalt…"></textarea>
+            </div>
           </div>
 
           <div id="dropZone" class="drop-zone mb">
@@ -332,6 +352,9 @@ let allChurchTopics=[];
 // Category state
 let churchCategories=[]; // [{id, name}]
 let selectedImportCategory=null; // {id, name} | null
+
+// Intro state
+let introTitleManual=false; // true once user has typed in the intro title field
 
 const VALID_LANGUAGES=["de"];
 const VALID_LENGTHS=["short","long"];
@@ -520,6 +543,11 @@ function validateAndPreview(){
 
 /* ─── Preview rendering ───────────────────────── */
 function renderPreview(topics){
+  const introTitleVal=(el('introTitleInput')?.value.trim())||(selectedImportCategory?.name||'');
+  const introBodyVal=el('introBodyInput')?.value.trim()||'';
+  const introBar=(introTitleVal||introBodyVal)
+    ?`<div class="intro-preview-bar">📝 <strong>${esc(introTitleVal)}</strong>${introBodyVal?`: ${esc(introBodyVal.slice(0,120))}${introBodyVal.length>120?'…':''}`:''}</div>`
+    :'';
   const html=topics.map(t=>{
     const cardsHtml=t.cards.map(c=>`
       <div class="preview-card">
@@ -539,6 +567,7 @@ function renderPreview(topics){
         <strong>${esc(t.topicTitle?.de||t.topicId)}</strong>
         <span class="muted small">${esc(t.topicId)}</span>
       </div>
+      ${introBar}
       ${t.description?.de?`<div class="muted small" style="margin-bottom:8px">${esc(t.description.de)}</div>`:''}
       ${t.source?.title?`<div class="small" style="margin-bottom:8px">📖 ${esc(t.source.title)}${t.source.url?` – <a href="${esc(t.source.url)}" target="_blank" style="color:var(--accent)">Link</a>`:''}</div>`:''}
       <details>
@@ -761,6 +790,11 @@ async function importData(){
   const now=serverTimestamp();
   const nowDate=new Date();
 
+  // Read intro fields; fall back to subCategory name for title if user left it blank
+  const introTitleVal=(el('introTitleInput')?.value.trim())||(selectedImportCategory?.name||'');
+  const introBodyVal=el('introBodyInput')?.value.trim()||'';
+  const chapterIntro=(introTitleVal||introBodyVal)?{title:introTitleVal,body:introBodyVal}:null;
+
   for(const topicData of parsedImportData){
     try{
       const topicId=topicData.topicId;
@@ -783,6 +817,7 @@ async function importData(){
         sourceIds:[],
         mainCategory:'kirche',
         subCategory:selectedImportCategory||null,
+        ...(chapterIntro?{chapterIntro}:{}),
         topicType:'other',
         status:'active',
         contentStatus:{
@@ -815,6 +850,7 @@ async function importData(){
           body:card.body||'',
           mainCategory:'kirche',
           subCategory:selectedImportCategory||null,
+          ...(chapterIntro?{chapterIntro}:{}),
           topicTitle:topicData.topicTitle||{de:topicId},
           tags:Array.isArray(topicData.tags)?topicData.tags:[],
           relatedTopics,
@@ -947,6 +983,21 @@ async function loadChurchCategories(){
     });
     churchCategories=Array.from(catMap.values()).sort((a,b)=>a.name.localeCompare(b.name,'de'));
     updateCategoryDropdown();
+    // Restore last used category from localStorage (only if nothing selected yet)
+    if(!selectedImportCategory){
+      try{
+        const saved=JSON.parse(localStorage.getItem('lastChurchCategory')||'null');
+        if(saved&&saved.id&&saved.name){
+          // Only auto-restore if the category exists in Firestore (or newly added)
+          if(!churchCategories.some(c=>c.id===saved.id)){
+            churchCategories.push(saved);
+            churchCategories.sort((a,b)=>a.name.localeCompare(b.name,'de'));
+            updateCategoryDropdown();
+          }
+          setSelectedCategory(saved);
+        }
+      }catch(e){}
+    }
   }catch(e){
     console.error('Kategorien konnten nicht geladen werden:',e);
   }
@@ -966,6 +1017,20 @@ function updateCategoryDropdown(){
   if(prev)sel.value=prev;
 }
 
+function autoFillIntroFromCategory(cat){
+  if(introTitleManual)return;
+  const titleInput=el('introTitleInput');
+  const badge=el('introAutoBadge');
+  if(!titleInput)return;
+  if(cat){
+    titleInput.value=cat.name;
+    if(badge)badge.classList.remove('hidden');
+  }else{
+    titleInput.value='';
+    if(badge)badge.classList.add('hidden');
+  }
+}
+
 function setSelectedCategory(cat){
   selectedImportCategory=cat;
   const badge=el('selectedCategoryBadge');
@@ -983,8 +1048,12 @@ function setSelectedCategory(cat){
       updateCategoryDropdown();
     }
     if(sel)sel.value=cat.id;
+    // Auto-fill intro and persist to localStorage
+    autoFillIntroFromCategory(cat);
+    try{localStorage.setItem('lastChurchCategory',JSON.stringify(cat));}catch(e){}
   }else{
     badge.classList.add('hidden');
+    autoFillIntroFromCategory(null);
   }
 }
 
@@ -1065,6 +1134,14 @@ function init(){
     if(badge)badge.classList.add('hidden');
     const sel=el('categorySelect');
     if(sel)sel.value='';
+    // Reset intro fields
+    const introTitle=el('introTitleInput');
+    const introBody=el('introBodyInput');
+    const introBadge=el('introAutoBadge');
+    if(introTitle)introTitle.value='';
+    if(introBody)introBody.value='';
+    if(introBadge)introBadge.classList.add('hidden');
+    introTitleManual=false;
     goToStep(1);
   };
   el("reloadTopicsBtn").onclick=loadChurchTopics;
@@ -1087,6 +1164,20 @@ function init(){
     showStatus(`Neue Kategorie erstellt: "${name}"`,'ok');
   };
   el('newCategoryInput').onkeydown=e=>{if(e.key==='Enter')el('createCategoryBtn').click();};
+
+  // Intro field: mark as manually set when user types
+  el('introTitleInput').addEventListener('input',()=>{
+    introTitleManual=true;
+    const badge=el('introAutoBadge');
+    if(badge)badge.classList.add('hidden');
+  });
+  // If user clears the title field, allow auto-fill again
+  el('introTitleInput').addEventListener('change',()=>{
+    if(!el('introTitleInput').value.trim()){
+      introTitleManual=false;
+      autoFillIntroFromCategory(selectedImportCategory);
+    }
+  });
 
   document.querySelectorAll('.step').forEach(s=>{
     s.onclick=()=>{
