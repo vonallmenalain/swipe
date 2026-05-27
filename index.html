@@ -751,7 +751,7 @@
   <div id="setupScreen" class="screen">
 
     <div class="app-header">
-      <div class="app-logo">WissensSwipe</div>
+      <div class="app-logo" style="cursor:pointer" onclick="showScreen('setupScreen',false)">Swipe</div>
       <div class="app-tagline">Wissen entdecken — eine Karte nach der anderen</div>
     </div>
 
@@ -793,10 +793,8 @@
   <div id="readerScreen" class="screen hidden">
 
     <div class="reader-topbar">
-      <div class="topbar-logo">WissensSwipe</div>
-      <div class="topbar-chip" id="topbarChip">…</div>
+      <div class="topbar-logo" style="cursor:pointer" onclick="showScreen('setupScreen',false)">Swipe</div>
       <div class="spacer"></div>
-      <button class="change-topic-btn" id="changeTopicBtn">← Zurück</button>
       <div class="dev-wrap">
         <button class="dev-btn" id="devBtn" title="Dev-Menü">DEV</button>
         <div class="dev-menu" id="devMenu">
@@ -839,9 +837,8 @@
   <div id="noCardsScreen" class="screen hidden">
 
     <div class="reader-topbar">
-      <div class="topbar-logo">WissensSwipe</div>
+      <div class="topbar-logo" style="cursor:pointer" onclick="showScreen('setupScreen',false)">Swipe</div>
       <div class="spacer"></div>
-      <button class="change-topic-btn" id="changeTopicBtn2">← Zurück</button>
     </div>
 
     <div class="state-box">
@@ -910,7 +907,7 @@
     medizin:         { label: "Medizin",         emoji: "🩺" },
     mythologie:      { label: "Mythologie",      emoji: "⚡" },
     allgemeinwissen: { label: "Allgemeinwissen", emoji: "💡" },
-    kirche:          { label: "Verkündet mein Evangelium", emoji: "📖" },
+    kirche:          { label: "Grundbegriffe des Evangeliums", emoji: "📖" },
   };
 
   const LENGTH_LABELS = { short: "Kurz", long: "Lang" };
@@ -1130,16 +1127,6 @@
         : `${n} Themen laden →`;
   }
 
-  function updateTopbarChip() {
-    const catsArray = [...selectedCats];
-    if (catsArray.length === 1) {
-      const meta = CAT_META[catsArray[0]] ?? { label: catsArray[0], emoji: "📌" };
-      $("topbarChip").textContent = `${meta.emoji} ${meta.label}`;
-    } else {
-      $("topbarChip").textContent = `${catsArray.length} Themen`;
-    }
-  }
-
   /* ── Load swipe cards ───────────────────────────────── */
   function loadCards() {
     showScreen("loadingScreen");
@@ -1160,7 +1147,6 @@
 
     idx = 0;
     showScreen("readerScreen");
-    updateTopbarChip();
     syncReaderLenBar();
     renderCard(idx);
     renderNav();
@@ -1403,9 +1389,7 @@
     $("prevBtn").addEventListener("click", () => goTo(idx - 1, "prev"));
     $("nextBtn").addEventListener("click", () => goTo(idx + 1, "next"));
 
-    $("changeTopicBtn").addEventListener("click",  () => goBack());
-    $("changeTopicBtn2").addEventListener("click", () => goBack());
-    $("retryBtn").addEventListener("click",        () => goBack());
+    $("retryBtn").addEventListener("click", () => goBack());
 
     $("sheetOverlay").addEventListener("click",  hideRelatedCategories);
     $("sheetCloseBtn").addEventListener("click", hideRelatedCategories);
