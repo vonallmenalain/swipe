@@ -161,9 +161,10 @@
   <section id="loginBox" class="panel section mb">
     <h1>📖 Verkündet mein Evangelium – Inhalte importieren</h1>
     <p class="muted">Admin-Zugang erforderlich</p>
-    <div class="field"><label>E-Mail</label><input id="emailInput" type="email" /></div>
-    <div class="field"><label>Passwort</label><input id="passwordInput" type="password" /></div>
+    <div class="field"><label>E-Mail</label><input id="emailInput" type="email" autocomplete="email" /></div>
+    <div class="field"><label>Passwort</label><input id="passwordInput" type="password" autocomplete="current-password" /></div>
     <button id="loginBtn" class="btn-primary">Login</button>
+    <p id="loginError" class="hidden" style="color:#ff9e9e;margin-top:10px;font-size:.88rem"></p>
   </section>
 
   <!-- APP -->
@@ -395,7 +396,8 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut,
+         setPersistence,browserLocalStoragePersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import { getFirestore,collection,getDocs,doc,query,where,serverTimestamp,writeBatch } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 const firebaseConfig={apiKey:"AIzaSyBOjkDk1Mmr79wY7bpKHQ5jidqwuHDo_kg",authDomain:"swipe-82eeb.firebaseapp.com",projectId:"swipe-82eeb",storageBucket:"swipe-82eeb.firebasestorage.app",messagingSenderId:"649929298401",appId:"1:649929298401:web:d94f1a5ebf1407ac6502a0"};
@@ -1037,9 +1039,20 @@ function setSelectedMainCategory(cat){
 }
 
 /* ─── Init ────────────────────────────────────── */
-function init(){
+function showLoginError(msg){
+  const p=el("loginError");
+  p.textContent=msg;
+  p.classList.remove("hidden");
+}
+
+function clearLoginError(){
+  el("loginError").classList.add("hidden");
+}
+
+async function init(){
   app=initializeApp(firebaseConfig);
   auth=getAuth(app);
+  await setPersistence(auth,browserLocalStoragePersistence);
   db=getFirestore(app);
 
   el("promptText").value=buildPrompt();
@@ -1051,12 +1064,41 @@ function init(){
     user=u;
     el("loginBox").classList.toggle("hidden",!!u);
     el("appRoot").classList.toggle("hidden",!u);
-    if(u){el("userEmail").textContent=u.email||'';loadChurchTopics();loadChurchCategories();}
+    if(u){
+      clearLoginError();
+      const btn=el("loginBtn");
+      btn.disabled=false;
+      btn.textContent="Login";
+      el("userEmail").textContent=u.email||'';
+      loadChurchTopics();
+      loadChurchCategories();
+    }
   });
 
   el("loginBtn").onclick=async()=>{
-    try{await signInWithEmailAndPassword(auth,el("emailInput").value.trim(),el("passwordInput").value);}
-    catch(e){showStatus("Login fehlgeschlagen: "+e.message,"error");}
+    const email=el("emailInput").value.trim();
+    const pass=el("passwordInput").value;
+    clearLoginError();
+    if(!email||!pass){showLoginError("Bitte E-Mail und Passwort eingeben.");return;}
+    const btn=el("loginBtn");
+    btn.disabled=true;
+    btn.textContent="Anmelden…";
+    try{
+      await signInWithEmailAndPassword(auth,email,pass);
+    }catch(e){
+      let msg=e.message||"Unbekannter Fehler";
+      if(e.code==="auth/invalid-credential"||e.code==="auth/wrong-password"||e.code==="auth/user-not-found"){
+        msg="E-Mail oder Passwort falsch.";
+      }else if(e.code==="auth/too-many-requests"){
+        msg="Zu viele Versuche. Bitte später erneut versuchen.";
+      }else if(e.code==="auth/network-request-failed"){
+        msg="Netzwerkfehler. Bitte Internetverbindung prüfen.";
+      }
+      showLoginError(msg);
+      showStatus("Login fehlgeschlagen.","error");
+      btn.disabled=false;
+      btn.textContent="Login";
+    }
   };
   el("passwordInput").onkeydown=e=>{if(e.key==='Enter')el("loginBtn").click();};
   el("logoutBtn").onclick=()=>signOut(auth);
