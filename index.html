@@ -498,6 +498,14 @@
       border: 1px solid rgba(47, 206, 140, .18);
       color: var(--text2);
       white-space: nowrap;
+      cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s;
+    }
+
+    .keyterm-chip:hover {
+      background: rgba(47, 206, 140, .16);
+      border-color: rgba(47, 206, 140, .42);
+      color: var(--text);
     }
 
     /* Source link at card bottom */
@@ -733,6 +741,99 @@
     }
 
     .sheet-close-btn:active { background: var(--card2); }
+
+    /* ─── TERM DEFINITION BOTTOM SHEET ───────────────── */
+    .term-sheet {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #0c1e18;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 20px 20px 0 0;
+      padding: 0 20px calc(env(safe-area-inset-bottom, 0px) + 28px);
+      z-index: 500;
+      max-height: 85vh;
+      overflow-y: auto;
+      transform: translateY(100%);
+      transition: transform .35s cubic-bezier(.32, .72, 0, 1);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .term-sheet.open { transform: translateY(0); }
+
+    .term-sheet-term {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 14px;
+      padding-top: 2px;
+    }
+
+    .term-def-section-label {
+      font-size: .62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .9px;
+      color: var(--text2);
+      margin-bottom: 6px;
+      margin-top: 16px;
+    }
+
+    .term-def-section-label:first-of-type { margin-top: 0; }
+
+    .term-def-body {
+      font-size: .88rem;
+      line-height: 1.65;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+
+    .term-def-refs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .term-def-ref-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .7rem;
+      font-weight: 500;
+      background: rgba(47, 206, 140, .07);
+      border: 1px solid rgba(47, 206, 140, .2);
+      color: var(--text2);
+      white-space: nowrap;
+    }
+
+    .term-expand-btn {
+      margin-top: 14px;
+      width: 100%;
+      background: rgba(47, 206, 140, .07);
+      border: 1px solid rgba(47, 206, 140, .22);
+      color: var(--accent);
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-size: .84rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: background .15s, border-color .15s;
+    }
+
+    .term-expand-btn:hover {
+      background: rgba(47, 206, 140, .14);
+      border-color: rgba(47, 206, 140, .38);
+    }
+
+    .term-not-found {
+      color: var(--text2);
+      font-size: .86rem;
+      font-style: italic;
+      padding: 4px 0 8px;
+    }
   </style>
 </head>
 <body>
@@ -749,6 +850,7 @@
         <button class="dev-btn" id="devBtnHome" title="Dev-Menü">DEV</button>
         <div class="dev-menu" id="devMenuHome">
           <a href="adm-church-import.html">📖 Evangelium Import</a>
+          <a href="adm-terms.html">📚 Begriffe</a>
         </div>
       </div>
     </div>
@@ -789,6 +891,7 @@
         <button class="dev-btn" id="devBtn" title="Dev-Menü">DEV</button>
         <div class="dev-menu" id="devMenu">
           <a href="adm-church-import.html">📖 Evangelium Import</a>
+          <a href="adm-terms.html">📚 Begriffe</a>
         </div>
       </div>
     </div>
@@ -857,6 +960,18 @@
 
 
   <!-- ═══════════════════════════════════════════════════
+       TERM DEFINITION BOTTOM SHEET
+  ══════════════════════════════════════════════════════ -->
+  <div class="term-sheet" id="termSheet">
+    <div class="sheet-handle"></div>
+    <div id="termSheetContent"></div>
+    <div class="sheet-close-row">
+      <button class="sheet-close-btn" id="termSheetCloseBtn">Schließen</button>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════════
        FIREBASE + APP LOGIC
   ══════════════════════════════════════════════════════ -->
   <script type="module">
@@ -909,6 +1024,10 @@
   let selectedLen    = null;
   let selectedCats   = new Set();
   let preferredLen   = null;  // Tracks the active Kurz/Lang mode; only the toggle may change it
+
+  /* Term catalog – loaded lazily on first keyterm tap */
+  let termCatalogMap      = null;  // null = not yet loaded; Map once loaded
+  let termSheetExpanded   = false;
 
   /* Touch tracking */
   let touchStartX = 0;
@@ -1294,6 +1413,15 @@
       }
     }
 
+    function attachKeyTermChips() {
+      vp.querySelectorAll(".keyterm-chip").forEach(chip => {
+        chip.addEventListener("click", e => {
+          e.stopPropagation();
+          showTermDefinition(chip.textContent.trim());
+        });
+      });
+    }
+
     // Animate out (exit), swap content, animate in (enter)
     if (direction) {
       const exitCls  = direction === "next" ? "exit-left"   : "exit-right";
@@ -1304,6 +1432,7 @@
         vp.innerHTML = html;
         vp.scrollTop = 0;
         attachLenToggle();
+        attachKeyTermChips();
         vp.classList.add(enterCls);
         setTimeout(() => vp.classList.remove(enterCls), 250);
       }, 180);
@@ -1311,6 +1440,7 @@
       vp.innerHTML = html;
       vp.scrollTop = 0;
       attachLenToggle();
+      attachKeyTermChips();
     }
 
     // Progress
@@ -1436,8 +1566,12 @@
 
     $("retryBtn").addEventListener("click", () => goBack());
 
-    $("sheetOverlay").addEventListener("click",  hideRelatedCategories);
-    $("sheetCloseBtn").addEventListener("click", hideRelatedCategories);
+    $("sheetOverlay").addEventListener("click", () => {
+      hideRelatedCategories();
+      hideTermDefinition();
+    });
+    $("sheetCloseBtn").addEventListener("click",     hideRelatedCategories);
+    $("termSheetCloseBtn").addEventListener("click", hideTermDefinition);
 
     $("readerLogo").addEventListener("click", () => goBack());
     $("noCardsLogo").addEventListener("click", () => goBack());
@@ -1456,6 +1590,70 @@
         goBack();
       }
     });
+  }
+
+  /* ── Term catalog ───────────────────────────────────── */
+  async function loadTermCatalog() {
+    if (termCatalogMap !== null) return;
+    termCatalogMap = new Map();
+    try {
+      const snap = await getDocs(collection(db, "termCatalog"));
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data.term) {
+          termCatalogMap.set(data.term.toLowerCase().trim(), data);
+        }
+      });
+    } catch (e) {
+      console.warn("termCatalog konnte nicht geladen werden:", e);
+    }
+  }
+
+  async function showTermDefinition(term) {
+    await loadTermCatalog();
+
+    const key   = term.toLowerCase().trim();
+    const entry = termCatalogMap.get(key);
+    termSheetExpanded = false;
+
+    const content = $("termSheetContent");
+
+    if (!entry) {
+      content.innerHTML = `
+        <div class="term-sheet-term">${esc(term)}</div>
+        <div class="term-not-found">Für diesen Begriff ist noch keine Definition vorhanden.</div>`;
+    } else {
+      content.innerHTML = `
+        <div class="term-sheet-term">${esc(entry.term)}</div>
+        <div class="term-def-section-label">Kurze Definition</div>
+        <div class="term-def-body">${esc(entry.shortDefinition ?? "")}</div>
+        <button class="term-expand-btn" id="termExpandBtn">📖 Ausführlich lesen</button>
+        <div id="termLongSection" class="hidden">
+          <div class="term-def-section-label">Ausführliche Definition</div>
+          <div class="term-def-body">${esc(entry.longDefinition ?? "")}</div>
+          ${entry.references?.length
+            ? `<div class="term-def-section-label">Schriftstellen</div>
+               <div class="term-def-refs">${entry.references.map(r => `<span class="term-def-ref-chip">${esc(r)}</span>`).join("")}</div>`
+            : ""}
+        </div>`;
+
+      $("termExpandBtn")?.addEventListener("click", () => {
+        termSheetExpanded = !termSheetExpanded;
+        $("termLongSection")?.classList.toggle("hidden", !termSheetExpanded);
+        const btn = $("termExpandBtn");
+        if (btn) btn.textContent = termSheetExpanded ? "📖 Weniger anzeigen" : "📖 Ausführlich lesen";
+      });
+    }
+
+    $("termSheet").classList.add("open");
+    $("sheetOverlay").classList.add("show");
+  }
+
+  function hideTermDefinition() {
+    $("termSheet").classList.remove("open");
+    if (!$("relatedSheet").classList.contains("open")) {
+      $("sheetOverlay").classList.remove("show");
+    }
   }
 
   /* ── Related categories ─────────────────────────────── */
