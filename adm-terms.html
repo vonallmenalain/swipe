@@ -256,7 +256,10 @@
 
   const app  = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  await setPersistence(auth, browserLocalStoragePersistence);
+  // browserLocalStoragePersistence is already the default; wrap in try-catch so
+  // that a storage failure (e.g. Safari Private Browsing) never silently prevents
+  // the event listeners below from being registered.
+  try { await setPersistence(auth, browserLocalStoragePersistence); } catch (_) {}
   const db   = getFirestore(app);
 
   const $ = id => document.getElementById(id);

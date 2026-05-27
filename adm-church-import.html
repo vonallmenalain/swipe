@@ -1052,7 +1052,10 @@ function clearLoginError(){
 async function init(){
   app=initializeApp(firebaseConfig);
   auth=getAuth(app);
-  await setPersistence(auth,browserLocalStoragePersistence);
+  // browserLocalStoragePersistence is already the default; wrap in try-catch so
+  // that a storage failure (e.g. Safari Private Browsing) never silently prevents
+  // the event listeners below from being registered.
+  try{await setPersistence(auth,browserLocalStoragePersistence);}catch(_){}
   db=getFirestore(app);
 
   el("promptText").value=buildPrompt();
