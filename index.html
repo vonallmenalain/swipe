@@ -743,7 +743,7 @@
   <div id="setupScreen" class="screen">
 
     <div class="app-header">
-      <div class="app-logo" style="cursor:pointer" onclick="showScreen('setupScreen',false)">Swipe</div>
+      <div class="app-logo" style="cursor:pointer" id="homeLogo">Swipe</div>
       <div class="app-tagline">Wissen entdecken — eine Karte nach der anderen</div>
       <div class="dev-wrap" style="position:absolute;top:16px;right:16px;">
         <button class="dev-btn" id="devBtnHome" title="Dev-Menü">DEV</button>
@@ -783,7 +783,7 @@
   <div id="readerScreen" class="screen hidden">
 
     <div class="reader-topbar">
-      <div class="topbar-logo" style="cursor:pointer" onclick="showScreen('setupScreen',false)">Swipe</div>
+      <div class="topbar-logo" style="cursor:pointer" id="readerLogo">Swipe</div>
       <div class="spacer"></div>
       <div class="dev-wrap">
         <button class="dev-btn" id="devBtn" title="Dev-Menü">DEV</button>
@@ -804,7 +804,7 @@
       </div>
 
       <!-- Swipe hint (appears briefly on first card) -->
-      <div class="swipe-hint" id="swipeHint">← Weiter &nbsp;·&nbsp; → Zurück &nbsp;·&nbsp; ↓ Verwandte</div>
+      <div class="swipe-hint" id="swipeHint">← Weiter &nbsp;·&nbsp; → Zurück &nbsp;·&nbsp; ↓ Verwandte &nbsp;·&nbsp; ↑ Kategorien</div>
     </div>
 
     <div class="reader-nav">
@@ -823,7 +823,7 @@
   <div id="noCardsScreen" class="screen hidden">
 
     <div class="reader-topbar">
-      <div class="topbar-logo" style="cursor:pointer" onclick="showScreen('setupScreen',false)">Swipe</div>
+      <div class="topbar-logo" style="cursor:pointer" id="noCardsLogo">Swipe</div>
       <div class="spacer"></div>
     </div>
 
@@ -902,6 +902,7 @@
   let db;
   let allCards       = [];
   let categoryCounts = {};
+  let categoryNames  = {};
   let cards          = [];
   let idx            = 0;
   const selectedLang = "de";
@@ -917,6 +918,12 @@
   const esc = s  => String(s ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;")
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  function getCatMeta(cat) {
+    if (CAT_META[cat]) return CAT_META[cat];
+    if (categoryNames[cat]) return { label: categoryNames[cat], emoji: "📌" };
+    return { label: cat, emoji: "📌" };
+  }
 
   let screenHistory = ["setupScreen"];
 
@@ -1050,10 +1057,14 @@
         .filter(c => c.language === selectedLang);
 
       categoryCounts = {};
+      categoryNames = {};
       allCards.forEach(c => {
         const cat = String(c.mainCategory ?? "").trim();
         if (cat && cat !== "unknown") {
           categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+          if (c.mainCategoryName && !categoryNames[cat]) {
+            categoryNames[cat] = c.mainCategoryName;
+          }
         }
       });
 
@@ -1080,7 +1091,7 @@
     }
 
     $("catGrid").innerHTML = entries.map(([cat, count]) => {
-      const meta  = CAT_META[cat] ?? { label: cat, emoji: "📌" };
+      const meta  = getCatMeta(cat);
       return `
         <div class="cat-card${selectedCats.has(cat) ? " active" : ""}"
              data-cat="${esc(cat)}" role="button" tabindex="0"
@@ -1179,6 +1190,11 @@
 
     const targetLen = currentCard.length === "short" ? "long" : "short";
     const match = allCards.find(c =>
+      c.topicId &&
+      c.topicId === currentCard.topicId &&
+      c.mainCategory === currentCard.mainCategory &&
+      c.length === targetLen
+    ) || allCards.find(c =>
       c.title === currentCard.title &&
       c.mainCategory === currentCard.mainCategory &&
       c.length === targetLen
@@ -1196,7 +1212,7 @@
     if (!card) return;
 
     const vp      = $("cardViewport");
-    const meta    = CAT_META[card.mainCategory] ?? { label: card.mainCategory ?? "Thema", emoji: "📌" };
+    const meta    = getCatMeta(card.mainCategory);
     const lenLbl  = LENGTH_LABELS[card.length]  ?? card.length  ?? "";
 
     // Sub-category: prefer subCategory.name, fall back to chapterIntro.title
@@ -1340,7 +1356,11 @@
         return;
       }
 
-      // Upward swipe: native scroll handles it naturally
+      // Upward swipe at the top → go back to category selection
+      if (dy < -absDx * 1.4 && dy < -60 && vp.scrollTop < 10) {
+        goBack();
+        return;
+      }
     }, { passive: true });
   }
 
@@ -1394,6 +1414,10 @@
 
     $("sheetOverlay").addEventListener("click",  hideRelatedCategories);
     $("sheetCloseBtn").addEventListener("click", hideRelatedCategories);
+
+    $("readerLogo").addEventListener("click", () => goBack());
+    $("noCardsLogo").addEventListener("click", () => goBack());
+    $("homeLogo").addEventListener("click", () => showScreen("setupScreen", false));
   }
 
   /* ── Browser back button handling ───────────────────── */
@@ -1447,7 +1471,7 @@
 
     const grid = $("sheetCatGrid");
     grid.innerHTML = sorted.slice(0, 8).map(cat => {
-      const meta  = CAT_META[cat] ?? { label: cat, emoji: "📌" };
+      const meta  = getCatMeta(cat);
       const count = categoryCounts[cat] ?? 0;
       return `
         <div class="cat-card" data-cat="${esc(cat)}" role="button" tabindex="0">
