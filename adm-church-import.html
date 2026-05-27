@@ -222,6 +222,27 @@
           <h2>Schritt 2 – JSON einfügen oder hochladen</h2>
           <p class="muted small">Füge das von ChatGPT generierte JSON hier ein oder lade eine JSON-Datei hoch. Einzelnes Topic oder Array mit mehreren Topics.</p>
 
+          <!-- Main category override -->
+          <div class="cat-assign-box">
+            <h3>📖 Hauptkategorie überschreiben <span class="muted" style="font-weight:400;font-size:.78rem">(optional)</span></h3>
+            <p class="muted small" style="margin-bottom:10px">Wähle die Hauptkategorie für alle importierten Karten. Standard: „Grundbegriffe des Evangeliums". Leer lassen, um den Standardwert zu verwenden.</p>
+            <div class="field" style="margin-bottom:6px">
+              <label>Bestehende Hauptkategorie wählen</label>
+              <select id="mainCategorySelect" style="width:100%">
+                <option value="kirche" selected>Grundbegriffe des Evangeliums</option>
+              </select>
+            </div>
+            <div class="cat-divider-or">oder neue erstellen</div>
+            <div class="field" style="margin-bottom:6px">
+              <label>Neue Hauptkategorie erstellen</label>
+              <div class="row" style="gap:8px">
+                <input type="text" id="newMainCategoryInput" placeholder="z.B. Kirchengeschichte" style="flex:1" />
+                <button id="createMainCategoryBtn" class="btn-primary btn-small" style="white-space:nowrap">+ Erstellen</button>
+              </div>
+            </div>
+            <div id="selectedMainCategoryBadge" class="cat-selected-badge">✓ Gewählte Hauptkategorie: „Grundbegriffe des Evangeliums"</div>
+          </div>
+
           <!-- Subcategory override (optional) -->
           <div class="cat-assign-box">
             <h3>📂 Subkategorie / Kapitel überschreiben <span class="muted" style="font-weight:400;font-size:.78rem">(optional)</span></h3>
@@ -385,6 +406,10 @@ let currentStep=1;
 // Category state
 let churchCategories=[]; // [{id, name}]
 let selectedImportCategory=null; // {id, name} | null – overrides JSON subCategory when set
+
+// Main category state
+let mainCategories=[]; // [{id, name}]
+let selectedMainCategory={id:'kirche',name:'Grundbegriffe des Evangeliums'}; // default
 
 // Intro state
 let introTitleManual=false; // true once user has typed in the intro title field
@@ -612,7 +637,7 @@ function renderPreview(topics){
       </div>`).join('');
     return `<div class="preview-topic">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-        <span class="badge badge-cat">📖 Grundbegriffe des Evangeliums</span>
+        <span class="badge badge-cat">📖 ${esc(selectedMainCategory?.name||'Grundbegriffe des Evangeliums')}</span>
         ${effectiveSubCat?`<span class="badge badge-subcat">📂 ${esc(effectiveSubCat.name)}</span>`:''}
         <strong>${esc(t.topicTitle?.de||t.topicId)}</strong>
         <span class="muted small">${esc(t.topicId)}</span>
@@ -653,6 +678,7 @@ function updateJsonOutput(){
       topicId:t.topicId,
       topicTitle:t.topicTitle,
       description:t.description,
+      mainCategory:selectedMainCategory?.id||'kirche',
       subCategory:effectiveSubCat?.name||null,
       keyTerms:Array.isArray(t.keyTerms)?t.keyTerms:[],
       cards:t.cards,
@@ -733,7 +759,7 @@ async function importData(){
           title:card.title||'',
           hook:card.hook||'',
           body:card.body||'',
-          mainCategory:'kirche',
+          mainCategory:selectedMainCategory?.id||'kirche',
           subCategory:effectiveSubCategory||null,
           ...(chapterIntro?{chapterIntro}:{}),
           ...(manualImageUrl?{imageUrl:manualImageUrl}:{}),
@@ -859,19 +885,30 @@ function slugify(str){
 async function loadChurchCategories(){
   if(!db)return;
   try{
-    const snap=await getDocs(query(collection(db,'swipeCards'),where('mainCategory','==','kirche')));
+    const snap=await getDocs(collection(db,'swipeCards'));
     const catMap=new Map();
+    const mainCatMap=new Map();
+    mainCatMap.set('kirche',{id:'kirche',name:'Grundbegriffe des Evangeliums'});
     snap.docs.forEach(d=>{
-      const sc=d.data().subCategory;
+      const data=d.data();
+      // Collect sub-categories (only from mainCategory 'kirche' or current selection)
+      const sc=data.subCategory;
       if(sc&&typeof sc==='object'&&sc.id&&sc.name){
         catMap.set(sc.id,sc);
       }else if(sc&&typeof sc==='string'&&sc.trim()){
         const id=slugify(sc);
         if(id)catMap.set(id,{id,name:sc});
       }
+      // Collect main categories
+      const mc=data.mainCategory;
+      if(mc&&typeof mc==='string'&&mc.trim()&&!mainCatMap.has(mc)){
+        mainCatMap.set(mc,{id:mc,name:mc});
+      }
     });
     churchCategories=Array.from(catMap.values()).sort((a,b)=>a.name.localeCompare(b.name,'de'));
     updateCategoryDropdown();
+    mainCategories=Array.from(mainCatMap.values()).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+    updateMainCategoryDropdown();
     if(!selectedImportCategory){
       try{
         const saved=JSON.parse(localStorage.getItem('lastChurchCategory')||'null');
@@ -885,6 +922,18 @@ async function loadChurchCategories(){
         }
       }catch(e){}
     }
+    // Restore last main category from localStorage
+    try{
+      const savedMain=JSON.parse(localStorage.getItem('lastMainCategory')||'null');
+      if(savedMain&&savedMain.id&&savedMain.name){
+        if(!mainCategories.some(c=>c.id===savedMain.id)){
+          mainCategories.push(savedMain);
+          mainCategories.sort((a,b)=>a.name.localeCompare(b.name,'de'));
+          updateMainCategoryDropdown();
+        }
+        setSelectedMainCategory(savedMain);
+      }
+    }catch(e){}
   }catch(e){
     console.error('Kategorien konnten nicht geladen werden:',e);
   }
@@ -941,6 +990,42 @@ function setSelectedCategory(cat){
   }else{
     badge.classList.add('hidden');
     autoFillIntroFromCategory(null);
+  }
+}
+
+/* ─── Main Category helpers ───────────────────── */
+function updateMainCategoryDropdown(){
+  const sel=el('mainCategorySelect');
+  if(!sel)return;
+  const prev=sel.value;
+  sel.innerHTML='';
+  mainCategories.forEach(cat=>{
+    const opt=document.createElement('option');
+    opt.value=cat.id;
+    opt.textContent=cat.name;
+    sel.appendChild(opt);
+  });
+  if(prev)sel.value=prev;
+  else sel.value=selectedMainCategory?.id||'kirche';
+}
+
+function setSelectedMainCategory(cat){
+  selectedMainCategory=cat;
+  const badge=el('selectedMainCategoryBadge');
+  const sel=el('mainCategorySelect');
+  if(!badge)return;
+  if(cat){
+    badge.textContent=`✓ Gewählte Hauptkategorie: „${cat.name}"`;
+    badge.classList.remove('hidden');
+    if(sel&&!mainCategories.some(c=>c.id===cat.id)){
+      mainCategories.push(cat);
+      mainCategories.sort((a,b)=>a.name.localeCompare(b.name,'de'));
+      updateMainCategoryDropdown();
+    }
+    if(sel)sel.value=cat.id;
+    try{localStorage.setItem('lastMainCategory',JSON.stringify(cat));}catch(e){}
+  }else{
+    badge.classList.add('hidden');
   }
 }
 
@@ -1014,6 +1099,12 @@ function init(){
     if(badge)badge.classList.add('hidden');
     const sel=el('categorySelect');
     if(sel)sel.value='';
+    // Reset main category to default
+    selectedMainCategory={id:'kirche',name:'Grundbegriffe des Evangeliums'};
+    const mainSel=el('mainCategorySelect');
+    if(mainSel)mainSel.value='kirche';
+    const mainBadge=el('selectedMainCategoryBadge');
+    if(mainBadge){mainBadge.textContent='✓ Gewählte Hauptkategorie: „Grundbegriffe des Evangeliums"';mainBadge.classList.remove('hidden');}
     const introTitle=el('introTitleInput');
     const introBody=el('introBodyInput');
     const introBadge=el('introAutoBadge');
@@ -1050,6 +1141,25 @@ function init(){
   };
   el('newCategoryInput').onkeydown=e=>{if(e.key==='Enter')el('createCategoryBtn').click();};
 
+  // Main category events
+  el('mainCategorySelect').onchange=e=>{
+    const id=e.target.value;
+    if(!id)return;
+    const cat=mainCategories.find(c=>c.id===id);
+    if(cat)setSelectedMainCategory(cat);
+  };
+  el('createMainCategoryBtn').onclick=()=>{
+    const input=el('newMainCategoryInput');
+    const name=input.value.trim();
+    if(!name){showStatus('Bitte einen Hauptkategorienamen eingeben.','error');return;}
+    const id=slugify(name);
+    if(!id){showStatus('Ungültiger Hauptkategoriename – bitte andere Buchstaben verwenden.','error');return;}
+    setSelectedMainCategory({id,name});
+    input.value='';
+    showStatus(`Neue Hauptkategorie erstellt: „${name}"`,'ok');
+  };
+  el('newMainCategoryInput').onkeydown=e=>{if(e.key==='Enter')el('createMainCategoryBtn').click();};
+
   // Intro field: mark as manually set when user types
   el('introTitleInput').addEventListener('input',()=>{
     introTitleManual=true;
@@ -1064,10 +1174,11 @@ function init(){
     }
   });
 
-  // Live-update JSON output when source / image URL fields change
+  // Live-update JSON output when source / image URL / main category fields change
   ['sourceTitleInput','sourceUrlInput','imageUrlInput'].forEach(id=>{
     el(id)?.addEventListener('input',()=>updateJsonOutput());
   });
+  el('mainCategorySelect')?.addEventListener('change',()=>updateJsonOutput());
 
   // Live-update prompt preview when specific instructions change
   el('specificInstructionsInput')?.addEventListener('input',()=>{
