@@ -62,6 +62,7 @@
     .app-header {
       text-align: center;
       padding: 32px 0 28px;
+      position: relative;
     }
 
     .app-logo {
@@ -92,31 +93,6 @@
       margin-bottom: 10px;
     }
 
-    /* ── Pill toggles ── */
-    .pill-group { display: flex; gap: 8px; }
-
-    .pill-btn {
-      flex: 1;
-      padding: 11px 6px;
-      border: 1.5px solid var(--border);
-      border-radius: 12px;
-      background: var(--card);
-      color: var(--text2);
-      font-size: .92rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background .18s, color .18s, border-color .18s, transform .12s;
-      text-align: center;
-      -webkit-appearance: none;
-    }
-
-    .pill-btn:active { transform: scale(.95); }
-
-    .pill-btn.active {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color: #063018;
-      border-color: transparent;
-    }
 
     /* ── Category grid ── */
     .cat-grid {
@@ -375,38 +351,6 @@
     .card-viewport.enter-right { animation: enterFromRight 0.22s cubic-bezier(.2,0,.4,1) forwards; }
     .card-viewport.enter-left  { animation: enterFromLeft  0.22s cubic-bezier(.2,0,.4,1) forwards; }
 
-    /* ── In-reader length bar ── */
-    .reader-len-bar {
-      display: flex;
-      gap: 6px;
-      padding: 8px 14px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-      background: rgba(7, 18, 15, .92);
-    }
-
-    .len-pill {
-      flex: 1;
-      padding: 6px 4px;
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      background: transparent;
-      color: var(--text2);
-      font-size: .78rem;
-      font-weight: 600;
-      cursor: pointer;
-      text-align: center;
-      transition: background .15s, color .15s, border-color .15s;
-      -webkit-appearance: none;
-    }
-
-    .len-pill.active {
-      background: rgba(47, 206, 140, .15);
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-
-    .len-pill:active { opacity: .7; }
 
     /* ── The swipe card ── */
     .swipe-card {
@@ -448,6 +392,18 @@
       background: rgba(255,255,255,.05);
       border: 1px solid var(--border);
       color: var(--text2);
+      cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s;
+    }
+
+    .badge-len:hover {
+      background: rgba(47, 206, 140, .1);
+      border-color: rgba(47, 206, 140, .3);
+      color: var(--accent);
+    }
+
+    .badge-len:active {
+      transform: scale(.92);
     }
 
     /* Card content */
@@ -789,13 +745,11 @@
     <div class="app-header">
       <div class="app-logo" style="cursor:pointer" onclick="showScreen('setupScreen',false)">Swipe</div>
       <div class="app-tagline">Wissen entdecken — eine Karte nach der anderen</div>
-    </div>
-
-    <div class="setup-section">
-      <div class="setup-label">Kartenlänge <span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:.7;font-size:.68rem">(optional)</span></div>
-      <div class="pill-group" id="lengthGroup">
-        <button class="pill-btn" data-value="short">⚡ Kurz</button>
-        <button class="pill-btn" data-value="long">📚 Lang</button>
+      <div class="dev-wrap" style="position:absolute;top:16px;right:16px;">
+        <button class="dev-btn" id="devBtnHome" title="Dev-Menü">DEV</button>
+        <div class="dev-menu" id="devMenuHome">
+          <a href="adm-church-import.html">📖 Evangelium Import</a>
+        </div>
       </div>
     </div>
 
@@ -843,10 +797,6 @@
       <div class="progress-fill" id="progressFill" style="width:0%"></div>
     </div>
 
-    <div class="reader-len-bar" id="readerLenBar">
-      <button class="len-pill active" data-value="short">⚡ Kurz</button>
-      <button class="len-pill"        data-value="long">📚 Lang</button>
-    </div>
 
     <div class="card-container" style="position:relative">
       <div class="card-viewport" id="cardViewport">
@@ -988,13 +938,22 @@
     }
   }
 
-  function shuffle(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
+  function sortChronologically(arr) {
+    return [...arr].sort((a, b) => {
+      if (a.mainCategory !== b.mainCategory) {
+        return (a.mainCategory ?? "").localeCompare(b.mainCategory ?? "");
+      }
+      const orderA = a.order ?? a.chapterNumber ?? extractNumber(a.subCategory?.name) ?? extractNumber(a.title) ?? 9999;
+      const orderB = b.order ?? b.chapterNumber ?? extractNumber(b.subCategory?.name) ?? extractNumber(b.title) ?? 9999;
+      if (orderA !== orderB) return orderA - orderB;
+      return (a.title ?? "").localeCompare(b.title ?? "");
+    });
+  }
+
+  function extractNumber(str) {
+    if (!str) return null;
+    const m = String(str).match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : null;
   }
 
   /* ── Body-text parser ───────────────────────────────── */
@@ -1169,7 +1128,7 @@
     $("loadingText").textContent = "Karten werden geladen…";
 
     const catsArray = [...selectedCats];
-    cards = shuffle(
+    cards = sortChronologically(
       allCards.filter(c =>
         catsArray.includes(c.mainCategory) &&
         (selectedLen === null || c.length === selectedLen)
@@ -1183,7 +1142,6 @@
 
     idx = 0;
     showScreen("readerScreen");
-    syncReaderLenBar();
     renderCard(idx);
     renderNav();
     maybeShowSwipeHint();
@@ -1192,16 +1150,12 @@
   /* ── Change length from within the reader ──────────── */
   function changeLength(newLen) {
     selectedLen = (newLen === selectedLen) ? null : newLen;
-    syncReaderLenBar();
-    $("lengthGroup").querySelectorAll(".pill-btn").forEach(b => {
-      b.classList.toggle("active", b.dataset.value === selectedLen);
-    });
 
     const vp = $("cardViewport");
     vp.style.opacity = "0.35";
 
     const catsArray = [...selectedCats];
-    cards = shuffle(
+    cards = sortChronologically(
       allCards.filter(c =>
         catsArray.includes(c.mainCategory) &&
         (selectedLen === null || c.length === selectedLen)
@@ -1219,10 +1173,21 @@
     renderNav();
   }
 
-  function syncReaderLenBar() {
-    document.querySelectorAll("#readerLenBar .len-pill").forEach(b => {
-      b.classList.toggle("active", b.dataset.value === selectedLen);
-    });
+  function toggleCardLength(currentIndex) {
+    const currentCard = cards[currentIndex];
+    if (!currentCard) return;
+
+    const targetLen = currentCard.length === "short" ? "long" : "short";
+    const match = allCards.find(c =>
+      c.title === currentCard.title &&
+      c.mainCategory === currentCard.mainCategory &&
+      c.length === targetLen
+    );
+
+    if (match) {
+      cards[currentIndex] = match;
+      renderCard(currentIndex);
+    }
   }
 
   /* ── Render a single card ───────────────────────────── */
@@ -1270,7 +1235,7 @@
         <div class="card-header">
           <div class="card-badges">
             <span class="badge badge-cat">${meta.emoji} ${esc(meta.label)}</span>
-            <span class="badge badge-len">${esc(lenLbl)}</span>
+            <span class="badge badge-len" id="lenToggle" title="Zwischen Kurz/Lang wechseln">${card.length === "short" ? "⚡" : "📚"} ${esc(lenLbl)}</span>
           </div>
         </div>
         ${subCatHtml}
@@ -1281,6 +1246,15 @@
         ${srcHtml ? `<div class="card-footer">${srcHtml}</div>` : ""}
       </div>`;
 
+    function attachLenToggle() {
+      const toggle = document.getElementById("lenToggle");
+      if (toggle) {
+        toggle.addEventListener("click", () => {
+          toggleCardLength(index);
+        });
+      }
+    }
+
     // Animate out (exit), swap content, animate in (enter)
     if (direction) {
       const exitCls  = direction === "next" ? "exit-left"   : "exit-right";
@@ -1290,12 +1264,14 @@
         vp.classList.remove(exitCls);
         vp.innerHTML = html;
         vp.scrollTop = 0;
+        attachLenToggle();
         vp.classList.add(enterCls);
         setTimeout(() => vp.classList.remove(enterCls), 250);
       }, 180);
     } else {
       vp.innerHTML = html;
       vp.scrollTop = 0;
+      attachLenToggle();
     }
 
     // Progress
@@ -1390,30 +1366,6 @@
     });
   }
 
-  /* ── Reader length bar ──────────────────────────────── */
-  function setupReaderLengthPills() {
-    $("readerLenBar").addEventListener("click", e => {
-      const btn = e.target.closest(".len-pill");
-      if (!btn) return;
-      changeLength(btn.dataset.value);
-    });
-  }
-
-  /* ── Pill selectors (setup screen) ─────────────────── */
-  function setupPills() {
-    $("lengthGroup").addEventListener("click", e => {
-      const btn = e.target.closest(".pill-btn");
-      if (!btn) return;
-      if (btn.classList.contains("active")) {
-        btn.classList.remove("active");
-        selectedLen = null;
-      } else {
-        selectedLen = btn.dataset.value;
-        $("lengthGroup").querySelectorAll(".pill-btn")
-          .forEach(b => b.classList.toggle("active", b === btn));
-      }
-    });
-  }
 
   /* ── Dev menu ───────────────────────────────────────── */
   function setupDevMenu() {
@@ -1421,7 +1373,14 @@
       e.stopPropagation();
       $("devMenu").classList.toggle("show");
     });
-    document.addEventListener("click", () => $("devMenu").classList.remove("show"));
+    $("devBtnHome").addEventListener("click", e => {
+      e.stopPropagation();
+      $("devMenuHome").classList.toggle("show");
+    });
+    document.addEventListener("click", () => {
+      $("devMenu").classList.remove("show");
+      $("devMenuHome").classList.remove("show");
+    });
   }
 
   /* ── Wire up events ─────────────────────────────────── */
@@ -1518,8 +1477,6 @@
   /* ── Bootstrap ──────────────────────────────────────── */
   function init() {
     initFirebase();
-    setupPills();
-    setupReaderLengthPills();
     setupDevMenu();
     setupTouch();
     setupKeyboard();
