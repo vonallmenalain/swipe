@@ -760,6 +760,7 @@ async function importData(){
           hook:card.hook||'',
           body:card.body||'',
           mainCategory:selectedMainCategory?.id||'kirche',
+          mainCategoryName:selectedMainCategory?.name||'Grundbegriffe des Evangeliums',
           subCategory:effectiveSubCategory||null,
           ...(chapterIntro?{chapterIntro}:{}),
           ...(manualImageUrl?{imageUrl:manualImageUrl}:{}),
@@ -901,8 +902,12 @@ async function loadChurchCategories(){
       }
       // Collect main categories
       const mc=data.mainCategory;
-      if(mc&&typeof mc==='string'&&mc.trim()&&!mainCatMap.has(mc)){
-        mainCatMap.set(mc,{id:mc,name:mc});
+      if(mc&&typeof mc==='string'&&mc.trim()){
+        if(!mainCatMap.has(mc)){
+          mainCatMap.set(mc,{id:mc,name:data.mainCategoryName||mc});
+        } else if(data.mainCategoryName&&mainCatMap.get(mc).name===mc){
+          mainCatMap.set(mc,{id:mc,name:data.mainCategoryName});
+        }
       }
     });
     churchCategories=Array.from(catMap.values()).sort((a,b)=>a.name.localeCompare(b.name,'de'));
