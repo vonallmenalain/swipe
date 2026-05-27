@@ -1049,6 +1049,7 @@ async function init(){
   app=initializeApp(firebaseConfig);
   auth=getAuth(app);
   db=getFirestore(app);
+  window.__firebaseReady = true;
 
   el("promptText").value=buildPrompt();
 
@@ -1067,6 +1068,11 @@ async function init(){
       el("userEmail").textContent=u.email||'';
       loadChurchTopics();
       loadChurchCategories();
+    } else {
+      const errEl=el("loginError");
+      if(errEl&&!errEl.classList.contains("hidden")&&errEl.textContent.includes("geladen werden")){
+        errEl.classList.add("hidden");
+      }
     }
   });
 
@@ -1078,6 +1084,7 @@ async function init(){
     const btn=el("loginBtn");
     btn.disabled=true;
     btn.textContent="Anmelden…";
+    let rateLimited=false;
     try{
       await signInWithEmailAndPassword(auth,email,pass);
       showStatus("Angemeldet.");
@@ -1086,15 +1093,26 @@ async function init(){
       if(e.code==="auth/invalid-credential"||e.code==="auth/wrong-password"||e.code==="auth/user-not-found"){
         msg="E-Mail oder Passwort falsch.";
       }else if(e.code==="auth/too-many-requests"){
-        msg="Zu viele Versuche. Bitte später erneut versuchen.";
+        msg="Zu viele fehlgeschlagene Versuche. Das Konto ist vorübergehend gesperrt. Bitte warte einige Minuten und versuche es erneut.";
+        rateLimited=true;
       }else if(e.code==="auth/network-request-failed"){
         msg="Netzwerkfehler. Bitte Internetverbindung prüfen.";
       }
       showLoginError(msg);
       showStatus("Login fehlgeschlagen.","error");
     }
-    btn.disabled=false;
-    btn.textContent="Login";
+    if(rateLimited){
+      let wait=60;
+      btn.textContent=`Warten (${wait}s)`;
+      const timerId=setInterval(()=>{
+        wait--;
+        if(wait<=0){clearInterval(timerId);btn.disabled=false;btn.textContent="Login";}
+        else{btn.textContent=`Warten (${wait}s)`;}
+      },1000);
+    }else{
+      btn.disabled=false;
+      btn.textContent="Login";
+    }
   };
   el("passwordInput").onkeydown=e=>{if(e.key==='Enter')el("loginBtn").click();};
   el("logoutBtn").onclick=()=>signOut(auth);
@@ -1246,8 +1264,6 @@ async function init(){
   dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag-over');handleFile(e.dataTransfer.files[0]);};
 
   el("jsonInput").addEventListener('paste',()=>setTimeout(()=>showStatus("JSON eingefügt. Klicke 'Prüfen & Vorschau'."),100));
-
-  window.__firebaseReady = true;
 }
 
 /* ─── Button ripple ───────────────────────────── */
@@ -1277,6 +1293,5 @@ init().catch(err=>{
         err.classList.remove('hidden');
       }
     }
-  }, 8000);
-</script>
+  }, 15000);</script>
 </body></html>
