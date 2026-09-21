@@ -1,0 +1,106 @@
+rules_version = '2';
+
+// Firestore Security Rules für swipe.
+//
+// Quelle der Wahrheit für die im Firebase-Projekt `swipe-82eeb`
+// hinterlegten Regeln; 1:1 in die Firebase-Console kopierbar.
+//
+// Gegenüber dem bisherigen Stand zwei Änderungen – der Aufbau bleibt sonst
+// unverändert, er war gut:
+//
+//   1. Die Admin-Prüfung ging über die E-Mail-Adresse im Token. Jetzt über
+//      die UID. Begründung steht bei `istAdmin()`.
+//   2. `termCatalog` hatte gar keinen Eintrag und fiel damit unter das
+//      Default-Deny am Ende – obwohl index.html und adm-terms.html darauf
+//      zugreifen. Der Katalog konnte also nie geladen werden; in
+//      index.html verschluckt ein catch den Fehler als console.warn
+//      (Zeile 1608), deshalb fiel es nicht auf.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function angemeldet() {
+      return request.auth != null;
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Bisher stand hier:
+    //
+    //     request.auth.token.email == "alain.sc2@gmail.com"
+    //
+    // Eine E-Mail-Adresse im Token ist kein verlässlicher Ausweis. Sie ist
+    // standardmässig nicht verifiziert, und je nach Projekteinstellung
+    // („Create multiple accounts for each email address" unter
+    // Authentication → Settings) kann ein zweites Konto mit derselben
+    // Adresse über einen anderen Anmeldeweg entstehen. Dann stimmt der
+    // Vergleich – und ein fremdes Konto hätte Adminrechte.
+    //
+    // Die UID entsteht dagegen bei Firebase und lässt sich nicht wählen.
+    // Sie steht in der Console unter Authentication → Users.
+    //
+    // Falls du die UID gerade nicht zur Hand hast, wäre
+    //     request.auth.token.email == "..." && request.auth.token.email_verified == true
+    // die deutlich bessere Zwischenlösung – aber die UID ist der saubere Weg.
+    // ────────────────────────────────────────────────────────────────────
+    function istAdmin() {
+      return angemeldet()
+          && request.auth.uid == 'dK7dm4pEFghi7G4fGEjcj6RbrZM2';
+    }
+
+    // Lehrinhalte: für alle lesbar, gepflegt nur vom Admin.
+    match /topics/{topicId} {
+      allow read: if true;
+      allow write: if istAdmin();
+    }
+
+    match /sourceDocs/{sourceId} {
+      allow read: if true;
+      allow write: if istAdmin();
+    }
+
+    // Karten: öffentlich nur, was veröffentlicht ist. Der Adminbereich
+    // sieht alles.
+    //
+    // Vorher stand hier `allow read: if true`. Die App fragt zwar ohnehin
+    // nur veröffentlichte Karten ab (index.html:1171-1173, `where status ==
+    // published`), aber eine Abfrage im Browser ist keine Zugriffskontrolle:
+    // Wer die Datenbankadresse kennt – sie steht im Quelltext –, konnte die
+    // Sammlung ungefiltert abrufen und damit auch Entwürfe lesen, die noch
+    // niemand sehen soll.
+    //
+    // istAdmin() steht zuerst: Bei einem Dokument ohne `status`-Feld liefe
+    // der Vergleich sonst in einen Fehler. Die Adminseiten fragen die
+    // Sammlung ungefiltert ab (adm-church-import.html:819 und :889) und
+    // bleiben darüber gedeckt.
+    match /swipeCards/{cardId} {
+      allow read: if istAdmin() || resource.data.status == 'published';
+      allow write: if istAdmin();
+    }
+
+    match /topicEdges/{edgeId} {
+      allow read: if true;
+      allow write: if istAdmin();
+    }
+
+    // NEU: Begriffskatalog. index.html liest ihn, um Fachbegriffe in den
+    // Karten zu erklären; adm-terms.html pflegt ihn.
+    match /termCatalog/{termId} {
+      allow read: if true;
+      allow write: if istAdmin();
+    }
+
+    // Protokolle der Import- und Generierungsläufe: reine Werkstattdaten,
+    // für niemanden ausser den Admin bestimmt.
+    match /importRuns/{runId} {
+      allow read, write: if istAdmin();
+    }
+
+    match /generationRuns/{runId} {
+      allow read, write: if istAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
