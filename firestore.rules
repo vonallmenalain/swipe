@@ -58,8 +58,22 @@ service cloud.firestore {
       allow write: if istAdmin();
     }
 
+    // Karten: öffentlich nur, was veröffentlicht ist. Der Adminbereich
+    // sieht alles.
+    //
+    // Vorher stand hier `allow read: if true`. Die App fragt zwar ohnehin
+    // nur veröffentlichte Karten ab (index.html:1171-1173, `where status ==
+    // published`), aber eine Abfrage im Browser ist keine Zugriffskontrolle:
+    // Wer die Datenbankadresse kennt – sie steht im Quelltext –, konnte die
+    // Sammlung ungefiltert abrufen und damit auch Entwürfe lesen, die noch
+    // niemand sehen soll.
+    //
+    // istAdmin() steht zuerst: Bei einem Dokument ohne `status`-Feld liefe
+    // der Vergleich sonst in einen Fehler. Die Adminseiten fragen die
+    // Sammlung ungefiltert ab (adm-church-import.html:819 und :889) und
+    // bleiben darüber gedeckt.
     match /swipeCards/{cardId} {
-      allow read: if true;
+      allow read: if istAdmin() || resource.data.status == 'published';
       allow write: if istAdmin();
     }
 
